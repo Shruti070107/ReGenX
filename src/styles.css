@@ -923,3 +923,71 @@ tr:hover td { background: var(--bg); }
         background-position: -200% 0;
     }
 }
+
+/*Order Status Stepper*/
+.order-stepper {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 0 8px;
+  overflow-x: auto;
+}
+
+.os-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: 52px;
+  max-width: 64px;
+}
+
+.os-step__dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.os-step__label {
+  font-size: 9px;
+  margin-top: 5px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.os-step__connector {
+  flex: 1;
+  height: 2px;
+  min-width: 10px;
+  background: var(--border);
+  align-self: flex-start;
+  margin-top: 6px;
+  transition: background 0.2s;
+}
+
+.os-step--done .os-step__dot {
+  background: var(--green);
+  border-color: var(--green);
+}
+.os-step--done .os-step__label {
+  color: var(--green);
+  font-weight: 600;
+}
+.os-step__connector--done {
+  background: var(--green);
+}
+
+.os-step--active .os-step__dot {
+  background: var(--amber);
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-light);
+}
+.os-step--active .os-step__label {
+  color: var(--amber);
+  font-weight: 700;
+}

@@ -872,6 +872,40 @@ function saveOrder(o) {
 }
 function getAllLogs() { return DB.list('log:').map(k => DB.get(k)).filter(Boolean).sort((a,b)=>b.ts-a.ts); }
 
+// ── Order Status Stepper ──
+function buildStatusStepper(status) {
+  const stages = ['Requested', 'Assigned', 'En Route', 'Picked Up', 'At Plant', 'Completed'];
+  const statusKeyMap = {
+    requested: 0, assigned: 1, en_route: 2, picked_up: 3, at_plant: 4, completed: 5
+  };
+
+  if (status === 'rejected') return '';
+
+  const currentIndex = statusKeyMap[status] ?? -1;
+
+  const steps = stages.map((stage, i) => {
+    let stateClass = 'os-step--pending';
+    if (i < currentIndex) stateClass = 'os-step--done';
+    else if (i === currentIndex) stateClass = 'os-step--active';
+    return `<div class="os-step ${stateClass}" title="${stage}">
+      <div class="os-step__dot"></div>
+      <span class="os-step__label">${stage}</span>
+    </div>`;
+  });
+
+  // Interleave connectors between steps
+  const html = steps.reduce((acc, step, i) => {
+    acc.push(step);
+    if (i < steps.length - 1) {
+      const connClass = i < currentIndex ? 'os-step__connector--done' : '';
+      acc.push(`<div class="os-step__connector ${connClass}"></div>`);
+    }
+    return acc;
+  }, []).join('');
+
+  return `<div class="order-stepper">${html}</div>`;
+}
+
 // Generic Order Card Component
 function buildOrderCard(o, role) {
   const badges = {
@@ -932,6 +966,7 @@ function buildOrderCard(o, role) {
         <div class="oc-meta-item">🕒 ${o.shift}</div>
         <div class="oc-meta-item">⚗️ Dest: ${o.plantName}</div>
       </div>
+      ${buildStatusStepper(o.status)}
       ${o.actualKg ? `<div style="margin-bottom:8px;font-size:13px;color:var(--green);font-weight:600;">✓ Actual Collected: ${o.actualKg}kg (Quality: ${o.quality})</div>` : ''}
       ${o.tokensMinted ? `<div style="margin-bottom:8px;font-size:13px;color:var(--amber);font-weight:600;">🪙 Minted ${o.tokensMinted} $RGX <span style="font-size:10px; color:var(--text-muted); font-family:monospace; margin-left:8px;">TX: ${o.txHash.slice(0,12)}...</span></div>` : ''}
       ${acts ? `<div class="oc-actions">${acts}</div>` : ''}
