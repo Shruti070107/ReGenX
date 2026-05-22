@@ -267,8 +267,12 @@ function handleLedgerStorageError(err) {
 function saveTrustLedger(events) {
   try {
     const capped = Array.isArray(events) ? events.slice(-200) : [];
+    const prev = JSON.parse(window.localStorage.getItem(TRUST_LEDGER_KEY) || '[]');
+    const newEntries = capped.length > prev.length ? capped.slice(prev.length) : [];
     window.localStorage.setItem(TRUST_LEDGER_KEY, JSON.stringify(capped));
-    ReGenXRealtime?.syncRawKey(TRUST_LEDGER_KEY, capped, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room'] });
+    if (newEntries.length) {
+      ReGenXRealtime?.syncRawKey(TRUST_LEDGER_KEY, newEntries, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room'] });
+    }
   } catch (err) { handleLedgerStorageError(err); }
 }
 
@@ -436,8 +440,12 @@ function loadEsgAlerts() {
 function saveEsgAlerts(alerts) {
   try {
     const capped = Array.isArray(alerts) ? alerts.slice(-200) : [];
+    const prev = JSON.parse(window.localStorage.getItem(ESG_ALERTS_KEY) || '[]');
+    const newEntries = capped.length > prev.length ? capped.slice(prev.length) : [];
     window.localStorage.setItem(ESG_ALERTS_KEY, JSON.stringify(capped));
-    ReGenXRealtime?.syncRawKey(ESG_ALERTS_KEY, capped, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room'] });
+    if (newEntries.length) {
+      ReGenXRealtime?.syncRawKey(ESG_ALERTS_KEY, newEntries, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room'] });
+    }
   } catch (err) { handleLedgerStorageError(err); }
 }
 
@@ -583,8 +591,12 @@ function loadCreditLedger() {
 function saveCreditLedger(entries) {
   try {
     const capped = Array.isArray(entries) ? entries.slice(-200) : [];
+    const prev = JSON.parse(window.localStorage.getItem(CREDIT_LEDGER_KEY) || '[]');
+    const newEntries = capped.length > prev.length ? capped.slice(prev.length) : [];
     window.localStorage.setItem(CREDIT_LEDGER_KEY, JSON.stringify(capped));
-    ReGenXRealtime?.syncRawKey(CREDIT_LEDGER_KEY, capped, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room'] });
+    if (newEntries.length) {
+      ReGenXRealtime?.syncRawKey(CREDIT_LEDGER_KEY, newEntries, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room'] });
+    }
   } catch (err) { handleLedgerStorageError(err); }
 }
 
@@ -668,8 +680,12 @@ function loadSlaLedger() {
 function saveSlaLedger(entries) {
   try {
     const capped = Array.isArray(entries) ? entries.slice(-200) : [];
+    const prev = JSON.parse(window.localStorage.getItem(SLA_LEDGER_KEY) || '[]');
+    const newEntries = capped.length > prev.length ? capped.slice(prev.length) : [];
     window.localStorage.setItem(SLA_LEDGER_KEY, JSON.stringify(capped));
-    ReGenXRealtime?.syncRawKey(SLA_LEDGER_KEY, capped, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room'] });
+    if (newEntries.length) {
+      ReGenXRealtime?.syncRawKey(SLA_LEDGER_KEY, newEntries, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room'] });
+    }
   } catch (err) { handleLedgerStorageError(err); }
 }
 
@@ -785,8 +801,12 @@ function loadEnergyLedger() {
 function saveEnergyLedger(entries) {
   try {
     const capped = Array.isArray(entries) ? entries.slice(-200) : [];
+    const prev = JSON.parse(window.localStorage.getItem(ENERGY_LEDGER_KEY) || '[]');
+    const newEntries = capped.length > prev.length ? capped.slice(prev.length) : [];
     window.localStorage.setItem(ENERGY_LEDGER_KEY, JSON.stringify(capped));
-    ReGenXRealtime?.syncRawKey(ENERGY_LEDGER_KEY, capped, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'plants_room'] });
+    if (newEntries.length) {
+      ReGenXRealtime?.syncRawKey(ENERGY_LEDGER_KEY, newEntries, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'plants_room'] });
+    }
   } catch (err) { handleLedgerStorageError(err); }
 }
 
