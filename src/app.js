@@ -3485,7 +3485,35 @@ async function aiOptimizeJobs(riderLat, riderLng, jobs) {
   return { jobs: hv.jobs, savings_min: 0, savings_km: hv.savings_km, source: 'haversine' };
 }
 
+/**
+ * Smoothly updates the text content of a DOM element with scale and fade animations using GSAP.
+ * 
+ * @param {HTMLElement|null} el - The DOM element to update.
+ * @param {string|number} text - The new text value to render.
+ */
+function animateTextUpdate(el, text) {
+  if (!el) return;
+  if (el.textContent === String(text)) return;
+  
+  if (window.gsap) {
+    window.gsap.timeline()
+      .to(el, { duration: 0.1, opacity: 0, scale: 0.85, y: -2, ease: "power1.out" })
+      .call(() => { el.textContent = text; })
+      .to(el, { duration: 0.2, opacity: 1, scale: 1, y: 0, ease: "back.out(1.5)" });
+  } else {
+    el.textContent = text;
+  }
+}
+
 // ════════ RIDER LOGIC ════════
+/**
+ * Renders the Rider dashboard views including active task lists, Leaflet map,
+ * and live route telemetry widgets.
+ * 
+ * @param {HTMLElement} mc - The main container element.
+ * @param {boolean} fullRender - Whether to perform a full redraw of the layout.
+ * @returns {Promise<void>}
+ */
 async function renderRider(mc, fullRender) {
   const orders = getAllOrders();
   const myOrders = orders.filter(o => o.riderId === SESSION.id);
@@ -3535,9 +3563,12 @@ async function renderRider(mc, fullRender) {
           </div>
           <div class="glass-card sensor-card" style="padding:16px; border-color:var(--blue);">
              <div style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:12px; text-transform:uppercase;">📡 Route Telemetry</div>
-             <div class="between" style="margin-bottom:8px;"><div>📍 Total Distance</div><div style="font-weight:700;" id="rt-total-dist">Calculating…</div></div>
+             <div class="between" style="margin-bottom:8px;"><div>📍 Total Distance</div><div style="font-weight:700; color:var(--text);" id="rt-total-dist">Calculating…</div></div>
              <div class="between" style="margin-bottom:8px;"><div>⏱️ ETA</div><div style="font-weight:700; color:var(--blue);" id="rt-eta">Calculating…</div></div>
              <div class="between" style="margin-bottom:8px;"><div>⛽ Fuel Saved</div><div style="font-weight:700; color:var(--green);" id="rt-fuel-saved">—</div></div>
+             <div class="between" style="margin-bottom:8px;"><div>📦 Total Payload</div><div style="font-weight:700;" id="rt-total-payload">0.0 kg</div></div>
+             <div class="between" style="margin-bottom:8px;"><div>⚡ Torque Drain Coeff</div><div style="font-weight:700; color:var(--amber);" id="rt-drain-coeff">1.00x</div></div>
+             <div class="between" style="margin-bottom:8px;"><div>🌱 CO2 Saved</div><div style="font-weight:700; color:var(--green-hover);" id="rt-co2-saved">0.00 kg</div></div>
              <div class="between"><div>🔋 Battery</div><div style="font-weight:700;" id="rt-batt">--</div></div>
           </div>` : renderDashboardListState({
             icon: '📡',
@@ -3627,7 +3658,7 @@ async function renderRider(mc, fullRender) {
         const latlngs = waypoints.map(w => [w.lat, w.lng]);
         L.polyline(latlngs, { color: '#38BDF8', weight: 8, opacity: 0.3, lineJoin: 'round' }).addTo(rMap);
         let pathLayer = L.polyline(latlngs, { color: '#0D9488', weight: 4, opacity: 0.9, dashArray: '8, 8', lineJoin: 'round' }).addTo(rMap);
-        rMap.fitBounds(pathLayer.getBounds(), { padding: [50, 50] });
+        rMap.fitBounds(pathLayer.getBounds(), { animate: true, duration: 1.0, padding: [50, 50] });
 
         // INTELLIGENCE ENHANCEMENT: High Demand Heatmap
         const allAccs = DB.list('acc:').map(k => DB.get(k));
@@ -3650,11 +3681,20 @@ async function renderRider(mc, fullRender) {
         const distEl    = document.getElementById('rt-total-dist');
         const etaEl     = document.getElementById('rt-eta');
         const fuelEl    = document.getElementById('rt-fuel-saved');
+        const payloadEl = document.getElementById('rt-total-payload');
+        const drainCoeffEl = document.getElementById('rt-drain-coeff');
+        const co2SavedEl = document.getElementById('rt-co2-saved');
         const summaryEl = document.getElementById('rd-route-summary');
 
-        if (distEl) { distEl.textContent = hvDist.toFixed(1) + ' km'; distEl.style.color = 'var(--text)'; }
-        if (etaEl)  { etaEl.textContent  = hvETA + ' min (est.)'; etaEl.style.color = 'var(--blue)'; }
-        if (fuelEl) { fuelEl.textContent = (result.savingsKm * 0.08).toFixed(2) + ' L'; fuelEl.style.color = 'var(--green)'; }
+        const totalPayload = optimizedJobs.reduce((sum, j) => sum + (parseFloat(j.kg) || 0), 0);
+        const torqueDrainCoeff = result.optimizedCost / (result.optimizedDistance || 1);
+
+        if (distEl) animateTextUpdate(distEl, hvDist.toFixed(1) + ' km');
+        if (etaEl)  animateTextUpdate(etaEl, hvETA + ' min (est.)');
+        if (fuelEl) animateTextUpdate(fuelEl, (result.savingsKm * 0.08).toFixed(2) + ' L');
+        if (payloadEl) animateTextUpdate(payloadEl, totalPayload.toFixed(1) + ' kg');
+        if (drainCoeffEl) animateTextUpdate(drainCoeffEl, torqueDrainCoeff.toFixed(2) + 'x');
+        if (co2SavedEl) animateTextUpdate(co2SavedEl, result.co2SavedKg.toFixed(2) + ' kg');
 
         const savingsLabel = result.savingsKm > 0 ? ` · Saved ${result.savingsKm} km via 2-Opt AI` : '';
         if (summaryEl) {
@@ -3683,12 +3723,41 @@ async function renderRider(mc, fullRender) {
           rMap.removeLayer(pathLayer); // replace dashed with real roads
           L.geoJSON(route.geojson, { style: { color: '#34D399', weight: 9, opacity: 0.2, lineJoin: 'round' } }).addTo(rMap);
           pathLayer = L.geoJSON(route.geojson, { style: { color: '#0D9488', weight: 5, opacity: 0.9, lineJoin: 'round', lineCap: 'round' } }).addTo(rMap);
-          rMap.fitBounds(pathLayer.getBounds(), { padding: [50, 50] });
+          rMap.fitBounds(pathLayer.getBounds(), { animate: true, duration: 1.0, padding: [50, 50] });
 
-          // Upgrade telemetry with real OSRM values
-          if (distEl) { distEl.textContent = route.distance_km + ' km'; distEl.style.color = 'var(--green)'; }
-          if (etaEl)  { etaEl.textContent  = route.duration_min + ' min'; etaEl.style.color = 'var(--blue)'; }
-          if (fuelEl) { fuelEl.textContent = (parseFloat(route.distance_km) * 0.08).toFixed(2) + ' L'; }
+          // Upgrade telemetry with real OSRM values and dynamic load weights
+          const weights = [
+            0,
+            ...optimizedJobs.map(j => parseFloat(j.kg) || 0),
+            ...(plant ? [0] : [])
+          ];
+          
+          let osrmTotalDistance = 0;
+          let osrmTotalCost = 0;
+          let currentWeight = 0;
+          for (let i = 0; i < waypoints.length - 1; i++) {
+            const leg = route.legs[i];
+            if (leg) {
+              const dist = parseFloat(leg.distance_km) || 0;
+              currentWeight += weights[i];
+              const cost = dist * (1.0 + (currentWeight / 500));
+              osrmTotalDistance += dist;
+              osrmTotalCost += cost;
+            }
+          }
+          
+          const osrmTorqueDrainCoeff = osrmTotalCost / (osrmTotalDistance || 1);
+          const ratio = result.optimizedDistance > 0 ? (osrmTotalDistance / result.optimizedDistance) : 1;
+          const osrmNaiveCost = result.originalCost * ratio;
+          const osrmCo2SavedKg = Math.round((Math.max(0, osrmNaiveCost - osrmTotalCost) * 0.25) * 100) / 100;
+          const osrmSavingsKm = Math.max(0, (result.originalDistance * ratio) - osrmTotalDistance);
+
+          if (distEl) animateTextUpdate(distEl, route.distance_km + ' km');
+          if (etaEl)  animateTextUpdate(etaEl, route.duration_min + ' min');
+          if (fuelEl) animateTextUpdate(fuelEl, (osrmSavingsKm * 0.08).toFixed(2) + ' L');
+          if (payloadEl) animateTextUpdate(payloadEl, totalPayload.toFixed(1) + ' kg');
+          if (drainCoeffEl) animateTextUpdate(drainCoeffEl, osrmTorqueDrainCoeff.toFixed(2) + 'x');
+          if (co2SavedEl) animateTextUpdate(co2SavedEl, osrmCo2SavedKg.toFixed(2) + ' kg');
 
           // Upgrade stop list with real per-leg times from OSRM
           if (summaryEl) {
