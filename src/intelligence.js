@@ -30,7 +30,10 @@ export const Intelligence = {
             return { expectedKg: 0, confidence: 'Low', trend: 'Neutral' };
         }
 
-        const weights = history.map(o => o.actualKg || o.kg || 0);
+        const weights = history.map(o => parseFloat(o.actualKg || o.kg || 0)).filter(w => !isNaN(w));
+        if (weights.length === 0) {
+            return { expectedKg: 0, confidence: 'Low', trend: 'Neutral' };
+        }
         const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
         
         // Simple weighted moving average simulation
