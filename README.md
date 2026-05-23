@@ -93,7 +93,7 @@ The platform combines AI-powered waste scanning, live GPS tracking, analytics da
 
 ### 💎 Quality Standards
 
-To maintain the quality:exceptional label, the implementation MUST:
+To maintain the `quality:exceptional` standard, the implementation MUST:
 Use Glassmorphism and premium UI aesthetics
 Include smooth micro-animations and transitions
 Be fully responsive and PWA-ready
