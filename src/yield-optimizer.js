@@ -21,8 +21,17 @@ export const YieldOptimizer = {
         }
 
         // Calculate average segregation score (quality of organic matter)
-        const totalScore = recentIntakes.reduce((sum, o) => sum + (parseInt(o.segScore) || 50), 0);
-        const avgScore = totalScore / recentIntakes.length;
+        const validIntakes = recentIntakes.filter(o => o !== null && o !== undefined);
+        if (validIntakes.length === 0) {
+            return {
+                predictedMethane: 0,
+                optimalTemp: 35,
+                healthStatus: 'Idle',
+                recommendation: 'Awaiting incoming waste for analysis.'
+            };
+        }
+        const totalScore = validIntakes.reduce((sum, o) => sum + (parseInt(o.segScore) || 50), 0);
+        const avgScore = totalScore / validIntakes.length;
 
         // Calculate total mass
         const totalKg = recentIntakes.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
