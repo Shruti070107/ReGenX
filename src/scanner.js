@@ -415,6 +415,7 @@ window.BioScanner = (function () {
           <div style="position:relative; width:100%; max-width:480px; border-radius:16px; overflow:hidden; background:#000;">
             <video id="bio-video" autoplay muted playsinline
               style="width:100%; height:240px; object-fit:cover; display:block; border-radius:16px;"
+              aria-label="Live camera feed for waste scanning"
             ></video>
             <!-- Scan overlay while idle -->
             <div class="bs-scan-overlay">
