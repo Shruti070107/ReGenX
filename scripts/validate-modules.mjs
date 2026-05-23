@@ -13,4 +13,4 @@ for (const file of filesToCheck) {
   }
 }
 
-console.log("Module files exist check passed");
+console.log("Module files exist check passed. All verified: " + filesToCheck.join(", "));
