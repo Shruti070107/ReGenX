@@ -238,7 +238,7 @@ margin-top:18px;
         <!-- Main Topbar Content -->
         <div class="topbar-content">
           <div class="hamburger" onclick="toggleSidebar()">☰</div>
-          <button id="navbar-theme-toggle" style="background: transparent; border: none; font-size: 20px; cursor: pointer; margin-left: auto; padding: 8px;" title="Toggle Dark Mode">
+          <button id="navbar-theme-toggle" style="background: transparent; border: none; font-size: 20px; cursor: pointer; margin-left: auto; padding: 8px;" title="Toggle Dark Mode" aria-label="Toggle Dark Mode">
             🌙
           </button>
           <div class="topbar-title" id="tb-view-title">Dashboard</div>
@@ -251,7 +251,7 @@ margin-top:18px;
               <div class="topbar-name" id="tb-name">—</div>
               <div class="topbar-role" id="tb-role">—</div>
             </div>
-            <button class="btn btn-ghost btn-sm" id="notif-toggle-btn" onclick="openNotificationCenter()" title="Notifications">
+            <button class="btn btn-ghost btn-sm" id="notif-toggle-btn" onclick="openNotificationCenter()" title="Notifications" aria-label="Notifications Center">
               🔔 <span id="notif-count" class="notif-badge">0</span>
             </button>
             <div class="topbar-avatar" id="tb-avatar" style="cursor:pointer;" onclick="openSettings()"
