@@ -48,6 +48,10 @@ export const RouteOptimizer = {
             originalDistance += distMatrix[i][i + 1];
         }
 
+        // Check for empty or invalid distance matrix dimensions
+        if (n === 0) {
+            return { optimizedJobs: [], originalDistance: 0, optimizedDistance: 0, savingsKm: 0, co2SavedKg: 0 };
+        }
         // 3. Greedy Nearest-Neighbor Path Start
         let current = 0;
         const visited = new Set([0]);
