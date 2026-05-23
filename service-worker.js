@@ -84,7 +84,12 @@ async function getOfflineFallback() {
 }
 
 function shouldIgnoreSearch(request, url) {
-  return request.mode === 'navigate' || STATIC_ASSET_PATHS.has(url.pathname);
+  return request.mode === 'navigate' || 
+         STATIC_ASSET_PATHS.has(url.pathname) || 
+         url.pathname.endsWith('.css') || 
+         url.pathname.endsWith('.js') || 
+         url.pathname.endsWith('.png') || 
+         url.pathname.endsWith('.jpg');
 }
 
 self.addEventListener('install', (event) => {
