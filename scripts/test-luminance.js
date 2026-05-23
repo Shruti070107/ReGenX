@@ -48,7 +48,7 @@ try {
     const errLum = calculateLuminance(errorCtx, 2, 2);
     assert(errLum === 255, "Expected fallback 255, got " + errLum);
 
-    console.log("✅ All luminance tests passed successfully.");
+    console.log("✅ All luminance tests passed successfully. Total tests verified: 4");
 } catch (e) {
     console.error("❌ Luminance Test Failed:", e.message);
     process.exit(1);
