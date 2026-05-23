@@ -26,7 +26,8 @@ export const TrustProtocol = {
         
         // 1. Completion Rate (Impact: High)
         const completed = history.filter(o => o.status === 'completed').length;
-        const completionRate = completed / history.length;
+        const totalOrders = history.length || 1;
+        const completionRate = completed / totalOrders;
         score += (completionRate * 30); // Max +30 points
 
         // 2. Accuracy Bonus (Impact: Med)
