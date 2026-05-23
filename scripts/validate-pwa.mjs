@@ -14,7 +14,12 @@ if (!fs.existsSync(offlinePath)) {
 }
 
 try {
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const rawContent = fs.readFileSync(manifestPath, "utf8").trim();
+  if (!rawContent) {
+    console.error(`PWA Manifest file is empty`);
+    process.exit(1);
+  }
+  const manifest = JSON.parse(rawContent);
   console.log(`${manifestPath} is valid JSON`);
   
   // Basic validation of PWA manifest keys
