@@ -16,6 +16,10 @@ for (const file of requiredFiles) {
 // Additional health check: check that .env.example contains necessary deployment environment variables
 try {
   const envContent = fs.readFileSync(".env.example", "utf8");
+  if (!envContent) {
+    console.error(".env.example is empty");
+    process.exit(1);
+  }
   const requiredEnv = ["APPWRITE_ENDPOINT", "APPWRITE_PROJECT_ID", "APPWRITE_API_KEY"];
   for (const env of requiredEnv) {
     if (!envContent.includes(env)) {
