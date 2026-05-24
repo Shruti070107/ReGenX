@@ -123,7 +123,7 @@ export const CloudSync = {
             CloudSync.isLive = true;
             CloudSync.config = config;
 
-            console.log("☁️ Appwrite Cloud Sync Engine Initialized");
+
             CloudSync.renderSyncBadge('live', 'Cloud Live');
             
             // Setup Realtime Subscription

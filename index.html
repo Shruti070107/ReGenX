@@ -7,10 +7,12 @@
   <title>ReGenX — Premium BioWaste Platform</title>
 
   <!-- PWA & Mobile Optimization -->
+  <meta name="description" content="ReGenX is a premium bio-waste logistics platform with offline-ready dispatch, smart alerts, ESG reporting, and real-time operations.">
   <meta name="theme-color" content="#0D9488">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
   <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2103/2103633.png">
 
   <!-- Fonts -->
@@ -43,12 +45,13 @@
   <script src="/socket.io/socket.io.js"></script>
 
   <!-- Custom Assets -->
-  <link rel="stylesheet" href="./src/styles.css?v=11" />
-  <script src="./src/scanner.js?v=11"></script>
+  <link rel="stylesheet" href="./src/styles.css?v=13" />
+  <script src="./src/scanner.js?v=13"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/appwrite@14.0.1"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script type="module" src="./src/app.js?v=11"></script>
+  <script src="./src/i18n.js?v=13"></script>
+  <script type="module" src="./src/app.js?v=13"></script>
 
 </head>
 
@@ -198,16 +201,16 @@ margin-top:18px;
 
   <!-- ════════ APP SHELL ════════ -->
   <div id="app-shell">
-    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
-    <aside class="sidebar" id="sidebar">
+    <button type="button" class="sidebar-overlay" id="sidebar-overlay" aria-label="Close sidebar" aria-controls="sidebar" aria-hidden="true" onclick="toggleSidebar(false)"></button>
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Primary sidebar navigation" aria-hidden="true">
       <div class="sidebar-header">
         <div class="topbar-brand-dot"></div><span
           style="font-weight:700; font-family:'Space Grotesk'; font-size:20px; letter-spacing:-0.5px;">ReGenX</span>
-        <div class="sidebar-close" onclick="toggleSidebar(false)">×</div>
+        <button type="button" class="sidebar-close" aria-label="Close sidebar" onclick="toggleSidebar(false)">×</button>
       </div>
-      <div class="sidebar-nav" id="sidebar-nav">
+      <nav class="sidebar-nav" id="sidebar-nav" aria-label="Primary navigation">
         <!-- Injected by JS -->
-      </div>
+      </nav>
 
       <!-- GREEN WALL WIDGET -->
       <div class="green-wall-widget" id="green-wall-widget" style="display:none;">
@@ -237,10 +240,18 @@ margin-top:18px;
         </div>
         <!-- Main Topbar Content -->
         <div class="topbar-content">
-          <div class="hamburger" onclick="toggleSidebar()">☰</div>
-          <button id="navbar-theme-toggle" style="background: transparent; border: none; font-size: 20px; cursor: pointer; margin-left: auto; padding: 8px;" title="Toggle Dark Mode">
+          <button type="button" class="hamburger" id="sidebar-toggle" aria-label="Open sidebar navigation" aria-controls="sidebar" aria-expanded="false" onclick="toggleSidebar()">☰</button>
+          <button id="navbar-theme-toggle" style="background: transparent; border: none; font-size: 20px; cursor: pointer; margin-left: auto; padding: 8px;" title="Toggle Dark Mode" aria-label="Toggle dark mode">
             🌙
           </button>
+          <div class="lang-selector-container" style="display: flex; align-items: center; margin-left: 8px; margin-right: 12px;">
+            <select id="app-language-select" class="lang-select" onchange="window.setLanguage(this.value)" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text); border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; transition: all 0.3s ease; font-family: 'Inter', sans-serif;">
+              <option value="en" style="background: var(--surface); color: var(--text);">🇬🇧 EN</option>
+              <option value="hi" style="background: var(--surface); color: var(--text);">🇮🇳 HI</option>
+              <option value="te" style="background: var(--surface); color: var(--text);">🇮🇳 TE</option>
+              <option value="de" style="background: var(--surface); color: var(--text);">🇩🇪 DE</option>
+            </select>
+          </div>
           <div class="topbar-title" id="tb-view-title">Dashboard</div>
           <div class="topbar-user">
             <div class="token-balance hidden" id="token-balance-container" title="ReGen Tokens">

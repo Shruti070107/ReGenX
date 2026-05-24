@@ -6,8 +6,8 @@
  * @author GSSoC Contributor
  */
 
-const AUDIT_REGISTRY_KEY = 'audit-registry';
 const STORAGE_KEY_PREFIX = 'regenx-v3:';
+const AUDIT_REGISTRY_KEY = STORAGE_KEY_PREFIX + 'audit-registry';
 const TRUST_LEDGER_KEY = 'trust-ledger';
 
 /**
@@ -43,6 +43,7 @@ function saveAuditRegistry(records) {
  * @returns {string} Normalized input.
  */
 function normalizeInput(val) {
+    if (typeof val !== 'string') return '';
     return val.replace(/^0x/i, '').trim().toLowerCase();
 }
 
@@ -117,7 +118,7 @@ function ensureSeedRegistry() {
             totalCO2: 527,
             tokens: 1700,
             dispatchesCount: 4,
-            timestamp: Date.now() - 86400000 * 2
+            timestamp: 1716300000000
         },
         {
             hash: '0x7e2d9b1c5f3e4a8b2c6d0e8f9a7b5c3d1e2f4a6b7c8d9e0f1a2b3c4d5e6f7a8b',
@@ -128,7 +129,7 @@ function ensureSeedRegistry() {
             totalCO2: 1488,
             tokens: 4800,
             dispatchesCount: 12,
-            timestamp: Date.now() - 86400000 * 5
+            timestamp: 1716100000000
         }
     ];
 
@@ -212,7 +213,7 @@ export const AuditPortal = {
     /**
      * Executes the verification sequence, performing database query & rendering timeline.
      */
-    triggerVerification: () => {
+    triggerVerification: async () => {
         const input = document.getElementById('audit-hash-input');
         const container = document.getElementById('verification-result-container');
         if (!input || !container) return;
@@ -262,137 +263,183 @@ export const AuditPortal = {
                 return;
             }
 
-            // Standardize matching entity properties
-            let auditData = {};
-            let timelineSteps = [];
+;(async () => {
+                // Standardize matching entity properties
+                let auditData = {};
+                let timelineSteps = [];
 
-            if (matchedOrder) {
-                const dateStr = formatTimestamp(matchedOrder.ts);
-                const kgVal = parseFloat(matchedOrder.actualKg || matchedOrder.kg || 0);
-                const co2Saved = Math.round(kgVal * 0.62 * 10) / 10;
-                const tokens = matchedOrder.tokensMinted || Math.round(kgVal * 2);
+                if (matchedOrder) {
+                    const kgVal = parseFloat(matchedOrder.actualKg || matchedOrder.kg || 0);
+                    const co2Saved = Math.round(kgVal * 0.62 * 10) / 10;
+                    const tokens = matchedOrder.tokensMinted || Math.round(kgVal * 2);
 
-                auditData = {
-                    id: matchedOrder.id,
-                    hash: matchedOrder.txHash || 'Pending Attestation Stamp',
-                    org: matchedOrder.providerOrg || 'Registered Provider',
-                    role: 'provider',
-                    userId: matchedOrder.providerId,
-                    totalKg: kgVal,
-                    totalCO2: co2Saved,
-                    tokens: tokens,
-                    timestamp: matchedOrder.ts,
-                    status: matchedOrder.status
-                };
+                    auditData = {
+                        id: matchedOrder.id,
+                        hash: matchedOrder.txHash || 'Pending Attestation Stamp',
+                        org: matchedOrder.providerOrg || 'Registered Provider',
+                        role: 'provider',
+                        userId: matchedOrder.providerId,
+                        totalKg: kgVal,
+                        totalCO2: co2Saved,
+                        tokens: tokens,
+                        timestamp: matchedOrder.ts,
+                        status: matchedOrder.status,
+                        dispatchesCount: 1
+                    };
 
-                // Compile trust events
-                const allEvents = getTrustLedgerEvents();
-                const orderEvents = allEvents.filter(e => e.orderId === matchedOrder.id).sort((a,b) => a.ts - b.ts);
+                    // Compile trust events
+                    const allEvents = getTrustLedgerEvents();
+                    const orderEvents = allEvents.filter(e => e.orderId === matchedOrder.id).sort((a,b) => a.ts - b.ts);
 
-                // Build dynamic timeline steps based on order state & events
-                const reqEvent = orderEvents.find(e => e.event === 'requested') || { ts: matchedOrder.ts };
-                const assEvent = orderEvents.find(e => e.event === 'assigned');
-                const pickEvent = orderEvents.find(e => e.event === 'picked_up');
-                const compEvent = orderEvents.find(e => e.event === 'completed' || e.event === 'sealed');
+                    // Build dynamic timeline steps based on order state & events
+                    const reqEvent = orderEvents.find(e => e.event === 'requested') || { ts: matchedOrder.ts };
+                    const assEvent = orderEvents.find(e => e.event === 'assigned');
+                    const pickEvent = orderEvents.find(e => e.event === 'picked_up');
+                    const compEvent = orderEvents.find(e => e.event === 'completed' || e.event === 'sealed');
 
-                timelineSteps = [
-                    {
-                        label: 'Origin Collection Dispatched',
-                        icon: '🏨',
-                        active: true,
-                        time: formatTimestamp(reqEvent.ts),
-                        desc: `Bio-waste logged by ${matchedOrder.providerOrg}. Declared Mass: ${matchedOrder.kg} kg. Type: ${matchedOrder.wasteType}.`
-                    },
-                    {
-                        label: 'Logistics Route Optimized',
-                        icon: '🚛',
-                        active: !!(matchedOrder.status !== 'requested'),
-                        time: assEvent ? formatTimestamp(assEvent.ts) : (matchedOrder.status !== 'requested' ? formatTimestamp(matchedOrder.ts + 180000) : 'Pending'),
-                        desc: matchedOrder.status !== 'requested' 
-                            ? `Route TSP refined. Custody assigned to Rider: ${matchedOrder.riderName || 'Rider-A'}.`
-                            : 'Awaiting rider pickup dispatch sequence.'
-                    },
-                    {
-                        label: 'Bioreactor Facility Reception',
-                        icon: '🏭',
-                        active: matchedOrder.status === 'completed',
-                        time: pickEvent ? formatTimestamp(pickEvent.ts) : (matchedOrder.status === 'completed' ? formatTimestamp(matchedOrder.ts + 3600000) : 'Pending'),
-                        desc: matchedOrder.status === 'completed'
-                            ? `Received at facility: ${matchedOrder.plantName}. Measured weight: ${matchedOrder.actualKg} kg. Segregation quality score: ${matchedOrder.segScore || 85}%.`
-                            : 'Awaiting facility delivery and scale confirmation.'
-                    },
-                    {
-                        label: 'Cryptographic Attestation Seal',
-                        icon: '🔒',
-                        active: matchedOrder.status === 'completed',
-                        time: compEvent ? formatTimestamp(compEvent.ts) : (matchedOrder.status === 'completed' ? formatTimestamp(matchedOrder.ts + 3800000) : 'Pending'),
-                        desc: matchedOrder.status === 'completed'
-                            ? `Verification hash generated. Digital stamp finalized. Minted reward: ${tokens} $RGX tokens.`
-                            : 'Pending final ledger signing.'
+                    timelineSteps = [
+                        {
+                            label: 'Origin Collection Dispatched',
+                            icon: '🏨',
+                            active: true,
+                            time: formatTimestamp(reqEvent.ts),
+                            desc: `Bio-waste logged by ${matchedOrder.providerOrg}. Declared Mass: ${matchedOrder.kg} kg. Type: ${matchedOrder.wasteType}.`
+                        },
+                        {
+                            label: 'Logistics Route Optimized',
+                            icon: '🚛',
+                            active: !!(matchedOrder.status !== 'requested'),
+                            time: assEvent ? formatTimestamp(assEvent.ts) : (matchedOrder.status !== 'requested' ? formatTimestamp(matchedOrder.ts + 180000) : 'Pending'),
+                            desc: matchedOrder.status !== 'requested' 
+                                ? `Route TSP refined. Custody assigned to Rider: ${matchedOrder.riderName || 'Rider-A'}.`
+                                : 'Awaiting rider pickup dispatch sequence.'
+                        },
+                        {
+                            label: 'Bioreactor Facility Reception',
+                            icon: '🏭',
+                            active: matchedOrder.status === 'completed',
+                            time: pickEvent ? formatTimestamp(pickEvent.ts) : (matchedOrder.status === 'completed' ? formatTimestamp(matchedOrder.ts + 3600000) : 'Pending'),
+                            desc: matchedOrder.status === 'completed'
+                                ? `Received at facility: ${matchedOrder.plantName}. Measured weight: ${matchedOrder.actualKg} kg. Segregation quality score: ${matchedOrder.segScore || 85}%.`
+                                : 'Awaiting facility delivery and scale confirmation.'
+                        },
+                        {
+                            label: 'Cryptographic Attestation Seal',
+                            icon: '🔒',
+                            active: matchedOrder.status === 'completed',
+                            time: compEvent ? formatTimestamp(compEvent.ts) : (matchedOrder.status === 'completed' ? formatTimestamp(matchedOrder.ts + 3800000) : 'Pending'),
+                            desc: matchedOrder.status === 'completed'
+                                ? `Verification hash generated. Digital stamp finalized. Minted reward: ${tokens} $RGX tokens.`
+                                : 'Pending final ledger signing.'
+                        }
+                    ];
+
+                } else {
+                    // Seed record
+                    auditData = {
+                        id: matchedSeed.userId,
+                        hash: matchedSeed.hash,
+                        org: matchedSeed.org,
+                        role: matchedSeed.role,
+                        userId: matchedSeed.userId,
+                        totalKg: matchedSeed.totalKg,
+                        totalCO2: matchedSeed.totalCO2,
+                        tokens: matchedSeed.tokens,
+                        timestamp: matchedSeed.timestamp,
+                        status: 'completed',
+                        dispatchesCount: matchedSeed.dispatchesCount || 1
+                    };
+
+                    timelineSteps = [
+                        {
+                            label: 'Origin Collection Dispatched',
+                            icon: '🏨',
+                            active: true,
+                            time: formatTimestamp(auditData.timestamp),
+                            desc: `Bio-waste logged by ${auditData.org}. Total Mass: ${auditData.totalKg} kg. Checked & certified.`
+                        },
+                        {
+                            label: 'Logistics Route Optimized',
+                            icon: '🚛',
+                            active: true,
+                            time: formatTimestamp(auditData.timestamp + 600000),
+                            desc: `TSP path optimized. Transit custody logged in digital ledger.`
+                        },
+                        {
+                            label: 'Bioreactor Facility Reception',
+                            icon: '🏭',
+                            active: true,
+                            time: formatTimestamp(auditData.timestamp + 3600000),
+                            desc: `Received and weighed at ReGenX Facility Node. Anaerobic digestion yield verified.`
+                        },
+                        {
+                            label: 'Cryptographic Attestation Seal',
+                            icon: '🔒',
+                            active: true,
+                            time: formatTimestamp(auditData.timestamp + 4000000),
+                            desc: `SHA-256 certificate minted. Public trust parameters confirmed. Token rewards allocated.`
+                        }
+                    ];
+                }
+
+                let expectedHash = null;
+                let verificationState = 'verified';
+
+                // ==========================================
+                // Security Patch: Asynchronous Hash Verification
+                // ==========================================
+                if (auditData.hash && auditData.hash !== 'Pending Attestation Stamp' && window.ESGReporter) {
+                    try {
+                        expectedHash = await window.ESGReporter.computeSecureHash({
+                            org: auditData.org,
+                            role: auditData.role,
+                            userId: auditData.userId,
+                            totalKg: auditData.totalKg,
+                            totalCO2: auditData.totalCO2,
+                            tokens: auditData.tokens,
+                            dispatchesCount: auditData.dispatchesCount,
+                            timestamp: auditData.timestamp
+                        });
+                        
+                        // We use normalizeInput from main instead of normalizeHash
+                        if (normalizeInput(expectedHash) !== normalizeInput(auditData.hash)) {
+                            verificationState = 'tampered';
+                        }
+                    } catch (error) {
+                        console.error('Failed to recompute audit hash:', error);
+                        verificationState = 'tampered';
                     }
-                ];
+                }
 
-            } else {
-                // Seed record
-                auditData = {
-                    id: matchedSeed.userId,
-                    hash: matchedSeed.hash,
-                    org: matchedSeed.org,
-                    role: matchedSeed.role,
-                    userId: matchedSeed.userId,
-                    totalKg: matchedSeed.totalKg,
-                    totalCO2: matchedSeed.totalCO2,
-                    tokens: matchedSeed.tokens,
-                    timestamp: matchedSeed.timestamp,
-                    status: 'completed'
-                };
+                // Inject tamper UI if hash fails
+                if (verificationState === 'tampered') {
+                    timelineSteps.push({
+                        label: 'Cryptographic Signature Tampered',
+                        icon: '⚠️',
+                        active: true,
+                        time: 'Verification Failed',
+                        desc: 'Stored hash does not match the recomputed payload digest. This record is compromised.'
+                    });
+                }
 
-                timelineSteps = [
-                    {
-                        label: 'Origin Collection Dispatched',
-                        icon: '🏨',
-                        active: true,
-                        time: formatTimestamp(auditData.timestamp),
-                        desc: `Bio-waste logged by ${auditData.org}. Total Mass: ${auditData.totalKg} kg. Checked & certified.`
-                    },
-                    {
-                        label: 'Logistics Route Optimized',
-                        icon: '🚛',
-                        active: true,
-                        time: formatTimestamp(auditData.timestamp + 600000),
-                        desc: `TSP path optimized. Transit custody logged in digital ledger.`
-                    },
-                    {
-                        label: 'Bioreactor Facility Reception',
-                        icon: '🏭',
-                        active: true,
-                        time: formatTimestamp(auditData.timestamp + 3600000),
-                        desc: `Received and weighed at ReGenX Facility Node. Anaerobic digestion yield verified.`
-                    },
-                    {
-                        label: 'Cryptographic Attestation Seal',
-                        icon: '🔒',
-                        active: true,
-                        time: formatTimestamp(auditData.timestamp + 4000000),
-                        desc: `SHA-256 certificate minted. Public trust parameters confirmed. Token rewards allocated.`
-                    }
-                ];
-            }
+                const statusLabel = verificationState === 'verified' ? 'Verified Custody & Impact Record' : 'Tampered Certificate Detected';
+                const statusTone = verificationState === 'verified' ? 'var(--green)' : '#EF4444';
+                const statusBg = verificationState === 'verified' ? 'rgba(16, 185, 129, 0.03)' : 'rgba(239, 68, 68, 0.08)';
+                const statusBorder = verificationState === 'verified' ? 'var(--green)' : '#EF4444';
+                const cleanHashText = auditData.hash.startsWith('0x') ? auditData.hash : '0x' + auditData.hash;
 
-            const cleanHashText = auditData.hash.startsWith('0x') ? auditData.hash : '0x' + auditData.hash;
-
-            // Render HUD Layout
-            container.innerHTML = `
-                <div class="glass-card fade-in-up" id="verification-card-root" style="padding: 32px; border-color: var(--green); background: rgba(16, 185, 129, 0.03); border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.25);">
-                    
-                    <!-- Header Section -->
-                    <div class="between" style="align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
-                        <div>
-                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                                <div style="width: 24px; height: 24px; background: var(--green); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; font-weight: bold;">✓</div>
-                                <h4 style="color: var(--green); font-size: 18px; margin: 0; font-family: 'Space Grotesk', sans-serif;">Verified Custody & Impact Record</h4>
-                            </div>
-                            <div style="font-size: 11px; font-family: monospace; color: var(--text-muted); word-break: break-all; max-width: 480px;">Hash: ${cleanHashText}</div>
+                // Render HUD Layout
+                container.innerHTML = `
+                    <div class="glass-card fade-in-up" id="verification-card-root" style="padding: 32px; border-color: ${statusBorder}; background: ${statusBg}; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.25);">
+                        
+                        <div class="between" style="align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                                    <div style="width: 24px; height: 24px; background: ${statusTone}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; font-weight: bold;">${verificationState === 'verified' ? '✓' : '!'}</div>
+                                    <h4 style="color: ${statusTone}; font-size: 18px; margin: 0; font-family: 'Space Grotesk', sans-serif;">${statusLabel}</h4>
+                                </div>
+                                <div style="font-size: 11px; font-family: monospace; color: var(--text-muted); word-break: break-all; max-width: 480px;">Stored Hash: ${cleanHashText}</div>
+                                ${verificationState === 'tampered' ? `<div style="font-size: 11px; font-family: monospace; color: #EF4444; word-break: break-all; max-width: 480px;">Expected Hash: ${expectedHash}</div>` : ''}
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px;">Verification Time</div>
@@ -474,64 +521,73 @@ export const AuditPortal = {
                                             ${step.icon}
                                         </div>
 
-                                        <!-- Timeline text card -->
-                                        <div class="glass-card" style="flex: 1; padding: 14px; border-color: ${step.active ? 'rgba(16, 185, 129, 0.2)' : 'var(--border)'}; background: ${step.active ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.01)'}; transition: all 0.3s; opacity: ${step.active ? 1 : 0.45};">
-                                            <div class="between" style="margin-bottom: 4px; flex-wrap: wrap;">
-                                                <span style="font-weight: 700; font-size: 13px; color: ${step.active ? 'var(--text)' : 'var(--text-muted)'};">${step.label}</span>
-                                                <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${step.time}</span>
-                                            </div>
-                                            <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4; margin: 0;">${step.desc}</p>
-                                        </div>
+<div class="glass-card" style="flex: 1; padding: 14px; border-color: ${step.active ? (step.icon === '⚠️' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.2)') : 'var(--border)'}; background: ${step.active ? (step.icon === '⚠️' ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.02)') : 'rgba(255,255,255,0.01)'}; transition: all 0.3s; opacity: ${step.active ? 1 : 0.45};">
+                                    <div class="between" style="margin-bottom: 4px; flex-wrap: wrap;">
+                                        <span style="font-weight: 700; font-size: 13px; color: ${step.active ? (step.icon === '⚠️' ? '#EF4444' : 'var(--text)') : 'var(--text-muted)'};">${step.label}</span>
+                                        <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${step.time}</span>
                                     </div>
-                                `).join('')}
+                                    <p style="font-size: 12px; color: ${step.icon === '⚠️' ? '#EF4444' : 'var(--text-muted)'}; line-height: 1.4; margin: 0;">${step.desc}</p>
+                                </div>
+                            </div>
                             </div>
                         </div>
 
                     </div>
                 </div>
-            `;
+`;
 
-            // Render Client-Side QR Code
-            const qrLink = `https://regenx.org/verify?tx=${auditData.hash}`;
-            const qrBox = document.getElementById("verification-qrcode");
-            if (qrBox) {
-                if (window.QRCode) {
-                    try {
-                        qrBox.innerHTML = '';
-                        new window.QRCode(qrBox, {
-                            text: qrLink,
-                            width: 72,
-                            height: 72,
-                            colorDark : "#0f172a",
-                            colorLight : "#ffffff",
-                            correctLevel : window.QRCode.CorrectLevel.H
-                        });
-                    } catch (e) {
+                // Render Client-Side QR Code
+                const qrLink = `https://regenx.org/verify?tx=${auditData.hash}`;
+                const qrBox = document.getElementById("verification-qrcode");
+                if (qrBox) {
+                    if (window.QRCode) {
+                        try {
+                            qrBox.innerHTML = '';
+                            new window.QRCode(qrBox, {
+                                text: qrLink,
+                                width: 72,
+                                height: 72,
+                                colorDark : "#0f172a",
+                                colorLight : "#ffffff",
+                                correctLevel : window.QRCode.CorrectLevel.H
+                            });
+                        } catch (e) {
+                            qrBox.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=${encodeURIComponent(qrLink)}" width="72" height="72" alt="QR Link"/>`;
+                        }
+                    } else {
                         qrBox.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=${encodeURIComponent(qrLink)}" width="72" height="72" alt="QR Link"/>`;
                     }
-                } else {
-                    qrBox.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=${encodeURIComponent(qrLink)}" width="72" height="72" alt="QR Link"/>`;
                 }
-            }
 
-            // Animate card results and timeline using GSAP
-            if (window.gsap) {
-                window.gsap.timeline()
-                    .from("#verification-card-root", {
-                        opacity: 0,
-                        y: 20,
-                        duration: 0.5,
-                        ease: "power2.out"
-                    })
-                    .from(".audit-timeline-step", {
-                        opacity: 0,
-                        x: -16,
-                        stagger: 0.1,
-                        duration: 0.4,
-                        ease: "power2.out"
-                    }, "-=0.25");
-            }
-
+                // Animate card results and timeline using GSAP
+                if (window.gsap) {
+                    window.gsap.timeline()
+                        .from("#verification-card-root", {
+                            opacity: 0,
+                            y: 20,
+                            duration: 0.5,
+                            ease: "power2.out"
+                        })
+                        .from(".audit-timeline-step", {
+                            opacity: 0,
+                            x: -16,
+                            stagger: 0.1,
+                            duration: 0.4,
+                            ease: "power2.out"
+                        }, "-=0.25");
+                }
+            })().catch((error) => {
+                console.error('Verification render failed:', error);
+                container.innerHTML = `
+                    <div class="glass-card fade-in-up" style="padding: 32px; border-color: #EF4444; background: rgba(239, 68, 68, 0.05); text-align: center;">
+                        <span style="font-size: 40px; display: block; margin-bottom: 12px;">❌</span>
+                        <h4 style="color: #EF4444; margin-bottom: 8px;">Verification Error</h4>
+                        <p style="font-size: 13px; color: var(--text-muted); max-width: 400px; margin: 0 auto;">
+                            The verifier could not recompute the secure hash for this record. Clear stale local storage data and try again.
+                        </p>
+                    </div>
+                `;
+            });
         }, 900);
     },
 
