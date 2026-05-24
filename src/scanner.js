@@ -81,26 +81,160 @@ window.BioScanner = (function () {
   }
 
   // ── CLASSIFICATION ENGINE ─────────────────────────────────────────────────────
-  function classifyResult(predictions) {
-    let organicScore = 0;
-    let inorganicScore = 0;
-    let topLabel = predictions[0]?.className?.toLowerCase() || '';
-    let topConfidence = predictions[0]?.probability || 0;
+  /**
+   * Identifies the specific waste sub-category for a given label string.
+   * @param {string} label - Lowercase comma-separated MobileNet class name.
+   * @returns {{name: string, isOrganic: boolean}} The resolved category name and its organic classification.
+   */
+  function resolveMaterialCategory(label) {
+    // Check organic categories first
+    if (/banana|apple|orange|lemon|mango|strawberry|grape|pear|watermelon|pineapple|peach|fig|pomegranate|broccoli|cauliflower|carrot|cabbage|spinach|lettuce|mushroom|potato|onion|pepper|cucumber|zucchini|squash|eggplant|artichoke|leek|celery|asparagus|corn|pumpkin|tomato|radish|turnip|beet|yam|sweet\s*potato|vegetable|fruit/.test(label)) {
+      return { name: 'Wet Biomass (Fruits & Vegetables)', isOrganic: true };
+    }
+    if (/bread|bagel|pretzel|dough|bun|roll|naan|rice|pasta|noodle|dumpling|waffle|pancake|cake|cookie|muffin|brownie|donut|pastry/.test(label)) {
+      return { name: 'Grain & Bakery Biomass', isOrganic: true };
+    }
+    if (/meat|chicken|beef|pork|fish|egg|cheese|food|meal|dish|plate|bowl|salad|soup/.test(label)) {
+      return { name: 'Kitchen Scraps & Proteins', isOrganic: true };
+    }
+    if (/leaf|leaves|grass|plant|flower|herb|garden|compost|organic/.test(label)) {
+      return { name: 'Green & Garden Biomass', isOrganic: true };
+    }
+
+    // Check inorganic categories
+    if (/bottle|plastic|bag|wrapper|container|cup|straw/.test(label)) {
+      return { name: 'High-Density Polyethylene Interference', isOrganic: false };
+    }
+    if (/can|tin|foil|metal|steel|iron|aluminum/.test(label)) {
+      return { name: 'Metal & Non-Ferrous Contaminants', isOrganic: false };
+    }
+    if (/glass|jar|window|mirror/.test(label)) {
+      return { name: 'Silica & Glass Contaminants', isOrganic: false };
+    }
+    if (/paper|cardboard|carton|book|magazine|newspaper|box|package|packaging/.test(label)) {
+      return { name: 'Cellulose / Paper Impurity', isOrganic: false };
+    }
+    if (/rubber|tire|hose|pipe|tube/.test(label)) {
+      return { name: 'Elastomer & Rubber Waste', isOrganic: false };
+    }
+    if (/electronic|phone|laptop|computer|keyboard|mouse|battery|cable|wire|circuit/.test(label)) {
+      return { name: 'Electronic Contamination (E-Waste)', isOrganic: false };
+    }
+    if (/fabric|cloth|shirt|shoe|boot|sock/.test(label)) {
+      return { name: 'Textile Contaminants', isOrganic: false };
+    }
+    if (/wood|furniture|chair|table|shelf/.test(label)) {
+      return { name: 'Lignocellulosic / Wood Inert', isOrganic: false };
+    }
+    if (/rock|stone|concrete|brick/.test(label)) {
+      return { name: 'Inert Mineral Impurity', isOrganic: false };
+    }
+    
+    // Fallback based on simple keyword search
+    for (const kw of ORGANIC_KEYWORDS) {
+      if (label.includes(kw)) {
+        return { name: 'Organic Biomass', isOrganic: true };
+      }
+    }
+    for (const kw of INORGANIC_KEYWORDS) {
+      if (label.includes(kw)) {
+        return { name: 'Non-Biodegradable Impurity', isOrganic: false };
+      }
+    }
+    
+    return { name: 'Unclassified Material', isOrganic: false };
+  }
+
+  /**
+   * Processes the raw object array from TensorFlow.js to split overlapping signals,
+   * dynamically computing an exact impurity/contamination ratio and detailed material breakdown.
+   * 
+   * @param {Array<Object>} predictions - The array of MobileNet predictions.
+   * @returns {Object} An object containing organic/inorganic scores, acceptance status, and detailed breakdown.
+   */
+  function fractionatePredictions(predictions) {
+    if (!predictions || predictions.length === 0) {
+      return {
+        organicPercent: 50,
+        contaminationPercent: 50,
+        fractionation: [
+          { category: 'Unclassified Material', percentage: 100, isOrganic: false }
+        ]
+      };
+    }
+
+    const categoryWeights = {};
+    let totalWeight = 0;
 
     for (const pred of predictions) {
       const label = (pred.className || '').toLowerCase();
       const prob = pred.probability || 0;
-
-      for (const kw of ORGANIC_KEYWORDS) {
-        if (label.includes(kw)) { organicScore += prob * 100; break; }
+      
+      const resolved = resolveMaterialCategory(label);
+      if (!categoryWeights[resolved.name]) {
+        categoryWeights[resolved.name] = {
+          weight: 0,
+          isOrganic: resolved.isOrganic
+        };
       }
-      for (const kw of INORGANIC_KEYWORDS) {
-        if (label.includes(kw)) { inorganicScore += prob * 100; break; }
+      categoryWeights[resolved.name].weight += prob;
+      totalWeight += prob;
+    }
+
+    let organicWeight = 0;
+    let inorganicWeight = 0;
+
+    for (const catName in categoryWeights) {
+      const cat = categoryWeights[catName];
+      if (cat.isOrganic) {
+        organicWeight += cat.weight;
+      } else {
+        inorganicWeight += cat.weight;
       }
     }
 
-    const totalSignal = organicScore + inorganicScore;
-    const organicPercent = totalSignal > 0 ? Math.round((organicScore / totalSignal) * 100) : 50;
+    // Normalize weights to percentages
+    const fractionation = [];
+    for (const catName in categoryWeights) {
+      const cat = categoryWeights[catName];
+      const pct = totalWeight > 0 ? Math.round((cat.weight / totalWeight) * 100) : 0;
+      if (pct > 0) {
+        fractionation.push({
+          category: catName,
+          percentage: pct,
+          isOrganic: cat.isOrganic
+        });
+      }
+    }
+
+    // Sort by percentage descending
+    fractionation.sort((a, b) => b.percentage - a.percentage);
+
+    // Calculate exact organic and contamination percentages
+    const totalSignal = organicWeight + inorganicWeight;
+    const organicPercent = totalSignal > 0 ? Math.round((organicWeight / totalSignal) * 100) : 50;
+    const contaminationPercent = 100 - organicPercent;
+
+    return {
+      organicPercent,
+      contaminationPercent,
+      fractionation
+    };
+  }
+
+  /**
+   * Classifies predictions, returning detailed results and recommendations.
+   * @param {Array<Object>} predictions - The array of MobileNet predictions.
+   * @returns {Object} Classified results structure.
+   */
+  function classifyResult(predictions) {
+    const fractionData = fractionatePredictions(predictions);
+    
+    let topLabel = predictions[0]?.className?.toLowerCase() || '';
+    let topConfidence = predictions[0]?.probability || 0;
+
+    const organicPercent = fractionData.organicPercent;
+    const contaminationPercent = fractionData.contaminationPercent;
 
     // Decision logic
     let accepted = false;
@@ -109,31 +243,31 @@ window.BioScanner = (function () {
     let wasteCategory = 'Unknown Waste Type';
     let recommendation = '';
 
-    if (organicScore > inorganicScore && organicScore > 5) {
+    if (organicPercent > 50) {
       accepted = true;
-      confidence = Math.min(95, Math.round(organicScore * 1.8));
+      confidence = Math.min(95, Math.round(organicPercent));
       wasteCategory = detectWasteCategory(topLabel);
-      reason = 'Organic matter detected. Suitable for anaerobic digestion and biogas generation.';
-      recommendation = 'Proceed with standard intake protocol. Estimate biogas yield: ' + estimateBiogas(confidence) + ' m³/tonne.';
-    } else if (inorganicScore > organicScore && inorganicScore > 5) {
-      accepted = false;
-      confidence = Math.min(95, Math.round(inorganicScore * 1.8));
-      wasteCategory = detectInorganicType(topLabel);
-      reason = 'Non-biodegradable material identified. This waste stream cannot be processed in the biogas digester.';
-      recommendation = 'Route to dry waste facility. Do not mix with organic feed stock.';
+      if (contaminationPercent > 0) {
+        reason = `Organic matter detected with ${contaminationPercent}% inorganic contamination. Suitable for anaerobic digestion if pre-sorted.`;
+        recommendation = `Route to pre-sorting line to extract inorganic impurities before digestion. Estimate biogas yield: ${estimateBiogas(confidence)} m³/tonne.`;
+      } else {
+        reason = 'Pure organic matter detected. Highly suitable for anaerobic digestion and biogas generation.';
+        recommendation = `Proceed with standard intake protocol. Estimate biogas yield: ${estimateBiogas(confidence)} m³/tonne.`;
+      }
     } else {
-      // Low confidence / ambiguous — mark invalid to be safe
       accepted = false;
-      confidence = Math.round(topConfidence * 50);
-      wasteCategory = 'Unclassified / Mixed Waste';
-      reason = 'Unable to confidently identify organic content. Mixed or contaminated waste detected.';
-      recommendation = 'Manual inspection required before acceptance. Do not process without verification.';
+      confidence = Math.min(95, Math.round(contaminationPercent));
+      wasteCategory = detectInorganicType(topLabel);
+      reason = `Rejected due to high contamination (${contaminationPercent}% inorganic materials detected). This stream cannot be processed.`;
+      recommendation = 'Route to dry waste facility. Charge contamination penalty.';
     }
 
     return {
       accepted,
       confidence,
       organicPercent,
+      contaminationPercent,
+      fractionation: fractionData.fractionation,
       wasteCategory,
       reason,
       recommendation,
@@ -220,19 +354,37 @@ window.BioScanner = (function () {
   }
 
   // ── UI STATES ─────────────────────────────────────────────────────────────────
+  /**
+   * Updates the UI panel visibility with smooth fade-in/scale micro-animations.
+   * @param {string} state - The target UI state ('idle', 'scanning', 'result').
+   */
   function setUiState(state) {
     const container = document.getElementById('bio-scanner-container');
     if (!container) return;
 
     ['bs-idle', 'bs-scanning', 'bs-result'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
+      if (el) {
+        el.style.display = 'none';
+        el.classList.remove('active');
+      }
     });
 
     const target = document.getElementById('bs-' + state);
-    if (target) target.style.display = 'flex';
+    if (target) {
+      target.style.display = 'flex';
+      // Force layout calculation for transition to trigger correctly
+      target.offsetHeight;
+      requestAnimationFrame(() => {
+        target.classList.add('active');
+      });
+    }
   }
 
+  /**
+   * Renders the fractionation analysis with glassmorphic gauges and breakdown list.
+   * @param {Object} result - The classification fractionation result object.
+   */
   function renderResult(result) {
     const resultDiv = document.getElementById('bs-result');
     if (!resultDiv) return;
@@ -264,30 +416,82 @@ window.BioScanner = (function () {
           <div style="font-size:12px; color:var(--text-muted);">AI Confidence: <strong style="color:${color}">${result.confidence}%</strong> &nbsp;·&nbsp; Organic Content: <strong>${result.organicPercent}%</strong></div>
         </div>
 
-        <!-- Organic Bar -->
-        <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Organic Content Meter</div>
-            <div style="font-size:13px; font-weight:700; color:${color}">${result.organicPercent}%</div>
+        <!-- Glassmorphic Fractionation Gauges -->
+        <div style="
+          background: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 16px;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 20px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        ">
+          <div style="font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--text-muted); text-transform: uppercase; align-self: flex-start;">
+            Multi-Object Fractionation Breakdown
           </div>
-          <div style="width:100%; height:10px; background:var(--border); border-radius:999px; overflow:hidden;">
-            <div style="
-              height:100%;
-              width:${result.organicPercent}%;
-              background:linear-gradient(90deg, ${accepted ? '#10b981' : '#f59e0b'}, ${accepted ? '#34d399' : '#ef4444'});
-              border-radius:999px;
-              transition:width 0.8s cubic-bezier(0.34,1.56,0.64,1);
-            "></div>
-          </div>
-          <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:10px; color:var(--text-muted);">
-            <span>0% — Inorganic</span><span style="color:#f59e0b;">50% — Borderline</span><span>100% — Pure Organic</span>
+          
+          <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 32px; width: 100%;">
+            <!-- Main Organic Gauge -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+              <div style="position: relative; width: 130px; height: 130px; display: flex; align-items: center; justify-content: center;">
+                <svg width="130" height="130" style="transform: rotate(-90deg);">
+                  <circle cx="65" cy="65" r="54" stroke="rgba(255,255,255,0.06)" stroke-width="8" fill="none" />
+                  <circle cx="65" cy="65" r="54" stroke="url(#organicGrad)" stroke-width="10" stroke-dasharray="339.29" stroke-dashoffset="${339.29 * (1 - result.organicPercent / 100)}" stroke-linecap="round" fill="none" style="transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);" />
+                  <defs>
+                    <linearGradient id="organicGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#10b981" />
+                      <stop offset="100%" stop-color="#059669" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div style="position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                  <span style="font-size: 26px; font-weight: 800; color: var(--text); text-shadow: 0 2px 10px rgba(16,185,129,0.3);">${result.organicPercent}%</span>
+                  <span style="font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">ORGANIC</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Material Fractions List -->
+            <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 12px;">
+              ${result.fractionation.map(f => {
+                const fColor = f.isOrganic ? '#10b981' : '#ef4444';
+                return `
+                  <div style="
+                    background: rgba(255,255,255,0.02);
+                    border: 1px solid rgba(255,255,255,0.05);
+                    border-radius: 10px;
+                    padding: 10px 14px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                    transition: all 0.3s ease;
+                  ">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                      <div style="width: 8px; height: 8px; border-radius: 50%; background: ${fColor}; box-shadow: 0 0 8px ${fColor}; flex-shrink: 0;"></div>
+                      <span style="font-size: 12px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: var(--text);">${f.category}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                      <span style="font-size: 13px; font-weight: 700; color: ${fColor};">${f.percentage}%</span>
+                      <div style="width: 50px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                        <div style="height: 100%; width: ${f.percentage}%; background: ${fColor}; border-radius: 3px;"></div>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
           </div>
         </div>
 
         <!-- Analysis Details -->
         <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:10px;">
           <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px;">AI Analysis</div>
-          <div style="font-size:13px; line-height:1.6;"><strong>Assessment:</strong> ${result.reason}</div>
+          <div style="font-size:13px; line-height:1.6; color: var(--text);"><strong>Assessment:</strong> ${result.reason}</div>
           <div style="
             background:${bgColor};
             border:1px solid ${color}44;
@@ -295,6 +499,7 @@ window.BioScanner = (function () {
             padding:12px;
             font-size:13px;
             line-height:1.6;
+            color: var(--text);
           "><strong>Recommendation:</strong> ${result.recommendation}</div>
         </div>
 
@@ -304,7 +509,7 @@ window.BioScanner = (function () {
           ${result.allPredictions.map((p, i) => `
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:${i < 2 ? '8px' : '0'};">
               <div style="font-size:12px; min-width:20px; color:var(--text-muted);">#${i+1}</div>
-              <div style="font-size:12px; flex:1; font-weight:500;">${p.className?.split(',')[0] || '—'}</div>
+              <div style="font-size:12px; flex:1; font-weight:500; color: var(--text);">${p.className?.split(',')[0] || '—'}</div>
               <div style="font-size:12px; font-weight:700; color:var(--text-muted);">${Math.round((p.probability||0)*100)}%</div>
               <div style="width:60px; height:5px; background:var(--border); border-radius:3px; overflow:hidden;">
                 <div style="height:100%; width:${Math.round((p.probability||0)*100)}%; background:var(--green); border-radius:3px;"></div>
@@ -384,8 +589,17 @@ window.BioScanner = (function () {
         .bs-corner.tr { top:8px; right:8px; border-top-width:3px; border-right-width:3px; border-top-right-radius:4px; }
         .bs-corner.bl { bottom:8px; left:8px; border-bottom-width:3px; border-left-width:3px; border-bottom-left-radius:4px; }
         .bs-corner.br { bottom:8px; right:8px; border-bottom-width:3px; border-right-width:3px; border-bottom-right-radius:4px; }
+        .bs-state-panel {
+          opacity: 0;
+          transform: translateY(12px) scale(0.98);
+          transition: opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .bs-state-panel.active {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
       </style>
-
+ 
       <div id="bio-scanner-container" style="
         width:100%; display:flex; flex-direction:column;
         gap:0; font-family:var(--font-body,'Inter',sans-serif);
@@ -409,11 +623,11 @@ window.BioScanner = (function () {
             <div style="font-size:11px; font-weight:700; color:#10b981; text-transform:uppercase; letter-spacing:1px;">Live</div>
           </div>
         </div>
-
+ 
         <!-- Idle State: Camera + Upload -->
-        <div id="bs-idle" style="
+        <div id="bs-idle" class="bs-state-panel" style="
           display:flex; flex-direction:column; align-items:center; gap:20px;
-          padding:24px 20px;
+          padding:24px 20px; width: 100%;
         ">
           <!-- Video Preview -->
           <div style="position:relative; width:100%; max-width:480px; border-radius:16px; overflow:hidden; background:#000;">
@@ -440,7 +654,7 @@ window.BioScanner = (function () {
               </div>
             </div>
           </div>
-
+ 
           <!-- Capture Button -->
           <div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:480px;">
             <button id="bs-capture-btn" class="bs-btn" onclick="BioScanner._captureFromCamera()" style="
@@ -451,13 +665,13 @@ window.BioScanner = (function () {
             ">
               🔬 Scan Waste Now
             </button>
-
+ 
             <div style="display:flex; align-items:center; gap:12px; width:100%;">
               <div style="flex:1; height:1px; background:var(--border);"></div>
               <span style="font-size:12px; color:var(--text-muted); font-weight:600;">OR</span>
               <div style="flex:1; height:1px; background:var(--border);"></div>
             </div>
-
+ 
             <button class="bs-btn" onclick="document.getElementById('file-input').click()" style="
               width:100%; background:var(--surface); border:2px dashed var(--border);
               color:var(--text); border-radius:14px; font-size:14px;
@@ -465,7 +679,7 @@ window.BioScanner = (function () {
               📁 Upload Waste Image
             </button>
           </div>
-
+ 
           <!-- Info chips -->
           <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:480px;">
             <div style="padding:5px 10px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:20px; font-size:11px; font-weight:600; color:#10b981;">✓ Fruit & Vegetables</div>
@@ -476,11 +690,11 @@ window.BioScanner = (function () {
             <div style="padding:5px 10px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:20px; font-size:11px; font-weight:600; color:#ef4444;">✗ Glass / Cloth</div>
           </div>
         </div>
-
+ 
         <!-- Scanning State -->
-        <div id="bs-scanning" style="
+        <div id="bs-scanning" class="bs-state-panel" style="
           display:none; flex-direction:column; align-items:center; justify-content:center;
-          padding:60px 24px; gap:24px; min-height:340px;
+          padding:60px 24px; gap:24px; min-height:340px; width: 100%;
         ">
           <div style="position:relative; width:80px; height:80px;">
             <div style="
@@ -501,12 +715,12 @@ window.BioScanner = (function () {
             "></div>
             <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:20px;">🔬</div>
           </div>
-
+ 
           <div style="text-align:center;">
             <div style="font-size:16px; font-weight:700; margin-bottom:6px;">Analyzing Waste Composition...</div>
             <div style="font-size:13px; color:var(--text-muted);" id="bs-scan-status">Loading AI model...</div>
           </div>
-
+ 
           <div style="width:100%; max-width:320px; height:4px; background:var(--border); border-radius:2px; overflow:hidden;">
             <div id="bs-progress-bar" style="
               height:100%; width:0%; border-radius:2px;
@@ -514,7 +728,7 @@ window.BioScanner = (function () {
               transition:width 0.4s;
             "></div>
           </div>
-
+ 
           <div style="
             display:flex; gap:20px; font-size:12px; color:var(--text-muted);
           ">
@@ -529,14 +743,14 @@ window.BioScanner = (function () {
             </div>
           </div>
         </div>
-
+ 
         <!-- Result State (filled by JS) -->
-        <div id="bs-result" style="
+        <div id="bs-result" class="bs-state-panel" style="
           display:none; flex-direction:column;
-          padding:20px; gap:16px; overflow-y:auto; max-height:70vh;
+          padding:20px; gap:16px; overflow-y:auto; max-height:70vh; width: 100%;
         ">
         </div>
-
+ 
       </div>
     `;
 

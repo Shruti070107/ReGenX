@@ -55,14 +55,21 @@ export const TrustProtocol = {
     },
 
     /**
-     * Gets the dynamic reward for a completed order based on trust.
+     * Gets the dynamic reward for a completed order based on trust and contamination.
+     * If a segregation score is provided, the reward is penalized proportionally to contamination.
      * @param {number} baseAmount - The base reward amount.
-     * @param {number} score 
-     * @returns {number}
+     * @param {number} score - The user's trust score.
+     * @param {number} [segregationScore] - Optional segregation score (0-100) or organic percentage.
+     * @returns {number} The final calculated token reward.
      */
-    calculateReward: (baseAmount, score) => {
+    calculateReward: (baseAmount, score, segregationScore) => {
         const { multiplier } = TrustProtocol.getRankDetails(score);
-        return Math.round(baseAmount * multiplier);
+        let reward = baseAmount * multiplier;
+        if (segregationScore !== undefined && segregationScore !== null) {
+            const factor = Math.max(0, Math.min(100, parseFloat(segregationScore))) / 100;
+            reward = reward * factor;
+        }
+        return Math.round(reward);
     },
 
     /**

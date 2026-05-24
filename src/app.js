@@ -3502,11 +3502,12 @@ window.openScanner = function() {
     userId: SESSION.id,
     onBack: () => closeScanner(),
     onApply: (score, organicPercent) => {
+      window._scannedSegScore = organicPercent;
       showView('v-pv-req');
       setTimeout(() => {
         const rKg = document.getElementById('req-kg'); if(rKg) rKg.value = Math.floor(Math.random() * 150 + 50); 
         const rType = document.getElementById('req-type'); if(rType) rType.value = organicPercent > 70 ? "Food Waste" : "Dry Waste";
-        showToast(`✓ Scanner Data Applied: ${score}% Segregation Score`);
+        showToast(`✓ Scanner Data Applied: ${organicPercent}% Segregation Score`);
         closeScanner();
       }, 200);
     },
@@ -3637,8 +3638,10 @@ window.submitPvRequest = async function() {
   
   const o = {
     id: uid(), ts: ts(), providerId: SESSION.id, providerOrg: SESSION.org, providerLat: SESSION.lat, providerLng: SESSION.lng,
-    wasteType: type, kg, shift, plantId: nearest.id, plantName: nearest.org, status: 'requested'
+    wasteType: type, kg, shift, plantId: nearest.id, plantName: nearest.org, status: 'requested',
+    segScore: window._scannedSegScore !== undefined && window._scannedSegScore !== null ? window._scannedSegScore : 70
   };
+  window._scannedSegScore = null;
   saveOrder(o);
   addSlaEntry(o);
  // INSIDE submitPvRequest
@@ -4639,13 +4642,15 @@ async function renderPlant(mc, fullRender) {
 }
 
 window.openPlantConfirm = function(id) {
+  const o = getOrder(id);
+  const initialScore = o && o.segScore !== undefined && o.segScore !== null ? o.segScore : 70;
   const html = `
     <h3 class="modal-title">Intake Assessment</h3>
     <p class="modal-sub">Final confirmation before processing.</p>
     <div class="form-group">
         <label class="form-label">Segregation Score (0-100)</label>
         <div style="display:flex; gap:8px;">
-            <input type="number" id="p-score" class="form-input" style="flex:1;">
+            <input type="number" id="p-score" class="form-input" style="flex:1;" value="${initialScore}">
             <button class="btn btn-outline-primary" style="white-space:nowrap; border:2px solid var(--blue); color:var(--blue);" onclick="window.VisionScanner.openScanner('p-score')">📸 AI Scan</button>
         </div>
     </div>
@@ -4666,7 +4671,7 @@ window.confirmPlantReceipt = async function(id) {
      const providerHistory = getAllOrders().filter(ord => ord.providerId === o.providerId && ord.status === 'completed');
      const trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
       const baseTokens = Math.round((o.actualKg || o.kg) * 2);
-      const earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
+      const earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore, o.segScore);
      
      providerAcc.tokens = (providerAcc.tokens || 0) + earnedTokens;
      o.tokensMinted = earnedTokens;
