@@ -5,8 +5,26 @@
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",
+  "lang": "en-US",
+  "categories": ["business", "productivity", "utilities"],
   "background_color": "#0D9488",
   "theme_color": "#0D9488",
+  "shortcuts": [
+    {
+      "name": "Open Dashboard",
+      "short_name": "Dashboard",
+      "description": "Jump straight to the ReGenX dashboard",
+      "url": "/index.html#dashboard",
+      "icons": [{ "src": "/icons/icon-72x72.png", "sizes": "72x72" }]
+    },
+    {
+      "name": "View Alerts",
+      "short_name": "Alerts",
+      "description": "Open the latest smart alerts and notifications",
+      "url": "/index.html#alerts",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
