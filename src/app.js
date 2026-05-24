@@ -1676,6 +1676,20 @@ function renderSectionPlaceholder({ title = 'Loading data', description = 'Prepa
   `;
 }
 
+window.toggleWidget = function (widgetId, button) {
+  const widget = document.getElementById(widgetId);
+
+  if (!widget) return;
+
+  if (widget.style.display === 'none') {
+    widget.style.display = 'block';
+    button.innerHTML = 'Collapse ▲';
+  } else {
+    widget.style.display = 'none';
+    button.innerHTML = 'Expand ▼';
+  }
+}
+
 function renderSparkline(values = [], tone = 'active') {
   if (!values.length) return '';
   const max = Math.max(...values.map(v => Number(v) || 0), 1);
@@ -2360,27 +2374,63 @@ async function renderProvider(mc, fullRender) {
           <h3 class="heading" style="margin-bottom:16px;">Active Dispatches</h3><div id="pv-act"></div>
 
           <!-- IoT Bin Status Widget -->
+
           <div class="between" style="margin-top:24px; margin-bottom:16px;">
             <h3 class="heading" style="margin-bottom:0;">🗑️ IoT Bin Status</h3>
-            <button class="btn btn-ghost btn-sm" onclick="showView('v-iot-bins')">View All →</button>
-          </div>
-          <div id="pv-iot-widget" class="glass-card" style="padding:16px;"></div>
 
-          <h3 class="heading" style="margin-top:24px; margin-bottom:16px;">Impact Analytics</h3>
-          <div class="glass-card" style="padding:16px;">
-            <div class="between" style="margin-bottom:12px;">
-               <div style="font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Timeframe</div>
-               <select class="form-select" style="width:auto; padding:4px 8px;" onchange="updatePvChart(this.value)">
-                 <option value="weekly">Weekly</option>
-                 <option value="monthly">Monthly</option>
-               </select>
+            <div style="display:flex; gap:8px;">
+              <button
+                class="btn btn-ghost btn-sm"
+                onclick="toggleWidget('iot-widget-body', this)"
+              >
+                Collapse ▲
+              </button>
+
+              <button class="btn btn-ghost btn-sm" onclick="showView('v-iot-bins')">
+                View All →
+              </button>
             </div>
-            <div class="chart-container"><canvas id="pvChart"></canvas></div>
-            <button class="btn btn-outline-primary btn-full" style="margin-top:16px; border: 2px solid var(--blue); color: var(--blue);" onclick="window.ESGReporter.generateReport(SESSION, getAllOrders().filter(o => o.providerId === SESSION.id && o.status === 'completed'))">
-                📄 Export ESG PDF Report
+          </div>
+
+          <div class="glass-card widget-expandable" style="padding:16px;">
+            <div id="iot-widget-body">
+              <div id="pv-iot-widget"></div>
+            </div>
+          </div>
+
+          <!-- Impact Analytics Widget -->
+          <div class="between" style="margin-top:24px; margin-bottom:16px;">
+            <h3 class="heading" style="margin-bottom:0;">Impact Analytics</h3>
+
+            <button
+              class="btn btn-ghost btn-sm"
+              onclick="toggleWidget('impact-widget-body', this)"
+            >
+              Collapse ▲
             </button>
           </div>
-        </div>
+
+          <div class="glass-card widget-expandable" style="padding:16px;">
+            <div id="impact-widget-body">
+
+              <div class="between" style="margin-bottom:12px;">
+                <div style="font-size:12px; font-weight:600; color:var(--text-muted); text-transform:uppercase;">Timeframe</div>
+                <select class="form-select" style="width:auto; padding:4px 8px;" onchange="updatePvChart(this.value)">
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+            <div class="chart-container"><canvas id="pvChart"></canvas></div>
+            <button class="btn btn-outline-primary btn-full"
+              style="margin-top:16px; border: 2px solid var(--blue); color: var(--blue);"
+              onclick="window.ESGReporter.generateReport(SESSION, getAllOrders().filter(o => o.providerId === SESSION.id && o.status === 'completed'))">
+                📄 Export ESG PDF Report
+            </button>
+
+                </div>
+            </div>
+            <!-- End Impact Analytics Widget -->
+            
         <div>
           <div class="glass-card" style="margin-bottom:24px; border-color:var(--blue); background:linear-gradient(135deg, var(--surface) 0%, var(--blue-light) 100%);">
             <div class="ai-badge" style="background:var(--blue); margin-bottom:12px;">🛡️ Trust Protocol</div>
@@ -2425,19 +2475,48 @@ async function renderProvider(mc, fullRender) {
             <!-- Dynamic Leaderboard -->
           </div>
 
-          <div class="glass-card" style="margin-top:24px; padding:16px; border-color:var(--amber); background:rgba(245,158,11,0.07);">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
-              <span style="font-size:22px;">🔔</span>
-              <div>
-                <div style="font-weight:700; font-size:14px;">Smart Dispatch Alerts</div>
-                <div style="font-size:12px; color:var(--text-muted);">Get notified instantly when your dispatch is picked up</div>
+          <!-- Smart Dispatch Alerts Widget -->
+          <div class="glass-card"
+            style="margin-top:24px; padding:16px; border-color:var(--amber); background:rgba(245,158,11,0.07);">
+
+            <div class="between" style="margin-bottom:10px; align-items:center;">
+
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:22px;">🔔</span>
+
+                <div>
+                  <div style="font-weight:700; font-size:14px;">
+                    Smart Dispatch Alerts
+                  </div>
+
+                  <div style="font-size:12px; color:var(--text-muted);">
+                    Get notified instantly when your dispatch is picked up
+                  </div>
+                </div>
               </div>
+
+              <button
+                class="btn btn-ghost btn-sm"
+                onclick="toggleWidget('smart-alert-body', this)"
+              >
+                Collapse ▲
+              </button>
+
             </div>
-            <button class="btn btn-full" style="background:linear-gradient(135deg,#F59E0B,#D97706); color:#fff; font-weight:700;" onclick="window.requestPushPermission()">
-              🔔 Enable Smart Alerts
-            </button>
-          </div>
-        </div>
+
+            <div id="smart-alert-body">
+
+              <button
+                class="btn"
+                style="background:linear-gradient(135deg,#F59E0B,#D97706); color:#fff; font-weight:700;"
+                onclick="window.requestPushPermission()"
+              >
+                🔔 Enable Smart Alerts
+              </button>
+
+            </div>
+
+          </div> 
 
       </div>
     `;

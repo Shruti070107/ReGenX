@@ -57,7 +57,8 @@ html, body {
   line-height: 1.5;
   transition: color 0.3s ease;
   height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 @keyframes meshGradient {
@@ -122,11 +123,18 @@ h1, h2, h3, .heading { font-family: 'Space Grotesk', sans-serif; font-weight: 70
   padding: 24px;
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
   margin: 20px 0px;
   width: 100%;
-  box-sizing: border-box;
   max-width: 100%;
+  box-sizing: border-box;
+}
+.content-wrapper > div,
+.content-wrapper section {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 .glass-card:hover { 
   box-shadow: 0 20px 40px -10px rgba(13, 148, 136, 0.25); 
@@ -207,7 +215,7 @@ h1, h2, h3, .heading { font-family: 'Space Grotesk', sans-serif; font-weight: 70
 #rider-map { height: 400px; width: 100%; border-radius: 16px; border: 1px solid var(--border); z-index: 10; box-shadow: var(--shadow); }
 
 /* APP SHELL */
-#app-shell { display: none; height: 100vh; overflow: hidden; }
+#app-shell { display: none; height: 100vh; overflow: hidden; overflow-y: auto;width: 100%; max-width: 100%;}
 #app-shell.active { display: flex; }
 
 .sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 50; height: 100vh; overflow: hidden; }
@@ -981,7 +989,16 @@ tr:hover td { background: var(--bg); }
 /* RESPONSIVE */
 @media (max-width: 768px) {
   #app-shell { flex-direction: column; }
-
+  .main-area,
+  .content-wrapper,
+  #app-shell {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
   .sidebar {
     position: fixed;
     top: 0;
@@ -1029,7 +1046,7 @@ tr:hover td { background: var(--bg); }
   }
   .nav-item-icon { font-size: 20px !important; margin-right: 14px !important; }
 
-  .main-area { width: 100%; height: 100vh; overflow-y: auto; overflow-x: hidden; }
+  .main-area { width: 100%; height: 100vh; min-width: 0;max-width: 100%; overflow-y: auto; overflow-x: hidden; }
   .topbar {
     position: sticky;
     top: 0;
@@ -1149,6 +1166,55 @@ tr:hover td { background: var(--bg); }
 
   .topbar-user > div[style*="border-left"] {
     display: none;
+  }
+
+  body {
+  margin: 0;
+  padding: 0;
+}
+  .content-wrapper,
+  .records-shell,
+  .two-col,
+  .glass-card,
+  .order-card,
+  .stats-grid,
+  .market-grid,
+  .iot-bins-grid,
+  .chart-container,
+  #pv-act,
+  #pv-iot-widget,
+  #pv-impact,
+  #pv-market,
+  #pv-alerts {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .two-col,
+  .stats-grid,
+  .market-grid,
+  .iot-bins-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .content-wrapper,
+  .records-shell {
+    overflow-x: hidden;
+  }
+
+  .content-wrapper * {
+    min-width: 0;
+  }
+  .order-stepper,
+  .oc-header,
+  .oc-meta,
+  .topbar,
+  .topbar-user {
+    flex-wrap: wrap;
+    max-width: 100%;
+    min-width: 0;
   }
 
   /* Tabs for mobile dashboard */
