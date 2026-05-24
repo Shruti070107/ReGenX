@@ -8,6 +8,7 @@ import { RouteOptimizer } from './route-optimizer.js';
 import { AuditPortal } from './audit-portal.js';
 import { ReGenXRealtime } from './realtime-sync.js';
 import { CloudSync } from './cloud-sync.js';
+import { OrderSecurity } from './order-security.js';
 const STORAGE_KEY_PREFIX = "regenx-v3:";
 const TRUST_LEDGER_KEY = STORAGE_KEY_PREFIX + "trust-ledger";
 const ESG_ALERTS_KEY = STORAGE_KEY_PREFIX + "esg-alerts";
@@ -409,29 +410,41 @@ async function processOfflineAction(action) {
   if (!action || !action.type) return;
   if (action.type === 'sync-order') {
     if (window.CloudSync && window.CloudSync.isLive && navigator.onLine) {
-      window.CloudSync.pushDocument('orders', action.payload);
+      const result = await window.CloudSync.pushDocument('orders', action.payload);
+      return result !== undefined;
     }
   }
   if (action.type === 'sync-notification') {
     // notifications are already stored locally; this entry is a marker for remote sync
+    return true;
   }
+
+  return false;
 }
 
 async function flushOfflineQueue() {
   const queue = loadOfflineQueue();
   if (!queue.length) return;
+  const pending = [];
   for (const action of queue) {
-    await processOfflineAction(action);
+    try {
+      const consumed = await processOfflineAction(action);
+      if (!consumed) pending.push(action);
+    } catch (error) {
+      pending.push(action);
+    }
   }
-  saveOfflineQueue([]);
+  saveOfflineQueue(pending);
   updateOfflineQueueIndicator();
-  addWorkflowNotification({
-    title: 'Offline Sync Completed',
-    body: `${queue.length} queued action${queue.length === 1 ? '' : 's'} were synced successfully.`,
-    role: SESSION.role || 'all',
-    type: 'sync',
-    priority: 'normal'
-  });
+  if (!pending.length) {
+    addWorkflowNotification({
+      title: 'Offline Sync Completed',
+      body: `${queue.length} queued action${queue.length === 1 ? '' : 's'} were synced successfully.`,
+      role: SESSION.role || 'all',
+      type: 'sync',
+      priority: 'normal'
+    });
+  }
 }
 
 window.syncPendingActions = async function() {
@@ -527,12 +540,7 @@ window.handleRealtimeEvent = function(event) {
 };
 
 function getRealtimeRoomsForRole(role) {
-  const rooms = ['network_room'];
-  if (role === 'provider') rooms.push('providers_room');
-  if (role === 'rider') rooms.push('riders_room');
-  if (role === 'plant') rooms.push('plants_room');
-  rooms.push('admin_room');
-  return Array.from(new Set(rooms));
+  return OrderSecurity.getSessionRooms({ role });
 }
 
 function publishOperationalEvent(type, updates = [], meta = {}, rooms = null) {
@@ -2087,14 +2095,28 @@ window.toggleSidebar = function(force) {
 // ── CORE DATA ENGINE ──
 function getAllOrders() { return DB.list('ord:').map(k => DB.get(k)).filter(Boolean).sort((a,b)=>b.ts-a.ts); }
 function getOrder(id) { return DB.get('ord:'+id); }
-function saveOrder(o) { 
-  // persist locally and publish to realtime and cloud sync when available
-  DB.set('ord:'+o.id, o, { rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'], eventType: 'KPI_UPDATED' });
-  if (window.CloudSync && window.CloudSync.isLive && navigator.onLine) {
-    window.CloudSync.pushDocument('orders', o);
-  } else {
-    queueOfflineAction({ type: 'sync-order', payload: o });
+function saveOrder(o, options = {}) { 
+  const currentOrder = getOrder(o.id);
+  const validation = options.trustedRemote
+    ? OrderSecurity.validateOrderIntegrity(o)
+    : OrderSecurity.validateOrderWrite({ currentOrder, nextOrder: o, session: SESSION, operation: 'save' });
+  if (!validation.ok) {
+    if (window.showToast) window.showToast(`⚠ ${validation.reason}`);
+    console.warn('[ReGenX] Order write blocked:', validation.reason, o);
+    return false;
   }
+
+  const nextOrder = validation.order;
+  const rooms = validation.rooms || OrderSecurity.resolveOrderRooms({ currentOrder, nextOrder, session: SESSION });
+
+  // persist locally and publish to realtime and cloud sync when available
+  DB.set('ord:'+nextOrder.id, nextOrder, { rooms, eventType: 'KPI_UPDATED', localOnly: Boolean(options.localOnly) });
+  if (!options.localOnly && window.CloudSync && window.CloudSync.isLive && navigator.onLine) {
+    window.CloudSync.pushDocument('orders', nextOrder);
+  } else if (!options.localOnly) {
+    queueOfflineAction({ type: 'sync-order', payload: nextOrder });
+  }
+  return true;
 }
 function getAllLogs() { return DB.list('log:').map(k => DB.get(k)).filter(Boolean).sort((a,b)=>b.ts-a.ts); }
 
@@ -3303,7 +3325,11 @@ window.clearAllHistory = function(role) {
     if(role === 'rider') return o.riderId === SESSION.id && o.status === 'completed';
     return false;
   });
-  orders.forEach(o => ReGenXRealtime?.removeOrderKey(o.id, { rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'], eventType: 'KPI_UPDATED' }));
+  orders.forEach(o => {
+    const validation = OrderSecurity.validateOrderWrite({ currentOrder: o, nextOrder: o, session: SESSION, operation: 'delete' });
+    if (!validation.ok) return;
+    ReGenXRealtime?.removeOrderKey(o.id, { rooms: validation.rooms || OrderSecurity.getOrderParticipantRooms(o), eventType: 'KPI_UPDATED' });
+  });
   showToast("✓ History Cleared");
   refreshCurrentView(true);
 }
@@ -3329,7 +3355,7 @@ window.submitPvRequest = function() {
     id: uid(), ts: ts(), providerId: SESSION.id, providerOrg: SESSION.org, providerLat: SESSION.lat, providerLng: SESSION.lng,
     wasteType: type, kg, shift, plantId: nearest.id, plantName: nearest.org, status: 'requested'
   };
-  saveOrder(o);
+  if (!saveOrder(o)) return;
   addSlaEntry(o);
   recordTrustEvent(o, 'requested', 'provider', { lat: SESSION.lat, lng: SESSION.lng });
   // Notify local roles and publish an operational realtime event
@@ -3371,7 +3397,8 @@ window.submitPvRequest = function() {
 
 window.cancelOrder = function(id) {
   const o = getOrder(id); if(!o) return;
-  o.status = 'rejected'; saveOrder(o);
+  o.status = 'rejected';
+  if (!saveOrder(o)) return;
   publishOperationalEvent('KPI_UPDATED', [], {
     toast: `Dispatch #${o.id.slice(-6).toUpperCase()} was cancelled.`,
     statusLabel: 'Cancelled'
@@ -3380,7 +3407,16 @@ window.cancelOrder = function(id) {
 }
 
 window.deleteOrder = function(id) {
-  ReGenXRealtime?.removeOrderKey(id, { rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'], eventType: 'KPI_UPDATED', meta: { statusLabel: 'Order removed' } });
+  const currentOrder = getOrder(id);
+  if (!currentOrder) return;
+  const validation = OrderSecurity.validateOrderWrite({ currentOrder, nextOrder: currentOrder, session: SESSION, operation: 'delete' });
+  if (!validation.ok) {
+    if (window.showToast) window.showToast(`⚠ ${validation.reason}`);
+    console.warn('[ReGenX] Order delete blocked:', validation.reason, currentOrder);
+    return;
+  }
+
+  ReGenXRealtime?.removeOrderKey(id, { rooms: validation.rooms || OrderSecurity.getOrderParticipantRooms(currentOrder), eventType: 'KPI_UPDATED', meta: { statusLabel: 'Order removed' } });
   showToast("✓ Record Deleted");
   refreshCurrentView(true);
 }
@@ -3782,7 +3818,7 @@ window.switchRdTab = function(t) { window._rdTab = t; refreshCurrentView(true); 
 window.riderAccept = function(id) {
   const o = getOrder(id); if(!o) return;
   o.status = 'assigned'; o.riderId = SESSION.id; o.riderName = SESSION.name;
-  saveOrder(o);
+  if (!saveOrder(o)) return;
   updateSlaEntry(o.id, { status: 'assigned' });
   recordTrustEvent(o, 'assigned', 'rider', { lat: SESSION.lat, lng: SESSION.lng });
   addWorkflowNotification({
@@ -3822,7 +3858,8 @@ window.riderAccept = function(id) {
 }
 window.riderUpdate = function(id, st) {
   const o = getOrder(id); if(!o) return;
-  o.status = st; saveOrder(o);
+  o.status = st;
+  if (!saveOrder(o)) return;
   updateSlaEntry(o.id, { status: st });
   recordTrustEvent(o, st, 'rider', { lat: SESSION.lat, lng: SESSION.lng });
   if (st === 'en_route') {
@@ -3869,7 +3906,7 @@ window.confirmPickup = function(id) {
   const kg = document.getElementById('m-kg').value;
   if(!kg) return showToast("⚠ Enter weight.");
   const o = getOrder(id); o.status = 'picked_up'; o.actualKg = kg; o.quality = document.getElementById('m-qual').value;
-  saveOrder(o);
+  if (!saveOrder(o)) return;
   updateSlaEntry(o.id, { pickupTs: ts(), status: 'picked_up' });
   recordTrustEvent(o, 'picked_up', 'rider', { lat: SESSION.lat, lng: SESSION.lng });
   addWorkflowNotification({
@@ -4313,32 +4350,44 @@ window.openPlantConfirm = function(id) {
 window.confirmPlantReceipt = function(id) {
   const o = getOrder(id); if(!o) return;
   if (o.status === 'completed') return showToast('Order already processed.');
+  const confirmed = confirm(
+  "Are you sure you want to mark this dispatch as completed?"
+  );
+
+  if (!confirmed) return;
+
   const score = document.getElementById('p-score').value || 0;
   o.status = 'completed'; o.segScore = score;
-  
+
   const providerAcc = DB.get('acc:' + o.providerId);
+    let trustScore = null;
+    let earnedTokens = 0;
+    let expectedTokens = 0;
   if (providerAcc) {
      const providerHistory = getAllOrders().filter(ord => ord.providerId === o.providerId && ord.status === 'completed');
-     const trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
-      const baseTokens = Math.round((o.actualKg || o.kg) * 2);
-      const earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
+      trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
+      expectedTokens = Math.round((o.actualKg || o.kg) * 2);
+      earnedTokens = TrustProtocol.calculateReward(expectedTokens, trustScore);
      
      providerAcc.tokens = (providerAcc.tokens || 0) + earnedTokens;
      o.tokensMinted = earnedTokens;
      o.txHash = '0x' + uid() + uid() + uid();
+  }
 
-     DB.set('acc:' + o.providerId, providerAcc);
-     if (SESSION.role === 'provider' && SESSION.id === o.providerId) {
-         SESSION.tokens = providerAcc.tokens;
-         document.getElementById('token-balance').textContent = SESSION.tokens;
-     }
+    if (!saveOrder(o)) return;
+
+    if (providerAcc) {
+      DB.set('acc:' + o.providerId, providerAcc);
+      if (SESSION.role === 'provider' && SESSION.id === o.providerId) {
+        SESSION.tokens = providerAcc.tokens;
+        document.getElementById('token-balance').textContent = SESSION.tokens;
+      }
 
       // Expected tokens represent the base (non-trust-multiplied) reward.
       // Minted tokens include the TrustProtocol multiplier, so deltaPct reflects
       // the trust bonus/penalty percentage (and enables mismatch flagging).
-      const expectedTokens = baseTokens;
       const deltaPct = expectedTokens > 0 ? Math.abs(earnedTokens - expectedTokens) / expectedTokens * 100 : 0;
-     addCreditEntry({
+      addCreditEntry({
        id: 'credit-' + uid(),
        orderId: o.id,
        org: o.providerOrg,
@@ -4347,16 +4396,9 @@ window.confirmPlantReceipt = function(id) {
        deltaPct,
        trustScore,
        ts: ts()
-     });
-  }
+      });
+    }
 
-  const confirmed = confirm(
-  "Are you sure you want to mark this dispatch as completed?"
-  );
-
-  if (!confirmed) return;
-
-  saveOrder(o);
   updateSlaEntry(o.id, { completeTs: ts(), status: 'completed' });
   recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION.lng });
   recordTrustEvent(o, 'sealed', 'plant', { lat: SESSION.lat, lng: SESSION.lng });

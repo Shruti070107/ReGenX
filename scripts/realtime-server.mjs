@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
+import { OrderSecurity } from '../src/order-security.js';
 
 dotenv.config();
 
@@ -12,6 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 const stateFile = path.join(rootDir, 'data', 'realtime-state.json');
+const STORAGE_PREFIX = 'regenx-v3:';
 const PORT = Number(process.env.PORT || 4173);
 const ALLOWED_ORIGINS = new Set(
   String(process.env.ALLOWED_ORIGINS || 'http://localhost:4173,http://127.0.0.1:4173')
@@ -128,14 +130,13 @@ io.on('connection', (socket) => {
   socket.emit('sync:snapshot', { version: state.version, records: state.records });
 
   socket.on('session:join', ({ session, rooms = [] } = {}) => {
-    const joinedRooms = new Set(['network_room', ...(rooms || [])]);
-    if (session?.role) joinedRooms.add(`${session.role}s_room`);
-    if (session?.role) joinedRooms.add(`${session.role}_room`);
-    if (session?.id) joinedRooms.add(`session:${session.id}`);
+    socket.data.session = session || null;
+    const joinedRooms = new Set(OrderSecurity.getSessionRooms(session));
     joinedRooms.forEach((room) => socket.join(room));
   });
 
   socket.on('session:leave', () => {
+    socket.data.session = null;
     socket.rooms.forEach((room) => {
       if (room !== socket.id) socket.leave(room);
     });
@@ -146,7 +147,53 @@ io.on('connection', (socket) => {
   });
 
   socket.on('operational:event', async (payload = {}) => {
+    const session = socket.data.session || null;
+    if (!session?.id || !session?.role) {
+      socket.emit('sync:error', { message: 'Missing authenticated session for realtime write.' });
+      return;
+    }
+
     const updates = Array.isArray(payload.updates) ? payload.updates : [];
+    const orderUpdate = updates.find((update) => typeof update?.key === 'string' && update.key.startsWith(`${STORAGE_PREFIX}ord:`));
+
+    if (orderUpdate) {
+      const currentOrder = state.records[orderUpdate.key] || null;
+      const isDelete = orderUpdate.action === 'remove' || typeof orderUpdate.value === 'undefined';
+      const validation = isDelete
+        ? OrderSecurity.validateOrderWrite({ currentOrder, nextOrder: currentOrder, session, operation: 'delete' })
+        : OrderSecurity.validateOrderWrite({ currentOrder, nextOrder: orderUpdate.value, session, operation: 'save' });
+
+      if (!validation.ok) {
+        socket.emit('sync:error', { message: validation.reason });
+        return;
+      }
+
+      const sanitizedUpdates = updates.map((update) => {
+        if (update !== orderUpdate) return update;
+        return isDelete ? update : { ...update, value: validation.order };
+      });
+
+      if (isDelete) {
+        delete state.records[orderUpdate.key];
+      } else {
+        state.records[orderUpdate.key] = validation.order;
+      }
+
+      state.version += 1;
+      await persistState();
+
+      const response = {
+        ...payload,
+        rooms: validation.rooms || OrderSecurity.resolveOrderRooms({ currentOrder, nextOrder: validation.order, session, operation: 'save' }),
+        updates: sanitizedUpdates,
+        sourceId: socket.id,
+        version: state.version,
+        ts: Date.now()
+      };
+      broadcastToRooms(response);
+      return;
+    }
+
     if (!updates.length) {
       broadcastToRooms({
         ...payload,
@@ -162,6 +209,7 @@ io.on('connection', (socket) => {
 
     const response = {
       ...payload,
+      rooms: OrderSecurity.resolveEventRooms({ session, requestedRooms: payload.rooms, eventType: payload.type, operation: 'event' }),
       sourceId: socket.id,
       version: state.version,
       ts: Date.now()

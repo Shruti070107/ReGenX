@@ -1,3 +1,4 @@
+import { OrderSecurity } from './order-security.js';
 const STORAGE_PREFIX = 'regenx-v3:';
 const RAW_KEYS = new Set([
   'trust-ledger',
@@ -69,12 +70,7 @@ function updateConnectionBadge(status, detail = '') {
 
 function joinCurrentSession() {
   if (!socket || !session) return;
-  const rooms = normalizeRoomList([
-    NETWORK_ROOM,
-    ROOM_NAMES[session.role],
-    session.role ? `${session.role}s_room` : null,
-    `session:${session.id}`
-  ]);
+  const rooms = normalizeRoomList(OrderSecurity.getSessionRooms(session));
 
   socket.emit('session:join', {
     session,

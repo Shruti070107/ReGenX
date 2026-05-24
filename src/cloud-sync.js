@@ -5,6 +5,8 @@
  * @author GSSoC Contributor
  */
 
+import { OrderSecurity } from './order-security.js';
+
 const STORAGE_KEY_PREFIX = "regenx-v3:";
 
 /**
@@ -222,16 +224,24 @@ export const CloudSync = {
                 
                 const syncedOrder = response.payload;
                 if (!syncedOrder || !syncedOrder.id) return;
+
+                const validated = OrderSecurity.validateOrderIntegrity(syncedOrder);
+                if (!validated.ok) {
+                    console.warn('[CloudSync] Ignoring invalid remote order payload:', validated.reason, syncedOrder);
+                    return;
+                }
+
+                const orderToStore = validated.order;
                 
                 const localOrder = getLocalOrder(syncedOrder.id);
                 
                 const hasChanged = !localOrder || 
-                                   localOrder.status !== syncedOrder.status ||
-                                   localOrder.kg !== syncedOrder.kg ||
-                                   localOrder.actualKg !== syncedOrder.actualKg ||
-                                   localOrder.quality !== syncedOrder.quality ||
-                                   localOrder.riderId !== syncedOrder.riderId ||
-                                   localOrder.riderName !== syncedOrder.riderName;
+                                   localOrder.status !== orderToStore.status ||
+                                   localOrder.kg !== orderToStore.kg ||
+                                   localOrder.actualKg !== orderToStore.actualKg ||
+                                   localOrder.quality !== orderToStore.quality ||
+                                   localOrder.riderId !== orderToStore.riderId ||
+                                   localOrder.riderName !== orderToStore.riderName;
                                    
                 if (hasChanged) {
                     console.log(`🔄 Synced order [${syncedOrder.id}] has changes. Saving locally.`);
@@ -239,7 +249,7 @@ export const CloudSync = {
                     const originalLive = CloudSync.isLive;
                     CloudSync.isLive = false;
                     try {
-                        window.saveOrder(syncedOrder);
+                        if (!window.saveOrder(orderToStore, { trustedRemote: true, localOnly: true })) return;
                     } finally {
                         CloudSync.isLive = originalLive;
                     }
@@ -266,24 +276,17 @@ export const CloudSync = {
      * @returns {Object} Sanitized object ready for Appwrite.
      */
     sanitizeDoc: (doc) => {
+        const normalized = OrderSecurity.normalizeOrderDocument(doc);
         const sanitized = {};
         
-        const stringFields = ['id', 'providerId', 'providerOrg', 'wasteType', 'shift', 'plantId', 'plantName', 'status', 'riderId', 'riderName', 'quality'];
+        const stringFields = ['id', 'providerId', 'providerOrg', 'wasteType', 'shift', 'plantId', 'plantName', 'status', 'riderId', 'riderName', 'quality', 'txHash'];
         stringFields.forEach(field => {
-            if (doc[field] !== undefined && doc[field] !== null) {
-                sanitized[field] = String(doc[field]);
-            } else {
-                sanitized[field] = '';
-            }
+            sanitized[field] = normalized[field] !== undefined && normalized[field] !== null ? String(normalized[field]) : '';
         });
 
-        const numberFields = ['ts', 'providerLat', 'providerLng', 'kg', 'actualKg'];
+        const numberFields = ['ts', 'providerLat', 'providerLng', 'kg', 'actualKg', 'segScore', 'tokensMinted'];
         numberFields.forEach(field => {
-            if (doc[field] !== undefined && doc[field] !== null) {
-                sanitized[field] = Number(doc[field]);
-            } else {
-                sanitized[field] = 0;
-            }
+            sanitized[field] = normalized[field] !== undefined && normalized[field] !== null ? Number(normalized[field]) : 0;
         });
 
         return sanitized;
@@ -301,7 +304,21 @@ export const CloudSync = {
         CloudSync.renderSyncBadge('syncing', 'Syncing...');
 
         try {
-            const sanitizedDoc = CloudSync.sanitizeDoc(payload);
+            const currentOrder = payload?.id ? getLocalOrder(payload.id) : null;
+            const validation = OrderSecurity.validateOrderWrite({
+                currentOrder,
+                nextOrder: payload,
+                session: window.SESSION || null,
+                operation: 'save'
+            });
+
+            if (!validation.ok) {
+                console.warn('[CloudSync] Blocked unauthorized order write:', validation.reason, payload);
+                CloudSync.renderSyncBadge('live', 'Cloud Live');
+                return false;
+            }
+
+            const sanitizedDoc = CloudSync.sanitizeDoc(validation.order);
             const { databaseId, ordersCollectionId } = CloudSync.config;
 
             try {
@@ -327,9 +344,11 @@ export const CloudSync = {
             }
 
             CloudSync.renderSyncBadge('live', 'Cloud Live');
+            return true;
         } catch (e) {
             console.error("Failed to sync document to Appwrite:", e);
             CloudSync.renderSyncBadge('error', 'Sync Error');
+            throw e;
         }
     },
 
@@ -512,11 +531,14 @@ export const CloudSync = {
 
             // Hydrate orders — cloud wins if timestamp is newer
             for (const order of cloudOrders) {
+                const validated = OrderSecurity.validateOrderIntegrity(order);
+                if (!validated.ok) continue;
+                const orderToStore = validated.order;
                 const localKey = STORAGE_KEY_PREFIX + 'ord:' + order.id;
                 const localRaw = localStorage.getItem(localKey);
                 const localOrder = localRaw ? JSON.parse(localRaw) : null;
-                if (!localOrder || (order.ts > (localOrder.ts || 0))) {
-                    localStorage.setItem(localKey, JSON.stringify(order));
+                if (!localOrder || (orderToStore.ts > (localOrder.ts || 0))) {
+                    localStorage.setItem(localKey, JSON.stringify(orderToStore));
                 }
             }
 
