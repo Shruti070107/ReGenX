@@ -197,6 +197,9 @@ window.BioScanner = (function () {
       const result = classifyResult(preds);
       _currentResult = result;
 
+      // Persist result so it survives a page refresh
+      if (_opts.onScanComplete) _opts.onScanComplete(result);
+
       // Save to history
       const record = {
         id: Date.now().toString(36),
@@ -627,7 +630,14 @@ window.BioScanner = (function () {
 
   api._back = function () {
     stopCamera();
+    window.removeEventListener('beforeunload', window._bioScannerUnloadGuard);
     if (_opts.onBack) _opts.onBack();
+  };
+
+  api._restoreResult = function (result) {
+    _currentResult = result;
+    setUiState('result');
+    renderResult(result);
   };
 
   // ── PUBLIC OPEN ───────────────────────────────────────────────────────────────
@@ -636,10 +646,18 @@ window.BioScanner = (function () {
     _currentResult = null;
     renderScanner();
     setUiState('idle');
+
+    // Warn user if they try to leave mid-scan
+    window._bioScannerUnloadGuard = function (e) {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', window._bioScannerUnloadGuard);
   };
 
   api.stop = function () {
     stopCamera();
+    window.removeEventListener('beforeunload', window._bioScannerUnloadGuard);
   };
 
   return api;

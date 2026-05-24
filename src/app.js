@@ -1,4 +1,3 @@
-
 import { Intelligence } from './intelligence.js';
 import { TrustProtocol } from './trust.js';
 import { YieldOptimizer } from './yield-optimizer.js';
@@ -19,6 +18,7 @@ const EMISSIONS_LEDGER_KEY = STORAGE_KEY_PREFIX + "emissions-ledger";
 const QUALITY_LEDGER_KEY = STORAGE_KEY_PREFIX + "quality-ledger";
 const AUTOMATION_PIPELINE_KEY = STORAGE_KEY_PREFIX + "automation-pipeline";
 const SESSION_STATE_KEY = STORAGE_KEY_PREFIX + 'active-session';
+const SCANNER_STATE_KEY = STORAGE_KEY_PREFIX + 'bio-scanner-state';
 
 function saveActiveSession(accountId, viewId) {
   try {
@@ -29,6 +29,38 @@ function saveActiveSession(accountId, viewId) {
 
 function clearPersistedSession() {
   try { window.localStorage.removeItem(SESSION_STATE_KEY); } catch { }
+}
+
+function saveScannerState(result, opts) {
+  try {
+    window.localStorage.setItem(SCANNER_STATE_KEY, JSON.stringify({
+      result,
+      userId: opts.userId,
+      userOrg: opts.userOrg,
+      ts: Date.now()
+    }));
+  } catch { /* ignore storage failures */ }
+}
+
+function loadScannerState() {
+  try {
+    const raw = window.localStorage.getItem(SCANNER_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Discard stale state older than 30 minutes
+    if (!parsed || Date.now() - parsed.ts > 30 * 60 * 1000) {
+      clearScannerState();
+      return null;
+    }
+    return parsed;
+  } catch {
+    clearScannerState();
+    return null;
+  }
+}
+
+function clearScannerState() {
+  try { window.localStorage.removeItem(SCANNER_STATE_KEY); } catch { }
 }
 
 function loadPersistedSession() {
@@ -3374,7 +3406,14 @@ window.openScanner = function() {
     userOrg: SESSION.org,
     userId: SESSION.id,
     onBack: () => closeScanner(),
+    onScanComplete: (result) => {
+      saveScannerState(result, {
+        userId: SESSION.id,
+        userOrg: SESSION.org
+      });
+    },
     onApply: (score, organicPercent) => {
+      clearScannerState();
       showView('v-pv-req');
       setTimeout(() => {
         const rKg = document.getElementById('req-kg'); if(rKg) rKg.value = Math.floor(Math.random() * 150 + 50); 
@@ -3388,6 +3427,13 @@ window.openScanner = function() {
     }
   });
   document.getElementById('modal').classList.add('open');
+
+  // Restore scan result if page was refreshed mid-session
+  const previousState = loadScannerState();
+  if (previousState?.result) {
+    showToast('🔄 Previous scan result restored.');
+    BioScanner._restoreResult(previousState.result);
+  }
 }
 
 window.closeModal = function() {
