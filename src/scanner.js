@@ -45,6 +45,13 @@ window.BioScanner = (function () {
     'sky', 'water', 'road', 'wall', 'floor', 'ceiling'
   ];
 
+  /**
+   * Minimum confidence percentage required for a result to be considered reliable.
+   * Results below this threshold are flagged as "Estimated" and blocked from
+   * auto-applying to dispatch forms without user confirmation.
+   */
+  const CONFIDENCE_THRESHOLD = 70;
+
   // ── STATE ────────────────────────────────────────────────────────────────────
   let _opts = {};
   let _stream = null;
@@ -105,12 +112,15 @@ window.BioScanner = (function () {
     let wasteCategory = 'Unknown Waste Type';
     let recommendation = '';
 
-    if (organicScore > inorganicScore && organicScore > 5) {
+   if (organicScore > inorganicScore && organicScore > 5) {
       accepted = true;
       confidence = Math.min(95, Math.round(organicScore * 1.8));
       wasteCategory = detectWasteCategory(topLabel);
       reason = 'Organic matter detected. Suitable for anaerobic digestion and biogas generation.';
-      recommendation = 'Proceed with standard intake protocol. Estimate biogas yield: ' + estimateBiogas(confidence) + ' m³/tonne.';
+      const biogasEstimate = estimateBiogas(confidence);
+      recommendation = biogasEstimate
+        ? 'Proceed with standard intake protocol. Estimated biogas yield: ' + biogasEstimate + ' m³/tonne.'
+        : 'Proceed with standard intake protocol. Biogas yield estimate unavailable — confidence below threshold. Manual assessment required.';
     } else if (inorganicScore > organicScore && inorganicScore > 5) {
       accepted = false;
       confidence = Math.min(95, Math.round(inorganicScore * 1.8));
@@ -126,6 +136,11 @@ window.BioScanner = (function () {
       recommendation = 'Manual inspection required before acceptance. Do not process without verification.';
     }
 
+    // Flag as estimated when confidence is low OR keyword signal was weak.
+    // MobileNet is trained on ImageNet (general objects), not bio-waste —
+    // all outputs from this model are indicative proxies, not validated classifications.
+    const isEstimated = confidence < CONFIDENCE_THRESHOLD || totalSignal < 10;
+
     return {
       accepted,
       confidence,
@@ -133,6 +148,7 @@ window.BioScanner = (function () {
       wasteCategory,
       reason,
       recommendation,
+      isEstimated,
       topLabel: predictions[0]?.className || 'N/A',
       allPredictions: predictions.slice(0, 3)
     };
@@ -159,7 +175,14 @@ window.BioScanner = (function () {
     return 'Non-Biodegradable Waste';
   }
 
+ /**
+   * Estimates biogas yield range only when confidence meets the minimum threshold.
+   * Returns null when confidence is too low to produce a meaningful estimate.
+   * @param {number} confidence - Classifier confidence percentage (0–100).
+   * @returns {string|null} Yield range string (e.g. "240–300") or null.
+   */
   function estimateBiogas(confidence) {
+    if (confidence < CONFIDENCE_THRESHOLD) return null;
     const base = 180 + Math.round((confidence / 100) * 120);
     return base + '–' + (base + 60);
   }
@@ -257,7 +280,15 @@ window.BioScanner = (function () {
           <div style="font-size:36px; margin-bottom:8px; animation: bs-pop 0.4s cubic-bezier(0.34,1.56,0.64,1);">${icon}</div>
           <div style="font-size:13px; font-weight:800; letter-spacing:2px; color:${color}; text-transform:uppercase; margin-bottom:4px;">${statusText}</div>
           <div style="font-size:22px; font-weight:700; margin-bottom:2px;">${result.wasteCategory}</div>
-          <div style="font-size:12px; color:var(--text-muted);">AI Confidence: <strong style="color:${color}">${result.confidence}%</strong> &nbsp;·&nbsp; Organic Content: <strong>${result.organicPercent}%</strong></div>
+          <div style="font-size:12px; color:var(--text-muted);">
+            AI Confidence: <strong style="color:${color}">${result.confidence}%</strong>
+            &nbsp;·&nbsp; Organic Content: <strong>${result.organicPercent}%</strong>
+            ${result.isEstimated ? `&nbsp;·&nbsp;
+              <span style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.4);
+                border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; letter-spacing:0.5px;">
+                ⚠ ESTIMATED
+              </span>` : ''}
+          </div>
         </div>
 
         <!-- Organic Bar -->
@@ -283,6 +314,12 @@ window.BioScanner = (function () {
         <!-- Analysis Details -->
         <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:10px;">
           <div style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px;">AI Analysis</div>
+          <div style="font-size:11px; color:var(--text-muted); font-style:italic; margin-bottom:2px;">
+            🤖 Classified using MobileNet v2 (ImageNet-1K) —
+            ${result.isEstimated
+              ? 'Low confidence. Scores are indicative only and should not replace manual inspection.'
+              : 'Scores are indicative and should supplement, not replace, manual assessment.'}
+          </div>
           <div style="font-size:13px; line-height:1.6;"><strong>Assessment:</strong> ${result.reason}</div>
           <div style="
             background:${bgColor};
@@ -308,6 +345,33 @@ window.BioScanner = (function () {
             </div>
           `).join('')}
         </div>
+
+        <!-- Estimated Disclaimer Card -->
+        ${result.isEstimated ? `
+          <div style="
+            background:rgba(245,158,11,0.08);
+            border:1px solid rgba(245,158,11,0.3);
+            border-radius:12px;
+            padding:14px;
+            display:flex;
+            gap:12px;
+            align-items:flex-start;
+          ">
+            <div style="font-size:20px; flex-shrink:0;">⚠️</div>
+            <div>
+              <div style="font-size:12px; font-weight:700; color:#f59e0b; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">
+                Low-Confidence Result — Estimated Only
+              </div>
+              <div style="font-size:12px; color:var(--text-muted); line-height:1.6;">
+                The underlying model (MobileNet, trained on ImageNet's 1,000 general object categories)
+                has no domain knowledge of bio-waste. This result was derived from keyword-matching on
+                unrelated image predictions. <strong>Do not use this score as the sole basis for
+                dispatch acceptance or $RGX token reward decisions.</strong>
+                Manual inspection is required.
+              </div>
+            </div>
+          </div>
+        ` : ''}
 
         <!-- Action Buttons -->
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -610,8 +674,22 @@ window.BioScanner = (function () {
 
   // ── PUBLIC API ────────────────────────────────────────────────────────────────
   api._applyResult = function () {
-    if (_currentResult && _opts.onApply) {
-      _opts.onApply(_currentResult.confidence, _currentResult.organicPercent);
+    if (!_currentResult) return;
+
+    // Warn user before applying an estimated result to the dispatch form.
+    // Estimated results should not silently gate token-reward decisions.
+    if (_currentResult.isEstimated) {
+      const proceed = confirm(
+        `⚠️ Low-Confidence Scan (${_currentResult.confidence}%)\n\n` +
+        `This result is marked ESTIMATED. The AI model used (MobileNet, ImageNet) ` +
+        `was not trained on bio-waste and may be inaccurate.\n\n` +
+        `Apply to dispatch form anyway? Manual verification is strongly recommended.`
+      );
+      if (!proceed) return;
+    }
+
+    if (_opts.onApply) {
+      _opts.onApply(_currentResult.confidence, _currentResult.organicPercent, _currentResult.isEstimated);
     }
   };
 

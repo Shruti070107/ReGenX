@@ -3374,12 +3374,15 @@ window.openScanner = function() {
     userOrg: SESSION.org,
     userId: SESSION.id,
     onBack: () => closeScanner(),
-    onApply: (score, organicPercent) => {
+    onApply: (score, organicPercent, isEstimated) => {
       showView('v-pv-req');
       setTimeout(() => {
         const rKg = document.getElementById('req-kg'); if(rKg) rKg.value = Math.floor(Math.random() * 150 + 50); 
         const rType = document.getElementById('req-type'); if(rType) rType.value = organicPercent > 70 ? "Food Waste" : "Dry Waste";
-        showToast(`✓ Scanner Data Applied: ${score}% Segregation Score`);
+        const msg = isEstimated
+          ? `⚠ Estimated Score Applied: ${score}% — results are indicative only. Verify before submitting.`
+          : `✓ Scanner Data Applied: ${score}% Segregation Score`;
+        showToast(msg);
         closeScanner();
       }, 200);
     },
@@ -4509,6 +4512,10 @@ window.openPlantConfirm = function(id) {
         <div style="display:flex; gap:8px;">
             <input type="number" id="p-score" class="form-input" style="flex:1;">
             <button class="btn btn-outline-primary" style="white-space:nowrap; border:2px solid var(--blue); color:var(--blue);" onclick="window.VisionScanner.openScanner('p-score')">📸 AI Scan</button>
+        </div>
+        <div style="font-size:11px; color:var(--amber); margin-top:6px; line-height:1.5;">
+          ⚠ AI scan scores are <strong>estimated</strong> — not from a validated bio-waste model.
+          Manual verification is recommended before using this score for token-gated decisions.
         </div>
     </div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="confirmPlantReceipt('${id}')">Accept Load ✓</button></div>

@@ -261,9 +261,27 @@ export const VisionScanner = {
         }
 
         setTimeout(() => {
-            // Algorithmic Mock: Generate a score between 60 and 95
-            const simulatedScore = Math.floor(Math.random() * (95 - 60 + 1) + 60);
-            
+            // ── Pixel-based color heuristic analysis ──────────────────────────────
+            // NOTE: No validated bio-waste ML model is available in this version.
+            // This uses green/brown channel dominance as a lightweight organic proxy.
+            // Outputs are ESTIMATED and indicative only — not from a trained classifier.
+            // A fine-tuned EfficientNet or MobileNetV3 on TrashNet/TACO dataset
+            // should replace this when available.
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            let greenPixels = 0, brownPixels = 0;
+            const totalPixels = canvas.width * canvas.height;
+
+            for (let i = 0; i < imageData.length; i += 4) {
+                const r = imageData[i], g = imageData[i + 1], b = imageData[i + 2];
+                // Organic proxy: green-dominant (vegetation) or brown-dominant (food waste)
+                if (g > r && g > b && g > 55) greenPixels++;
+                if (r > 100 && r > g && g > 50 && b < 80) brownPixels++;
+            }
+
+            // Map organic signal to a 45–85 score range — never false 100% confidence
+            const organicSignal = ((greenPixels + brownPixels) / totalPixels) * 100;
+            const simulatedScore = Math.min(85, Math.max(45, Math.round(organicSignal * 2.2 + 42)));
+
             // Set the value in the target input
             const targetEl = document.getElementById(targetInputId);
             if (targetEl) {
@@ -271,10 +289,10 @@ export const VisionScanner = {
                 targetEl.dispatchEvent(new Event('input', { bubbles: true }));
             }
 
-            // Close scanner and notify
+            // Close scanner and notify with explicit estimated disclaimer
             VisionScanner.closeScanner();
             if (window.showToast) {
-                window.showToast(`✓ AI Scan Complete: Segregation Score ${simulatedScore}/100`);
+                window.showToast(`⚠ Estimated Score: ${simulatedScore}/100 — not from a validated waste model. Verify manually.`);
             }
         }, 1500);
     },
