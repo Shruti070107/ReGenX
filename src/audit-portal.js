@@ -522,17 +522,18 @@ export const AuditPortal = {
                                             ${step.icon}
                                         </div>
 
-<div class="glass-card" style="flex: 1; padding: 14px; border-color: ${step.active ? (step.icon === '⚠️' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.2)') : 'var(--border)'}; background: ${step.active ? (step.icon === '⚠️' ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.02)') : 'rgba(255,255,255,0.01)'}; transition: all 0.3s; opacity: ${step.active ? 1 : 0.45};">
-                                    <div class="between" style="margin-bottom: 4px; flex-wrap: wrap;">
-                                        <span style="font-weight: 700; font-size: 13px; color: ${step.active ? (step.icon === '⚠️' ? '#EF4444' : 'var(--text)') : 'var(--text-muted)'};">${step.label}</span>
-                                        <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${step.time}</span>
+                                        <div class="glass-card" style="flex: 1; padding: 14px; border-color: ${step.active ? (step.icon === '⚠️' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.2)') : 'var(--border)'}; background: ${step.active ? (step.icon === '⚠️' ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.02)') : 'rgba(255,255,255,0.01)'}; transition: all 0.3s; opacity: ${step.active ? 1 : 0.45};">
+                                            <div class="between" style="margin-bottom: 4px; flex-wrap: wrap;">
+                                                <span style="font-weight: 700; font-size: 13px; color: ${step.active ? (step.icon === '⚠️' ? '#EF4444' : 'var(--text)') : 'var(--text-muted)'};">${step.label}</span>
+                                                <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${step.time}</span>
+                                            </div>
+                                            <p style="font-size: 12px; color: ${step.icon === '⚠️' ? '#EF4444' : 'var(--text-muted)'}; line-height: 1.4; margin: 0;">${step.desc}</p>
+                                        </div>
                                     </div>
-                                    <p style="font-size: 12px; color: ${step.icon === '⚠️' ? '#EF4444' : 'var(--text-muted)'}; line-height: 1.4; margin: 0;">${step.desc}</p>
-                                </div>
-                            </div>
+                                `).join('')}
                             </div>
                         </div>
-
+                        </div>
                     </div>
                 </div>
 `;
