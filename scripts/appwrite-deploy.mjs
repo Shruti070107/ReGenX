@@ -17,7 +17,6 @@ if (!endpoint || !projectId || !apiKey) {
   );
   process.exit(1);
 }
-
 function request(url, options = {}) {
   const headers = {
     "X-Appwrite-Project": projectId,

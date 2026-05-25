@@ -1,10 +1,10 @@
 {
   "name": "regenx-control-room",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "serve": "python -m http.server 4173",
+    "serve": "node ./scripts/realtime-server.mjs",
     "deploy:appwrite": "node ./scripts/appwrite-deploy.mjs",
     "build": "echo \"No build step required for static frontend\"",
     "lint": "echo \"lint skipped (no config yet)\"",

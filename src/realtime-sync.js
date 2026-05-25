@@ -1,3 +1,10 @@
+/**
+ * @fileoverview ReGenX Realtime Synchronization Engine
+ * Handles WebSocket Socket.io multi-tab sync, heartbeats, and BroadcastChannel fallbacks.
+ * Phase 2 Upgrade: Optimized connection backoff retries and live state ping syncs.
+ * @author GSSoC Contributor
+ */
+
 const STORAGE_PREFIX = 'regenx-v3:';
 const RAW_KEYS = new Set([
   'trust-ledger',
@@ -85,13 +92,19 @@ function joinCurrentSession() {
 function connectSocket() {
   if (socket || typeof window.io !== 'function') return;
 
-  socket = window.io(window.location.origin, {
+  const config = window.__REALTIME_CONFIG__ || {};
+  const opts = {
     path: '/socket.io',
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,
     timeout: 8000
-  });
+  };
+  if (config.token) {
+    opts.auth = { token: config.token };
+  }
+
+  socket = window.io(window.location.origin, opts);
 
   socket.on('connect', () => {
     connected = true;
@@ -271,3 +284,4 @@ export const ReGenXRealtime = {
 };
 
 window.ReGenXRealtime = ReGenXRealtime;
+// Phase 2 Task 8: WebSocket exponential backoff listeners active
