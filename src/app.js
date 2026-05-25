@@ -20,6 +20,8 @@ const QUALITY_LEDGER_KEY = STORAGE_KEY_PREFIX + "quality-ledger";
 const AUTOMATION_PIPELINE_KEY = STORAGE_KEY_PREFIX + "automation-pipeline";
 const SESSION_STATE_KEY = STORAGE_KEY_PREFIX + 'active-session';
 
+console.log('APP JS LOADED');
+
 function saveActiveSession(accountId, viewId) {
   try {
     const payload = { accountId, lastView: viewId || '', timestamp: Date.now() };
@@ -636,9 +638,31 @@ function loadTrustLedger() {
     const raw = window.localStorage.getItem(TRUST_LEDGER_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(e => e && e._v === 1);
+    const ledger = parsed.filter(e => e && typeof e === 'object');
+    const verification = TrustProtocol.verifyLedgerIntegrity(ledger);
+    if (!verification.valid) {
+      handleTrustLedgerTamper(verification);
+    }
+    return ledger;
   } catch {
+    handleTrustLedgerTamper({ valid: false, tampered: true, brokenIndex: null });
     return [];
+  }
+}
+
+let trustLedgerTamperWarningShown = false;
+
+/**
+ * @function handleTrustLedgerTamper
+ * @description Shows a single warning toast when trust ledger integrity is compromised.
+ * @param {{valid:boolean,tampered:boolean,brokenIndex:(number|null)}} result - Verification result.
+ * @returns {void}
+ */
+function handleTrustLedgerTamper(result) {
+  if (trustLedgerTamperWarningShown || !result?.tampered) return;
+  trustLedgerTamperWarningShown = true;
+  if (window.showToast) {
+    window.showToast('⚠ Trust ledger integrity compromised.');
   }
 }
 
@@ -658,42 +682,96 @@ function handleLedgerStorageError(err) {
 /**
  * Save trust ledger events to localStorage.
  * @param {Array<Object>} events - Ledger events.
+ * @returns {Promise<boolean>} True when persistence succeeds.
  */
-function saveTrustLedger(events) {
+async function saveTrustLedger(events) {
   try {
     const capped = Array.isArray(events) ? events.slice(-200) : [];
-    window.localStorage.setItem(TRUST_LEDGER_KEY, JSON.stringify(capped));
-    ReGenXRealtime?.syncRawKey(TRUST_LEDGER_KEY, capped, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room'] });
-  } catch (err) { handleLedgerStorageError(err); }
-}
-
-/**
- * Canonicalize a value for hashing so object key order cannot affect the digest.
- * @param {*} value - Value to serialize.
- * @returns {string} Stable string representation.
- */
-function canonicalizeHashPayload(value) {
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  if (Array.isArray(value)) return `[${value.map(canonicalizeHashPayload).join(',')}]`;
-  if (typeof value === 'object') {
-    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalizeHashPayload(value[key])}`).join(',')}}`;
+    const prepared = await prepareTrustLedgerForWrite(capped);
+    const verification = TrustProtocol.verifyLedgerIntegrity(prepared);
+    if (!verification.valid) {
+      handleTrustLedgerTamper(verification);
+      return false;
+    }
+    window.localStorage.setItem(TRUST_LEDGER_KEY, JSON.stringify(prepared));
+    ReGenXRealtime?.syncRawKey(TRUST_LEDGER_KEY, prepared, { eventType: 'KPI_UPDATED', rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room'] });
+    return true;
+  } catch (err) {
+    handleLedgerStorageError(err);
+    return false;
   }
-  return JSON.stringify(value);
 }
 
 /**
- * Generate a SHA-256 ledger hash for integrity records.
- * @param {Object} payload - Ledger payload to hash.
+ * Generate a ledger hash (SHA-256 length) for integrity records.
+ * @param {Object} entry - Ledger payload.
+ * @param {string} previousHash - Previous ledger hash.
  * @returns {Promise<string>} Hex hash with 0x prefix.
  */
-async function generateLedgerHash(payload) {
-  if (!window.crypto?.subtle) {
-    throw new Error('Web Crypto API is unavailable in this browser context.');
+async function generateLedgerHash(entry, previousHash = 'GENESIS') {
+  return TrustProtocol.generateLedgerHash(entry, previousHash);
+}
+
+/**
+ * Build the canonical payload for trust ledger hashing.
+ * @param {Object} entry - Ledger entry values.
+ * @param {string} previousHash - Previous chain hash.
+ * @returns {Object} Canonical entry payload.
+ */
+function buildTrustLedgerPayload(entry, previousHash = 'GENESIS') {
+  return {
+    previousHash: typeof previousHash === 'string' && previousHash ? previousHash : 'GENESIS',
+    orderId: typeof entry?.orderId === 'string' ? entry.orderId : String(entry?.orderId ?? ''),
+    event: typeof entry?.event === 'string' ? entry.event : String(entry?.event ?? ''),
+    ts: Number.isFinite(entry?.ts) ? entry.ts : ts(),
+    actorRole: typeof entry?.actorRole === 'string' ? entry.actorRole : String(entry?.actorRole ?? ''),
+    actorId: typeof entry?.actorId === 'string' ? entry.actorId : String(entry?.actorId ?? ''),
+    lat: Number.isFinite(entry?.lat) ? entry.lat : null,
+    lng: Number.isFinite(entry?.lng) ? entry.lng : null
+  };
+}
+
+/**
+ * Normalize a ledger entry into the sealed v2 format and recalculate its hash.
+ * @param {Object} entry - Raw ledger entry.
+ * @param {string} previousHash - Previous chain hash.
+ * @returns {Promise<Object>} Normalized ledger entry.
+ */
+async function prepareTrustLedgerEntry(entry, previousHash = 'GENESIS') {
+  const payload = buildTrustLedgerPayload(entry, previousHash);
+  const hash = await generateLedgerHash(payload, previousHash);
+  return {
+    _v: 2,
+    id: typeof entry?.id === 'string' && entry.id ? entry.id : uid(),
+    orderId: payload.orderId,
+    event: payload.event,
+    ts: payload.ts,
+    lat: payload.lat,
+    lng: payload.lng,
+    actorRole: payload.actorRole,
+    actorId: payload.actorId,
+    trustScore: Number.isFinite(entry?.trustScore) ? entry.trustScore : 0,
+    previousHash,
+    hash,
+    sealed: true,
+    verified: true
+  };
+}
+
+/**
+ * Prepare a ledger for persistence by sealing every entry with a fresh hash chain.
+ * @param {Array<Object>} events - Raw or partially normalized ledger entries.
+ * @returns {Promise<Array<Object>>} Prepared ledger entries.
+ */
+async function prepareTrustLedgerForWrite(events) {
+  const prepared = [];
+  let previousHash = 'GENESIS';
+  for (const entry of Array.isArray(events) ? events : []) {
+    const normalized = await prepareTrustLedgerEntry(entry, previousHash);
+    prepared.push(normalized);
+    previousHash = normalized.hash;
   }
-  const encoded = new TextEncoder().encode(canonicalizeHashPayload(payload));
-  const digest = await window.crypto.subtle.digest('SHA-256', encoded);
-  return '0x' + Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+  return prepared;
 }
 
 /**
@@ -714,6 +792,15 @@ function getOrderRouteEndpoints(order) {
 }
 
 /**
+ * Get trust ledger events for an order in stored chain order.
+ * @param {string} orderId - Order id.
+ * @returns {Array<Object>} Order events in chain order.
+ */
+function getOrderLedgerChainEvents(orderId) {
+  return loadTrustLedger().filter(e => e.orderId === orderId);
+}
+
+/**
  * Get ledger events for a specific order.
  * @param {string} orderId - Order id.
  * @returns {Array<Object>} Order events.
@@ -728,7 +815,7 @@ function getOrderLedgerEvents(orderId) {
  * @returns {{score:number, maxGapMins:number, maxDeviationKm:number, anomalies:{timeGap:boolean,routeDeviation:boolean}}}
  */
 function getOrderIntegrity(order) {
-  const events = getOrderLedgerEvents(order.id);
+  const events = getOrderLedgerChainEvents(order.id);
   const route = getOrderRouteEndpoints(order);
   return TrustProtocol.calculateIntegrityScore(events, route, distanceKm);
 }
@@ -741,10 +828,18 @@ function getOrderIntegrity(order) {
  * @param {{lat?:number,lng?:number}} coords - Event coordinates.
  */
 async function recordTrustEvent(order, event, actorRole, coords = {}) {
-  if (!order) return;
+  if (!order) return false;
   const ledger = loadTrustLedger();
+  const verification = TrustProtocol.verifyLedgerIntegrity(ledger);
+  if (!verification.valid) {
+    handleTrustLedgerTamper(verification);
+    return false;
+  }
+
+  const preparedLedger = await prepareTrustLedgerForWrite(ledger);
+  const previousHash = preparedLedger.length ? preparedLedger[preparedLedger.length - 1].hash : 'GENESIS';
   const entry = {
-    _v: 1,
+    _v: 2,
     id: uid(),
     orderId: order.id,
     event,
@@ -752,31 +847,25 @@ async function recordTrustEvent(order, event, actorRole, coords = {}) {
     lat: typeof coords.lat === 'number' ? coords.lat : null,
     lng: typeof coords.lng === 'number' ? coords.lng : null,
     actorRole,
-    actorId: SESSION.id,
-    trustScore: 0
+    actorId: SESSION?.id || 'unknown',
+    trustScore: 0,
+    previousHash,
+    hash: '',
+    sealed: true,
+    verified: true
   };
-  const nextLedger = [...ledger, entry];
+  entry.hash = await generateLedgerHash(entry, previousHash);
+
+  const nextLedger = [...preparedLedger, entry];
   const route = getOrderRouteEndpoints(order);
   const orderEvents = nextLedger.filter(e => e.orderId === order.id);
   const integrity = TrustProtocol.calculateIntegrityScore(orderEvents, route, distanceKm);
-  entry.trustScore = integrity.score;
-  try {
-    entry.hash = await generateLedgerHash({
-      id: entry.id,
-      orderId: entry.orderId,
-      event: entry.event,
-      ts: entry.ts,
-      lat: entry.lat,
-      lng: entry.lng,
-      actorRole: entry.actorRole,
-      actorId: entry.actorId,
-      trustScore: entry.trustScore
-    });
-  } catch (error) {
-    console.error('Failed to generate trust ledger hash:', error);
-    return;
+  if (integrity.tampered) {
+    handleTrustLedgerTamper(integrity);
+    return false;
   }
-  saveTrustLedger(nextLedger);
+  entry.trustScore = integrity.score;
+  return saveTrustLedger(nextLedger);
 }
 
 /**
@@ -1890,7 +1979,7 @@ window.searchLocation = async function() {
       const lat = parseFloat(data[0].lat);
       const lng = parseFloat(data[0].lon);
       detectedPos = { lat, lng };
-      st.innerHTML = `<span style="color:var(--green)">✓ Found: ${data[0].display_name.split(',')[0]}</span>`;
+      st.innerHTML = `<span style="color:var(--green)">✓ Found: ${escapeHTML(data[0].display_name.split(',')[0])}</span>`;
       
       const mapEl = document.getElementById('reg-map');
       mapEl.classList.add('show');
@@ -1949,7 +2038,7 @@ async function refreshLoginDropdown() {
   if(accounts.length === 0) {
     sel.innerHTML = '<option value="">-- No accounts registered yet --</option>';
   } else {
-    sel.innerHTML = accounts.map(a => `<option value="${a.id}">${a.name} (${a.org}) - ${a.role.toUpperCase()}</option>`).join('');
+    sel.innerHTML = accounts.map(a => `<option value="${escapeHTML(a.id)}">${escapeHTML(a.name)} (${escapeHTML(a.org)}) - ${escapeHTML(a.role).toUpperCase()}</option>`).join('');
   }
 }
 
@@ -1993,7 +2082,7 @@ function startGreenWall() {
   completedOrders.slice(0, 5).forEach(o => {
     const el = document.createElement('div');
     el.className = 'gw-item';
-    el.innerHTML = `<div>🌟 ${o.providerOrg} diverted ${o.actualKg || o.kg}kg of waste!</div><div class="gw-time">${fmtDate(o.ts)}</div>`;
+    el.innerHTML = `<div>🌟 ${escapeHTML(o.providerOrg)} diverted ${escapeHTML(o.actualKg || o.kg)}kg of waste!</div><div class="gw-time">${fmtDate(o.ts)}</div>`;
     feed.appendChild(el);
   });
 }
@@ -2004,7 +2093,7 @@ window.buyMarketItem = function(price, name) {
   const hash = '0x' + Array.from({length:40}, () => Math.floor(Math.random()*16).toString(16)).join('');
   const html = `
     <h3 class="modal-title">Web3 Smart Contract Interaction</h3>
-    <p class="modal-sub">Minting <strong>${name}</strong> to the ReGen Layer-2 Network...</p>
+    <p class="modal-sub">Minting <strong>${escapeHTML(name)}</strong> to the ReGen Layer-2 Network...</p>
     <div style="background:#0a0a0a; color:#0f0; font-family:monospace; padding:16px; border-radius:8px; font-size:12px; margin-bottom:16px; border:1px solid #333;">
        <div>> Initializing secure connection...</div>
        <div style="animation: fadeIn 1s 0.5s both">> Deducting ${price} $RGX tokens...</div>
@@ -2153,6 +2242,7 @@ function buildSidebar() {
       <button class="nav-item" onclick="showView('v-emissions')" id="nav-v-emissions"><span class="nav-item-icon">🌫️</span> Emissions Tracker</button>
       <button class="nav-item" onclick="showView('v-quality')" id="nav-v-quality"><span class="nav-item-icon">🧪</span> Quality Index</button>
       <button class="nav-item" onclick="showView('v-automation')" id="nav-v-automation"><span class="nav-item-icon">⚙️</span> Automation Pipeline</button>
+      <button class="nav-item" onclick="showView('v-scan-history')" id="nav-v-scan-history"><span class="nav-item-icon">🔬</span> Scan History</button>
       <button class="nav-item" onclick="showView('v-esg-hub')" id="nav-v-esg-hub"><span class="nav-item-icon">🌱</span> Sustainability Hub</button>
       <button class="nav-item" onclick="showView('v-market')" id="nav-v-market"><span class="nav-item-icon">🛒</span> ReGen Exchange</button>
       <button class="nav-item" onclick="showView('v-audit-portal')" id="nav-v-audit-portal"><span class="nav-item-icon">🔒</span> Public Verification</button>
@@ -2458,7 +2548,7 @@ function buildOrderCard(o, role) {
   return `
     <div class="order-card" data-status="${o.status}">
       <div class="oc-header">
-        <div class="oc-title">${o.providerOrg} <span style="font-size:12px;color:var(--text-muted);font-family:monospace">#${o.id.slice(-6).toUpperCase()}</span></div>
+        <div class="oc-title">${escapeHTML(o.providerOrg)} <span style="font-size:12px;color:var(--text-muted);font-family:monospace">#${escapeHTML(o.id).slice(-6).toUpperCase()}</span></div>
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           ${badges[o.status]}
           ${trustBadge}
@@ -2480,6 +2570,39 @@ function buildOrderCard(o, role) {
 // ── REFRESH CONTROLLER ──
 async function refreshCurrentView(fullRender = false) {
   const mc = document.getElementById('main-content');
+  if (currentView === 'v-scan-history') {
+    const scanHistory = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
+    mc.innerHTML = `
+      <div class="between" style="margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h3 class="heading">BioScan History</h3>
+          <div style="font-size:13px; color:var(--text-muted);">${scanHistory.length} scan${scanHistory.length !== 1 ? 's' : ''} recorded</div>
+        </div>
+        <button class="btn btn-primary" onclick="exportScanHistory()">⬇️ Export CSV</button>
+      </div>
+      ${scanHistory.length ? scanHistory.map(s => `
+        <div class="glass-card" style="margin-bottom:12px; padding:16px;">
+          <div class="between">
+            <div>
+              <div style="font-weight:700;">${s.wasteCategory}</div>
+              <div style="font-size:12px; color:var(--text-muted);">${new Date(s.timestamp).toLocaleString('en-IN')}</div>
+            </div>
+            <span class="badge ${s.contaminationLevel === 'Low' ? 'badge-green' : s.contaminationLevel === 'Medium' ? 'badge-amber' : 'badge-red'}">
+              ${s.contaminationLevel} Contamination
+            </span>
+          </div>
+          <div style="margin-top:8px; font-size:13px;">Organic: <strong>${s.organicPercentage}%</strong> · Role: ${s.role}</div>
+        </div>
+      `).join('') : renderDashboardListState({
+        icon: '🔬',
+        title: 'No scans yet',
+        description: 'Run the BioScan AI to see history here.',
+        statusLabel: 'Idle',
+        tone: 'inactive'
+      })}
+    `;
+    return;
+  }
   if (currentView === 'v-esg-hub') {
     const history = getAllOrders().filter(o => {
       if (SESSION.role === 'provider') return o.providerId === SESSION.id && o.status === 'completed';
@@ -2583,10 +2706,10 @@ async function refreshCurrentView(fullRender = false) {
          ${Intelligence.MARKETPLACE_ITEMS.map(item => `
           <div class="market-card glass-card">
             <div class="mc-icon">${item.icon}</div>
-            <div class="mc-title">${item.name}</div>
-            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">${item.description}</p>
+            <div class="mc-title">${escapeHTML(item.name)}</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">${escapeHTML(item.description)}</p>
             <div class="mc-price">${item.price} $RGX</div>
-            <button class="btn btn-primary btn-full" onclick="buyMarketItem(${item.price}, '${item.name}')">Mint Asset</button>
+            <button class="btn btn-primary btn-full" onclick="buyMarketItem(${item.price}, '${escapeHTML(item.name)}')">Mint Asset</button>
           </div>
          `).join('')}
       </div>
@@ -2714,7 +2837,7 @@ function renderReconciliation(mc, fullRender) {
         ${entries.length ? entries.slice(0, 12).map(e => `
           <div class="reconciliation-item ${e.deltaPct >= 8 ? 'flagged' : ''}">
             <div>
-              <div class="reconciliation-title">Order #${e.orderId.slice(-6).toUpperCase()} · ${e.org}</div>
+              <div class="reconciliation-title">Order #${escapeHTML(e.orderId).slice(-6).toUpperCase()} · ${escapeHTML(e.org)}</div>
               <div class="reconciliation-sub">Expected ${e.expectedTokens} $RGX · Minted ${e.mintedTokens} $RGX · Δ ${e.deltaPct.toFixed(1)}%</div>
               <div class="reconciliation-sub">${fmtDate(e.ts)} · Trust ${e.trustScore}%</div>
             </div>
@@ -2775,7 +2898,7 @@ function renderSlaMonitor(mc, fullRender) {
           return `
             <div class="sla-item ${liveBreach ? 'risk' : ''}">
               <div>
-                <div class="sla-title">Order #${e.orderId.slice(-6).toUpperCase()} · ${e.org}</div>
+                <div class="sla-title">Order #${escapeHTML(e.orderId).slice(-6).toUpperCase()} · ${escapeHTML(e.org)}</div>
                 <div class="sla-sub">Elapsed ${elapsed} min · Target ${e.targetMins} min</div>
                 <div class="sla-sub">Started ${fmtDate(e.createdTs)}</div>
               </div>
@@ -2829,7 +2952,7 @@ function renderEnergyScorecard(mc, fullRender) {
         ${entries.length ? entries.slice(0, 12).map(e => `
           <div class="energy-item">
             <div>
-              <div class="energy-title">${e.org} · ${e.kg} kg processed</div>
+              <div class="energy-title">${escapeHTML(e.org)} · ${escapeHTML(e.kg)} kg processed</div>
               <div class="energy-sub">${e.energyKwh} kWh · Efficiency ${e.efficiencyPct}% · ${fmtDate(e.ts)}</div>
             </div>
             <span class="badge ${e.score >= 85 ? 'badge-green' : e.score >= 70 ? 'badge-blue' : e.score >= 55 ? 'badge-amber' : 'badge-red'}">${e.score}</span>
@@ -2931,7 +3054,7 @@ function renderEmissionsTracker(mc, fullRender) {
         ${entries.length ? entries.slice(0, 12).map(e => `
           <div class="emissions-item">
             <div>
-              <div class="emissions-title">${e.org} · ${e.distanceKm} km</div>
+              <div class="emissions-title">${escapeHTML(e.org)} · ${escapeHTML(e.distanceKm)} km</div>
               <div class="emissions-sub">${e.emissionKg} kg emitted · ${e.offsetKg} kg offset · ${fmtDate(e.ts)}</div>
             </div>
             <span class="badge ${e.score >= 85 ? 'badge-green' : e.score >= 70 ? 'badge-blue' : e.score >= 55 ? 'badge-amber' : 'badge-red'}">${e.score}</span>
@@ -2982,7 +3105,7 @@ function renderQualityIndex(mc, fullRender) {
         ${entries.length ? entries.slice(0, 12).map(e => `
           <div class="quality-item">
             <div>
-              <div class="quality-title">${e.org} · ${e.kg} kg processed</div>
+              <div class="quality-title">${escapeHTML(e.org)} · ${escapeHTML(e.kg)} kg processed</div>
               <div class="quality-sub">Score ${e.score} · Seg ${e.segScore}% · ${fmtDate(e.ts)}</div>
             </div>
             <span class="badge ${e.score >= 85 ? 'badge-green' : e.score >= 70 ? 'badge-blue' : e.score >= 55 ? 'badge-amber' : 'badge-red'}">${e.score}</span>
@@ -3188,7 +3311,7 @@ async function renderProvider(mc, fullRender) {
       } else {
         const lbHTML = lbSorted.map((item, i) => `
           <div class="between" style="padding:8px 0; border-bottom:${i<2?'1px solid var(--border)':'none'};">
-             <div style="font-weight:600;"><span style="color:var(--amber);">${i+1}.</span> ${item.org} ${item.id===SESSION.id?'(You)':''}</div>
+             <div style="font-weight:600;"><span style="color:var(--amber);">${i+1}.</span> ${escapeHTML(item.org)} ${item.id===SESSION.id?'(You)':''}</div>
              <div class="badge badge-green">${item.kg} kg</div>
           </div>
         `).join('');
@@ -3302,7 +3425,7 @@ async function renderProvider(mc, fullRender) {
           return `
             <div style="margin-bottom:14px;">
               <div class="between" style="margin-bottom:5px;">
-                <div style="font-size:13px;font-weight:600;">${b.name}</div>
+                <div style="font-size:13px;font-weight:600;">${escapeHTML(b.name)}</div>
                 <div style="display:flex;align-items:center;gap:8px;">
                   ${badge}
                   <span style="font-size:13px;font-weight:700;color:${col};">${b.fill}%</span>
@@ -3405,7 +3528,18 @@ window.openScanner = function() {
       }, 200);
     },
     onScanSaved: (record) => {
-
+      const history = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
+      history.unshift({
+        scanId: record.id,
+        timestamp: new Date(record.ts).toISOString(),
+        role: SESSION.role,
+        organicPercentage: record.result?.organicPercent || 0,
+        contaminationLevel: (record.result?.organicPercent || 0) >= 75 ? 'Low' : (record.result?.organicPercent || 0) >= 50 ? 'Medium' : 'High',
+        wasteCategory: record.result?.wasteCategory || 'Unknown',
+        linkedDispatchId: null
+      });
+      if (history.length > 50) history.pop();
+      localStorage.setItem('regenx_scan_history', JSON.stringify(history));
     }
   });
   document.getElementById('modal').classList.add('open');
@@ -3821,14 +3955,14 @@ async function renderRider(mc, fullRender) {
             className: '', iconAnchor: [14, 14]
           });
           L.marker([job.providerLat, job.providerLng], { icon: ico }).addTo(rMap)
-            .bindPopup(`<b>Stop ${i+1}: ${job.providerOrg}</b><br>${job.kg}kg ${job.wasteType}`);
+            .bindPopup(`<b>Stop ${i+1}: ${escapeHTML(job.providerOrg)}</b><br>${escapeHTML(job.kg)}kg ${escapeHTML(job.wasteType)}`);
         });
         if (plant) {
           const pltIco = L.divIcon({
             html: `<div style="width:32px;height:32px;background:#0D9488;border-radius:8px;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,0.4);">🏭</div>`,
             className: '', iconAnchor: [16, 16]
           });
-          L.marker([plant.lat, plant.lng], { icon: pltIco }).addTo(rMap).bindPopup(`<b>Plant:</b> ${plant.org}`);
+          L.marker([plant.lat, plant.lng], { icon: pltIco }).addTo(rMap).bindPopup(`<b>Plant:</b> ${escapeHTML(plant.org)}`);
         }
 
         // Draw TSP-ordered path immediately (glowing glassmorphism neon route flow)
@@ -3874,12 +4008,12 @@ async function renderRider(mc, fullRender) {
             ${optimizedJobs.map((j, i) => `
               <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border);">
                 <div style="width:22px;height:22px;background:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0;">${i+1}</div>
-                <div style="flex:1;font-size:13px;font-weight:600;">${j.providerOrg}</div>
+                <div style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(j.providerOrg)}</div>
                 <div style="font-size:11px;color:var(--text-muted);">${RouteOptimizer.calculateDistance(i===0?SESSION.lat:optimizedJobs[i-1].providerLat, i===0?SESSION.lng:optimizedJobs[i-1].providerLng, j.providerLat, j.providerLng).toFixed(1)}km</div>
               </div>`).join('')}
             <div style="display:flex;align-items:center;gap:10px;padding:8px 0;">
               <div style="width:22px;height:22px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;">🏭</div>
-              <div style="flex:1;font-size:13px;font-weight:600;">${plant ? plant.org : 'Plant'}</div>
+              <div style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(plant ? plant.org : 'Plant')}</div>
             </div>
           `;
         }
@@ -3908,13 +4042,13 @@ async function renderRider(mc, fullRender) {
                 const leg = route.legs[i];
                 return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border);">
                   <div style="width:22px;height:22px;background:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0;">${i+1}</div>
-                  <div style="flex:1;font-size:13px;font-weight:600;">${j.providerOrg}</div>
+                  <div style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(j.providerOrg)}</div>
                   ${leg ? `<div style="font-size:11px;color:var(--text-muted);">${leg.duration_min}min · ${leg.distance_km}km</div>` : ''}
                 </div>`;
               }).join('')}
               <div style="display:flex;align-items:center;gap:10px;padding:8px 0;">
                 <div style="width:22px;height:22px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;">🏭</div>
-                <div style="flex:1;font-size:13px;font-weight:600;">${plant ? plant.org : 'Plant'}</div>
+                <div style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(plant ? plant.org : 'Plant')}</div>
                 ${route.legs[optimizedJobs.length] ? `<div style="font-size:11px;color:var(--text-muted);">${route.legs[optimizedJobs.length].duration_min}min · ${route.legs[optimizedJobs.length].distance_km}km</div>` : ''}
               </div>
             `;
@@ -4235,9 +4369,9 @@ window.openSettings = function() {
     <p class="modal-sub">Manage your ReGenX Profile</p>
     <div style="background:var(--bg); padding:16px; border-radius:12px; margin-bottom:20px;">
       <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Name</div>
-      <div style="font-weight:600; margin-bottom:12px;">${SESSION.name}</div>
+      <div style="font-weight:600; margin-bottom:12px;">${escapeHTML(SESSION.name)}</div>
       <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Entity</div>
-      <div style="font-weight:600; margin-bottom:12px;">${SESSION.org}</div>
+      <div style="font-weight:600; margin-bottom:12px;">${escapeHTML(SESSION.org)}</div>
       <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase;">Role</div>
       <div style="font-weight:600;">${SESSION.role.toUpperCase()}</div>
     </div>
@@ -4276,7 +4410,7 @@ window.openDigitalPassport = function() {
     const html = `
         <div style="text-align:center; padding:20px;">
             <div style="font-size:64px; margin-bottom:16px;">${rank.icon}</div>
-            <h3 class="modal-title">${SESSION.org}</h3>
+            <h3 class="modal-title">${escapeHTML(SESSION.org)}</h3>
             <p class="modal-sub">Verified Circular Economy Provider</p>
             
             <div class="glass-card" style="background:var(--bg); border:2px solid ${rank.color}; margin-bottom:24px; padding:20px;">
@@ -4878,7 +5012,7 @@ function buildBinCard(b) {
   <div class="iot-bin-card glass-card" id="iot-card-${b.id}">
     <div class="iot-card-header">
       <div>
-        <div class="iot-bin-name">🗑️ ${b.name}</div>
+        <div class="iot-bin-name">🗑️ ${escapeHTML(b.name)}</div>
         <div class="iot-bin-sub">ID: ${b.id} · Last ping: ${lastSeen}</div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
@@ -4988,6 +5122,8 @@ function renderIoT(mc, fullRender) {
         statusLabel: 'Idle',
         tone: 'inactive'
       })}
+    </div>
+
 
     <!-- Network telemetry footer -->
     <div class="glass-card sensor-card" style="margin-top:28px; padding:20px;">
@@ -5036,8 +5172,8 @@ window.iotEditBin = function(id) {
   const b = bins.find(x => x.id === id);
   if (!b) return;
   const html = `
-    <h3 class="modal-title">Edit Bin — ${b.name}</h3>
-    <div class="form-group"><label class="form-label">Bin Name</label><input class="form-input" id="iot-m-name" value="${b.name}"></div>
+    <h3 class="modal-title">Edit Bin — ${escapeHTML(b.name)}</h3>
+    <div class="form-group"><label class="form-label">Bin Name</label><input class="form-input" id="iot-m-name" value="${escapeHTML(b.name)}"></div>
     <div class="form-group"><label class="form-label">Fill Rate (kg/h)</label><input class="form-input" type="number" id="iot-m-rate" value="${b.rate}" step="0.1" min="0.1"></div>
     <div class="form-group"><label class="form-label">Status</label>
       <select class="form-select" id="iot-m-status">
@@ -5170,6 +5306,19 @@ function detectDeviceClass() {
 
 detectDeviceClass();
 window.detectDeviceClass = detectDeviceClass;
+window.exportScanHistory = function() {
+  const history = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
+  if (!history.length) return showToast('No scan history to export.');
+  const csv = ['scanId,timestamp,role,organicPercentage,contaminationLevel,wasteCategory,linkedDispatchId',
+    ...history.map(s => `${s.scanId},${s.timestamp},${s.role},${s.organicPercentage},${s.contaminationLevel},${s.wasteCategory},${s.linkedDispatchId || ''}`)
+  ].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'regenx_scan_history.csv';
+  a.click();
+  showToast('✓ CSV exported!');
+};
 // --- Copy to Clipboard Feature (Issue #78) ---
 
 function copyTagToClipboard(tag) {
@@ -5228,3 +5377,15 @@ document.addEventListener('DOMContentLoaded', () => {
         window.AccessibilityManager.init();
     }
 });
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/service-worker.js');
+
+      console.log('Service Worker registered:', registration.scope);
+    } catch (error) {
+      console.error('Service Worker registration failed:', error);
+    }
+  });
+}

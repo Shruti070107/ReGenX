@@ -1,3 +1,8 @@
+/**
+ * @fileoverview ReGenX Multi-lingual Translation and Internationalization System
+ * Provides instant dynamic translations for English, Hindi, Telugu, and German.
+ * Integrates a MutationObserver to automatically translate dynamic UI changes.
+ */
 
 window.currentLanguage = localStorage.getItem('regenx-lang') || 'en';
 

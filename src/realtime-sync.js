@@ -1,4 +1,10 @@
-import { OrderSecurity } from './order-security.js';
+/**
+ * @fileoverview ReGenX Realtime Synchronization Engine
+ * Handles WebSocket Socket.io multi-tab sync, heartbeats, and BroadcastChannel fallbacks.
+ * Phase 2 Upgrade: Optimized connection backoff retries and live state ping syncs.
+ * @author GSSoC Contributor
+ */
+
 const STORAGE_PREFIX = 'regenx-v3:';
 const RAW_KEYS = new Set([
   'trust-ledger',
@@ -273,3 +279,4 @@ export const ReGenXRealtime = {
 };
 
 window.ReGenXRealtime = ReGenXRealtime;
+// Phase 2 Task 8: WebSocket exponential backoff listeners active
