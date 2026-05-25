@@ -4,7 +4,7 @@
 // Supports: Offline fallback, Background Sync, Push Notifications
 // ══════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'regenx-v6';
+const CACHE_VERSION = 'regenx-v7';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 const SYNC_TAG = 'regenx-order-sync';
@@ -27,6 +27,7 @@ const STATIC_ASSETS = [
   '/src/cloud-sync.js',
   '/src/accessibility.js',
   '/src/i18n.js',
+  '/src/db.js',
   '/icons/icon-72x72.png',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png'

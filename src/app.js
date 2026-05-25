@@ -8,6 +8,7 @@ import { ReGenXRealtime } from './realtime-sync.js';
 import { CloudSync } from './cloud-sync.js';
 import { ESGReporter } from './esg-reporter.js';
 import { AccessibilityManager } from './accessibility.js';
+import { dbReady, getStorageStats } from './db.js';
 const STORAGE_KEY_PREFIX = "regenx-v3:";
 const TRUST_LEDGER_KEY = STORAGE_KEY_PREFIX + "trust-ledger";
 const ESG_ALERTS_KEY = STORAGE_KEY_PREFIX + "esg-alerts";
@@ -5048,27 +5049,6 @@ window.refreshLoginDropdown = refreshLoginDropdown;
 window.startGreenWall = startGreenWall;
 window.syncIoTAlertBadge = syncIoTAlertBadge;
 
-// ── INIT ──
-(function seedDB() {
-  if (!DB.get('iot-bins')) {
-    const now = Date.now();
-    const bins = [
-      { id: 'bin-1', name: 'West Wing Organic Hub',   fill: 24,  rate: 0.8, status: 'active',  lastReading: now - 30000, temp: 23.1, humidity: 61, methane: 0.12 },
-      { id: 'bin-2', name: 'Kitchen Processing Unit', fill: 68,  rate: 1.2, status: 'active',  lastReading: now - 15000, temp: 27.4, humidity: 74, methane: 1.85 },
-      { id: 'bin-3', name: 'Main Disposal Pit',       fill: 91,  rate: 0.4, status: 'active',  lastReading: now - 8000,  temp: 25.0, humidity: 58, methane: 3.20 },
-      { id: 'bin-4', name: 'Rooftop Compost Bay',     fill: 12,  rate: 0.6, status: 'active',  lastReading: now - 60000, temp: 21.8, humidity: 52, methane: 0.04 }
-    ];
-    DB.set('iot-bins', bins);
-  }
-})();
-
-document.getElementById('login-screen').style.display = 'flex';
-switchAuthTab('login');
-
-// ── Initialize Appwrite Cloud Sync Engine ──
-setTimeout(() => { ReGenXRealtime?.init(); ReGenXRealtime?.requestSnapshot?.(); }, 1000);
-setTimeout(() => { if (window.CloudSync) window.CloudSync.init(); }, 1000);
-
 // Expose module-scoped functions to global scope for inline HTML handlers
 window.doRegister = doRegister;
 window.doLogin = doLogin;
@@ -5083,6 +5063,7 @@ window.toggleSidebar = toggleSidebar;
 window.toggleSmartAlerts = toggleSmartAlerts;
 window.saveOrder = saveOrder;
 window.refreshCurrentView = refreshCurrentView;
+window.getStorageStats = getStorageStats;
 
 /**
  * Returns the currently active view ID.
@@ -5113,8 +5094,6 @@ function animateAuthEntry() {
   }
 }
 
-window.addEventListener('DOMContentLoaded', animateAuthEntry);
-
 /**
  * @function detectDeviceClass
  * @description Detects whether the user is on a touch (mobile) or pointer (desktop) device
@@ -5127,7 +5106,6 @@ function detectDeviceClass() {
   document.body.setAttribute('data-device', isTouch ? 'mobile' : 'desktop');
 }
 
-detectDeviceClass();
 window.detectDeviceClass = detectDeviceClass;
 // --- Copy to Clipboard Feature (Issue #78) ---
 
@@ -5155,35 +5133,68 @@ function exportTagsAsTxt(tags) {
   URL.revokeObjectURL(url);
 }
 
-// ==========================================
-// DARK MODE TOGGLE LOGIC (ISSUE #79)
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    const navToggleBtn = document.getElementById('navbar-theme-toggle');
-    const rootHtml = document.documentElement;
-
-    const savedTheme = localStorage.getItem('regenx-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-
-    if (isDark) {
-        rootHtml.classList.add('dark');
-        rootHtml.setAttribute('data-theme', 'dark');
-        if (navToggleBtn) navToggleBtn.innerText = '☀️';
-    } else {
-        rootHtml.classList.remove('dark');
-        rootHtml.setAttribute('data-theme', 'light');
-        if (navToggleBtn) navToggleBtn.innerText = '🌙';
+// ── Application Startup Sequence (Delayed until DB is loaded) ──
+function startAppEngine() {
+  // ── INIT ──
+  (function seedDB() {
+    if (!DB.get('iot-bins')) {
+      const now = Date.now();
+      const bins = [
+        { id: 'bin-1', name: 'West Wing Organic Hub',   fill: 24,  rate: 0.8, status: 'active',  lastReading: now - 30000, temp: 23.1, humidity: 61, methane: 0.12 },
+        { id: 'bin-2', name: 'Kitchen Processing Unit', fill: 68,  rate: 1.2, status: 'active',  lastReading: now - 15000, temp: 27.4, humidity: 74, methane: 1.85 },
+        { id: 'bin-3', name: 'Main Disposal Pit',       fill: 91,  rate: 0.4, status: 'active',  lastReading: now - 8000,  temp: 25.0, humidity: 58, methane: 3.20 },
+        { id: 'bin-4', name: 'Rooftop Compost Bay',     fill: 12,  rate: 0.6, status: 'active',  lastReading: now - 60000, temp: 21.8, humidity: 52, methane: 0.04 }
+      ];
+      DB.set('iot-bins', bins);
     }
+  })();
 
-    if (navToggleBtn) {
-        navToggleBtn.addEventListener('click', () => {
-            window.toggleTheme();
-        });
-    }
+  document.getElementById('login-screen').style.display = 'flex';
+  switchAuthTab('login');
 
-    // Initialize Accessibility Manager (Floating panel & options)
-    if (window.AccessibilityManager) {
-        window.AccessibilityManager.init();
-    }
+  // ── Initialize Appwrite Cloud Sync Engine ──
+  setTimeout(() => { ReGenXRealtime?.init(); ReGenXRealtime?.requestSnapshot?.(); }, 1000);
+  setTimeout(() => { if (window.CloudSync) window.CloudSync.init(); }, 1000);
+
+  // Initialize theme & layout logic
+  animateAuthEntry();
+  detectDeviceClass();
+
+  // Dark Mode Toggle Logic
+  const navToggleBtn = document.getElementById('navbar-theme-toggle');
+  const rootHtml = document.documentElement;
+
+  const savedTheme = localStorage.getItem('regenx-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+
+  if (isDark) {
+      rootHtml.classList.add('dark');
+      rootHtml.setAttribute('data-theme', 'dark');
+      if (navToggleBtn) navToggleBtn.innerText = '☀️';
+  } else {
+      rootHtml.classList.remove('dark');
+      rootHtml.setAttribute('data-theme', 'light');
+      if (navToggleBtn) navToggleBtn.innerText = '🌙';
+  }
+
+  if (navToggleBtn) {
+      navToggleBtn.addEventListener('click', () => {
+          window.toggleTheme();
+      });
+  }
+
+  // Initialize Accessibility Manager (Floating panel & options)
+  if (window.AccessibilityManager) {
+      window.AccessibilityManager.init();
+  }
+}
+
+// Bootstrap ReGenX storage and start engine
+dbReady.then(() => {
+  if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startAppEngine);
+  } else {
+      startAppEngine();
+  }
 });

@@ -3,7 +3,8 @@ import fs from "fs";
 const filesToCheck = [
   "src/app.js",
   "src/scanner.js",
-  "src/intelligence.js"
+  "src/intelligence.js",
+  "src/db.js"
 ];
 
 for (const file of filesToCheck) {
