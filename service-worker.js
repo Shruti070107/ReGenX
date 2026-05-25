@@ -216,6 +216,15 @@ async function replayQueuedOrders() {
 
 self.addEventListener('push', (event) => {
   event.waitUntil((async () => {
+    // Check if there is an active (visible and focused) tab open
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const isAppActive = clients.some(client => client.visibilityState === 'visible' && client.focused);
+
+    if (isAppActive) {
+      console.log('[Service Worker] App is active and in focus. Suppressing system notification.');
+      return;
+    }
+
     let data = {
       title: 'ReGenX Alert',
       body: 'You have a new notification.'
