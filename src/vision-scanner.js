@@ -56,6 +56,12 @@ export const VisionScanner = {
      * @param {string} targetInputId - ID of the input field to populate with the score.
      */
     openScanner: async (targetInputId) => {
+        // CRITICAL FIX: Prevent DOM duplication and hardware leaks from rapid rapid clicks
+        const existingModal = document.getElementById('vision-scanner-modal');
+        if (existingModal) {
+            VisionScanner.closeScanner(); // Forcefully release existing camera tracks and DOM elements
+        }
+
         // Reset state
         VisionScanner.isLowLight = false;
         VisionScanner.luminanceQueue = [];
@@ -265,11 +271,27 @@ export const VisionScanner = {
             const simulatedScore = Math.floor(Math.random() * (95 - 60 + 1) + 60);
             
             // Set the value in the target input
+           // Set the value in the target input
             const targetEl = document.getElementById(targetInputId);
             if (targetEl) {
                 targetEl.value = simulatedScore;
                 targetEl.dispatchEvent(new Event('input', { bubbles: true }));
             }
+
+            // Save structured result to localStorage
+            const scanRecord = {
+              scanId: crypto.randomUUID(),
+              timestamp: new Date().toISOString(),
+              role: 'Provider',
+              organicPercentage: simulatedScore,
+              contaminationLevel: simulatedScore >= 75 ? 'Low' : simulatedScore >= 50 ? 'Medium' : 'High',
+              wasteCategory: simulatedScore >= 75 ? 'Organic Biomass' : 'Mixed Waste',
+              linkedDispatchId: null
+            };
+            const history = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
+            history.unshift(scanRecord);
+            if (history.length > 50) history.pop();
+            localStorage.setItem('regenx_scan_history', JSON.stringify(history));
 
             // Close scanner and notify
             VisionScanner.closeScanner();
