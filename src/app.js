@@ -1559,6 +1559,16 @@ window.toggleSidebar = function(force) {
   ov.classList.toggle('open', isOpen);
 }
 
+window.toggleSidebarCollapse = function() {
+  const sidebar = document.getElementById('sidebar');
+
+  sidebar.classList.toggle('collapsed');
+
+  const isCollapsed = sidebar.classList.contains('collapsed');
+
+  localStorage.setItem('regenx-sidebar-collapsed', isCollapsed);
+}
+
 // ── CORE DATA ENGINE ──
 function getAllOrders() { return DB.list('ord:').map(k => DB.get(k)).filter(Boolean).sort((a,b)=>b.ts-a.ts); }
 function getOrder(id) { return DB.get('ord:'+id); }
@@ -4304,5 +4314,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 navToggleBtn.innerText = '☀️';
             }
         });
+    }
+    const sidebar = document.getElementById('sidebar');
+
+    const isCollapsed =
+      localStorage.getItem('regenx-sidebar-collapsed') === 'true';
+
+    if (isCollapsed && sidebar) {
+      sidebar.classList.add('collapsed');
     }
 });

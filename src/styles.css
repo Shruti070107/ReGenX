@@ -219,10 +219,23 @@ h1, h2, h3, .heading { font-family: 'Space Grotesk', sans-serif; font-weight: 70
 #app-shell.active { display: flex; }
 
 .sidebar { width: 260px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 50; height: 100vh; overflow: hidden; }
+.sidebar.collapsed {width: 88px;transition: width 0.3s ease;}
+.sidebar.collapsed .nav-item {justify-content: center;padding: 12px;}
+.sidebar.collapsed .nav-item {font-size: 0;}
+.sidebar.collapsed .nav-item-icon {font-size: 20px;}
+.sidebar.collapsed .sidebar-header .topbar-brand-dot,
+.sidebar.collapsed .sidebar-footer {display: none;}
+.sidebar.collapsed .sidebar-nav {align-items: center;}
+.sidebar.collapsed .sidebar-header {justify-content: center;padding: 0 12px;}
+.sidebar.collapsed .sidebar-header span {display: none;}
+.sidebar.collapsed .sidebar-close {display: none;}
+
 .sidebar-header { height: 72px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--border); gap: 12px; }
 .topbar-brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); }
 .sidebar-nav { padding: 24px 16px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+.sidebar-toggle-btn {width: 34px;height: 34px;border-radius: 10px;border: 1px solid rgba(16,185,129,0.25);background: rgba(16,185,129,0.12);color: #059669;display: flex;align-items: center;justify-content: center;cursor: pointer;transition: all 0.25s ease;}
+.sidebar-toggle-btn:hover {background: rgba(16,185,129,0.2);border-color: #10b981;transform: scale(1.05);  box-shadow: 0 0 12px rgba(16,185,129,0.18);}
 
 .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; color: var(--text-muted); font-weight: 500; text-decoration: none; transition: 0.2s; cursor: pointer; border: none; background: transparent; width: 100%; text-align: left; font-size: 15px; }
 .nav-item:hover { background: var(--surface-hover); color: var(--text); }

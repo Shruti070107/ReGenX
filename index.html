@@ -197,9 +197,29 @@ margin-top:18px;
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <div class="topbar-brand-dot"></div><span
-          style="font-weight:700; font-family:'Space Grotesk'; font-size:20px; letter-spacing:-0.5px;">ReGenX</span>
-        <div class="sidebar-close" onclick="toggleSidebar(false)">×</div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="topbar-brand-dot"></div>
+
+          <span
+            style="font-weight:700; font-family:'Space Grotesk'; font-size:20px; letter-spacing:-0.5px;"
+          >
+            ReGenX
+          </span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+
+          <button
+            class="sidebar-toggle-btn"
+            onclick="toggleSidebarCollapse()"
+            title="Toggle Sidebar"
+          >
+            ☰
+          </button>
+
+          <div class="sidebar-close" onclick="toggleSidebar(false)">×</div>
+
+        </div>
       </div>
       <div class="sidebar-nav" id="sidebar-nav">
         <!-- Injected by JS -->
