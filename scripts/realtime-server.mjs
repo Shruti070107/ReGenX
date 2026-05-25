@@ -4,6 +4,9 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +19,15 @@ const ALLOWED_ORIGINS = new Set(
     .map((origin) => origin.trim())
     .filter(Boolean)
 );
-const REALTIME_AUTH_TOKEN = String(process.env.REALTIME_AUTH_TOKEN || '');
+let REALTIME_AUTH_TOKEN = String(process.env.REALTIME_AUTH_TOKEN || '');
+
+if (!REALTIME_AUTH_TOKEN) {
+  const buf = new Uint8Array(24);
+  crypto.getRandomValues(buf);
+  REALTIME_AUTH_TOKEN = Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
+  console.warn('[realtime] No REALTIME_AUTH_TOKEN set. Generated a temporary token for this session.');
+  console.warn('[realtime] Set REALTIME_AUTH_TOKEN in .env for a persistent token.');
+}
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
@@ -103,6 +114,11 @@ function applyUpdates(updates = []) {
 }
 
 app.use(express.static(rootDir, { extensions: ['html'] }));
+
+app.get('/config.js', (_req, res) => {
+  res.type('application/javascript');
+  res.send(`window.__REALTIME_CONFIG__ = ${JSON.stringify({ token: REALTIME_AUTH_TOKEN })};`);
+});
 
 app.get('/healthz', (_req, res) => {
   res.json({ ok: true, version: state.version });

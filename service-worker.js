@@ -4,7 +4,7 @@
 // Supports: Offline fallback, Background Sync, Push Notifications
 // ══════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'regenx-v4';
+const CACHE_VERSION = 'regenx-v7';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 const SYNC_TAG = 'regenx-order-sync';
@@ -25,10 +25,41 @@ const STATIC_ASSETS = [
   '/src/vision-scanner.js',
   '/src/esg-reporter.js',
   '/src/cloud-sync.js',
+  '/src/accessibility.js',
+  '/src/i18n.js',
   '/icons/icon-72x72.png',
   '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/icons/icon-512x512.png',
+  '/models/mobilenet/model.json',
+  '/models/mobilenet/group1-shard1of5.bin',
+  '/models/mobilenet/group1-shard2of5.bin',
+  '/models/mobilenet/group1-shard3of5.bin',
+  '/models/mobilenet/group1-shard4of5.bin',
+  '/models/mobilenet/group1-shard5of5.bin'
 ];
+
+const STATIC_ASSET_PATHS = new Set(STATIC_ASSETS.map((asset) => new URL(asset, self.location.origin).pathname));
+
+/**
+ * Resolves notification targets through the browser URL parser and keeps only
+ * same-origin destinations.
+ *
+ * @param {string} url - Notification-provided destination.
+ * @returns {string} Safe in-origin URL or the offline fallback.
+ */
+function getSafeNotificationUrl(url) {
+  try {
+    const parsedUrl = new URL(String(url || '/'), self.location.origin);
+
+    if (parsedUrl.origin !== self.location.origin) {
+      return OFFLINE_URL;
+    }
+
+    return parsedUrl.href;
+  } catch (error) {
+    return OFFLINE_URL;
+  }
+}
 
 /**
  * Adds assets to cache one-by-one so a missing optional file does not break
@@ -74,11 +105,27 @@ async function cacheDynamicResponse(request, response) {
 
 /**
  * Returns the offline fallback page for navigation requests.
+ * Falls back to a simple HTML response if the cached page is unavailable.
  *
- * @returns {Promise<Response | undefined>}
+ * @returns {Promise<Response>}
  */
 async function getOfflineFallback() {
-  return caches.match(OFFLINE_URL);
+  const cached = await caches.match(OFFLINE_URL);
+
+  if (cached) {
+    return cached;
+  }
+
+  return new Response(
+    '<!doctype html><html><head><meta charset="utf-8"><title>Offline</title></head><body style="font-family:system-ui, sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0D9488;color:#fff;text-align:center;"><div><h1>Offline</h1><p>You are currently offline. Please reconnect to continue.</p></div></body></html>',
+    {
+      headers: { 'Content-Type': 'text/html' }
+    }
+  );
+}
+
+function shouldIgnoreSearch(request, url) {
+  return request.mode === 'navigate' || STATIC_ASSET_PATHS.has(url.pathname);
 }
 
 self.addEventListener('install', (event) => {
@@ -117,8 +164,10 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.origin === location.origin) {
+    const ignoreSearch = shouldIgnoreSearch(request, url);
+
     event.respondWith(
-      caches.match(request).then(async (cachedResponse) => {
+      caches.match(request, ignoreSearch ? { ignoreSearch: true } : undefined).then(async (cachedResponse) => {
         if (cachedResponse) return cachedResponse;
 
         try {
@@ -160,45 +209,54 @@ self.addEventListener('sync', (event) => {
  * @returns {Promise<void>}
  */
 async function replayQueuedOrders() {
-  const clients = await self.clients.matchAll({ type: 'window' });
+  try {
+    // Notify all open clients to trigger offline sync
+    const clients = await self.clients.matchAll({ type: 'window' });
 
-  clients.forEach((client) => {
-    client.postMessage({
-      type: 'SYNC_COMPLETE',
-      message: '☁️ Back online! Queued orders have been synced to the cloud.'
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'SYNC_COMPLETE',
+        message: '☁️ Back online! Queued orders have been synced to the cloud.'
+      });
     });
-  });
+
+    console.log('[SW] Background sync triggered — offline queue notified');
+  } catch (error) {
+    console.error('[SW] Background sync failed:', error);
+  }
 }
 
 self.addEventListener('push', (event) => {
-  let data = {
-    title: 'ReGenX Alert',
-    body: 'You have a new notification.'
-  };
+  event.waitUntil((async () => {
+    let data = {
+      title: 'ReGenX Alert',
+      body: 'You have a new notification.'
+    };
 
-  if (event.data) {
-    try {
-      data = event.data.json();
-    } catch (error) {
-      data.body = event.data.text();
+    if (event.data) {
+      try {
+        data = event.data.json();
+      } catch (error) {
+        data.body = await event.data.text();
+      }
     }
-  }
 
-  const options = {
-    body: data.body,
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
-    vibrate: [200, 100, 200],
-    data: {
-      url: data.url || '/'
-    },
-    actions: [
-      { action: 'view', title: 'View on Map' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
-  };
+    const options = {
+      body: data.body,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      vibrate: [200, 100, 200],
+      data: {
+        url: data.url || '/'
+      },
+      actions: [
+        { action: 'view', title: 'View on Map' },
+        { action: 'dismiss', title: 'Dismiss' }
+      ]
+    };
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
+    return self.registration.showNotification(data.title, options);
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -206,7 +264,7 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'dismiss') return;
 
-  const targetUrl = event.notification.data?.url || '/';
+  const targetUrl = getSafeNotificationUrl(event.notification.data?.url);
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
