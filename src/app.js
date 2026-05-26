@@ -2397,17 +2397,21 @@ function buildOrderCard(o, role) {
     picked_up: '<span class="badge badge-green">Picked Up</span>',
     at_plant: '<span class="badge badge-green">Arrived at Plant</span>',
     completed: '<span class="badge" style="background:var(--green);color:white;">Completed</span>',
-    rejected: '<span class="badge badge-red">Rejected</span>'
+    rejected: '<span class="badge badge-red">Rejected</span>',
+    under_audit: '<span class="badge badge-red">🚨 UNDER AUDIT</span>'
   };
 
+  const isTampered = o.status === 'under_audit' || o.underAudit;
   const integrity = getOrderIntegrity(o);
-  const trustBadge = integrity.score >= 90
-    ? '<span class="badge badge-green">High Integrity</span>'
-    : integrity.score >= 75
-      ? '<span class="badge badge-blue">Verified</span>'
-      : integrity.score >= 60
-        ? '<span class="badge badge-amber">Watch</span>'
-        : '<span class="badge badge-red">Risk</span>';
+  const trustBadge = isTampered
+    ? '<span class="badge badge-red">Risk</span>'
+    : (integrity.score >= 90
+        ? '<span class="badge badge-green">High Integrity</span>'
+        : integrity.score >= 75
+          ? '<span class="badge badge-blue">Verified</span>'
+          : integrity.score >= 60
+            ? '<span class="badge badge-amber">Watch</span>'
+            : '<span class="badge badge-red">Risk</span>');
   
   let acts = '';
   if (role === 'provider' && o.status === 'requested') {
@@ -2456,8 +2460,59 @@ function buildOrderCard(o, role) {
   `;
 }
 
+function renderSecurityAlerts() {
+  const container = document.getElementById('security-alerts-container');
+  if (!container) return;
+
+  if (!window.SESSION) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const tamperedOrders = getAllOrders().filter(o => o.status === 'under_audit' || o.underAudit);
+  if (tamperedOrders.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = tamperedOrders.map(o => `
+    <div class="tamper-alert-banner glass-card" style="
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      color: var(--text);
+      box-shadow: 0 8px 32px rgba(239, 68, 68, 0.15);
+      animation: alert-pulse 2s infinite alternate;
+    ">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 24px; display: inline-block; animation: alert-spin 1.5s linear infinite;">🚨</span>
+        <div>
+          <div style="font-weight: 700; font-family: 'Space Grotesk'; font-size: 14px; letter-spacing: 0.5px; color: #ef4444; margin-bottom: 2px;">
+            CRYPTOGRAPHIC TAMPER DETECTED
+          </div>
+          <div style="font-size: 13px; color: var(--text);">
+            Custody ledger verification failed for dispatch <strong>#${o.id.slice(-6).toUpperCase()}</strong> (${o.providerOrg}). Status: <strong>FROZEN</strong>.
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-outline-danger btn-sm" onclick="openIntegrityScan('${o.id}')" style="white-space: nowrap;">
+        Inspect Ledger
+      </button>
+    </div>
+  `).join('');
+}
+
 // ── REFRESH CONTROLLER ──
 async function refreshCurrentView(fullRender = false) {
+  renderSecurityAlerts();
   const mc = document.getElementById('main-content');
   if (currentView === 'v-esg-hub') {
     const history = getAllOrders().filter(o => {
@@ -3544,6 +3599,10 @@ window.submitPvRequest = async function() {
 
 window.cancelOrder = function(id) {
   const o = getOrder(id); if(!o) return;
+  if (o.status === 'under_audit' || o.underAudit) {
+    showToast("This order is under audit and cannot be modified.");
+    return;
+  }
   o.status = 'rejected'; saveOrder(o);
   publishOperationalEvent('KPI_UPDATED', [], {
     toast: `Dispatch #${o.id.slice(-6).toUpperCase()} was cancelled.`,
@@ -3954,6 +4013,10 @@ window.switchRdTab = function(t) { window._rdTab = t; refreshCurrentView(true); 
 
 window.riderAccept = async function(id) {
   const o = getOrder(id); if(!o) return;
+  if (o.status === 'under_audit' || o.underAudit) {
+    showToast("This order is under audit and cannot be modified.");
+    return;
+  }
   o.status = 'assigned'; o.riderId = SESSION.id; o.riderName = SESSION.name;
   saveOrder(o);
   updateSlaEntry(o.id, { status: 'assigned' });
@@ -3996,6 +4059,10 @@ window.riderAccept = async function(id) {
 }
 window.riderUpdate = async function(id, st) {
   const o = getOrder(id); if(!o) return;
+  if (o.status === 'under_audit' || o.underAudit) {
+    showToast("This order is under audit and cannot be modified.");
+    return;
+  }
   o.status = st; saveOrder(o);
   updateSlaEntry(o.id, { status: st });
 await recordTrustEvent(o, st, 'rider', { lat: SESSION.lat, lng: SESSION.lng });
@@ -4028,6 +4095,11 @@ await recordTrustEvent(o, st, 'rider', { lat: SESSION.lat, lng: SESSION.lng });
   refreshCurrentView();
 }
 window.openPickupConfirm = function(id) {
+  const o = getOrder(id);
+  if (o && (o.status === 'under_audit' || o.underAudit)) {
+    showToast("This order is under audit and cannot be modified.");
+    return;
+  }
   const html = `
     <h3 class="modal-title">Confirm Collection</h3>
     <p class="modal-sub">Verify the load before continuing to plant.</p>
@@ -4041,7 +4113,12 @@ window.openPickupConfirm = function(id) {
 window.confirmPickup = async function(id) {
   const kg = document.getElementById('m-kg').value;
   if(!kg) return showToast("⚠ Enter weight.");
-  const o = getOrder(id); o.status = 'picked_up'; o.actualKg = kg; o.quality = document.getElementById('m-qual').value;
+  const o = getOrder(id); if(!o) return;
+  if (o.status === 'under_audit' || o.underAudit) {
+    showToast("This order is under audit and cannot be modified.");
+    return;
+  }
+  o.status = 'picked_up'; o.actualKg = kg; o.quality = document.getElementById('m-qual').value;
   saveOrder(o);
   updateSlaEntry(o.id, { pickupTs: ts(), status: 'picked_up' });
 await recordTrustEvent(o, 'picked_up', 'rider', { lat: SESSION.lat, lng: SESSION.lng });
@@ -4135,6 +4212,20 @@ window.openIntegrityScan = function(orderId) {
         isTampered = true;
         break;
       }
+    }
+
+    if (isTampered && order.status !== 'under_audit' && !order.underAudit) {
+      order.underAudit = true;
+      order.status = 'under_audit';
+      saveOrder(order);
+      if (window.ReGenXRealtime) {
+        window.ReGenXRealtime.emitTamperAlert(orderId);
+      }
+      publishOperationalEvent('LEDGER_TAMPERED', [], {
+        orderId: orderId,
+        toast: `🚨 SECURITY ALERT: Cryptographic ledger mismatch detected for dispatch #${orderId.slice(-6).toUpperCase()}!`,
+        statusLabel: 'Tamper Alert'
+      }, ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room']);
     }
 
     const integrity = getOrderIntegrity(order);
@@ -4501,6 +4592,11 @@ async function renderPlant(mc, fullRender) {
 }
 
 window.openPlantConfirm = function(id) {
+  const o = getOrder(id);
+  if (o && (o.status === 'under_audit' || o.underAudit)) {
+    showToast("This order is under audit and cannot be modified.");
+    return;
+  }
   const html = `
     <h3 class="modal-title">Intake Assessment</h3>
     <p class="modal-sub">Final confirmation before processing.</p>
@@ -4519,6 +4615,10 @@ window.openPlantConfirm = function(id) {
 
 window.confirmPlantReceipt = async function(id) {
   const o = getOrder(id); if(!o) return;
+  if (o.status === 'under_audit' || o.underAudit) {
+    showToast("This order is under audit and cannot be modified.");
+    return;
+  }
   if (o.status === 'completed') return showToast('Order already processed.');
   const score = document.getElementById('p-score').value || 0;
   o.status = 'completed'; o.segScore = score;

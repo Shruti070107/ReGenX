@@ -3338,3 +3338,37 @@ h1, h2, h3, .heading {
   border-color: var(--green) !important;
 }
 
+/* ════════ SECURITY ALERTS & TAMPER WARNINGS ════════ */
+#security-alerts-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@keyframes alert-pulse {
+  from {
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+  to {
+    box-shadow: 0 8px 30px rgba(239, 68, 68, 0.35);
+    border-color: rgba(239, 68, 68, 0.65);
+  }
+}
+
+@keyframes alert-spin {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.tamper-alert-banner {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.badge-red {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+

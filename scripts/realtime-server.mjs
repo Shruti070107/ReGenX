@@ -169,6 +169,67 @@ io.on('connection', (socket) => {
     broadcastToRooms(response);
   });
 
+  socket.on('ledger:tamper-detected', async (payload = {}) => {
+    const { orderId } = payload;
+    if (!orderId) return;
+
+    console.warn(`[realtime] 🚨 Ledger tamper alert received for order: ${orderId}`);
+
+    const key = `regenx-v3:ord:${orderId}`;
+    let order = state.records[key];
+    
+    if (order) {
+      if (typeof order === 'string') {
+        try {
+          order = JSON.parse(order);
+        } catch (e) {
+          // ignore parsing error
+        }
+      }
+      if (order && typeof order === 'object') {
+        order.underAudit = true;
+        order.status = 'under_audit';
+        state.records[key] = order;
+        state.version += 1;
+        await persistState();
+
+        const response = {
+          clientId: payload.clientId || '',
+          type: 'LEDGER_TAMPERED',
+          rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'],
+          updates: [{ key, value: order, action: 'set' }],
+          meta: {
+            toast: `🚨 SECURITY ALERT: Cryptographic ledger mismatch detected for dispatch #${orderId.slice(-6).toUpperCase()}!`,
+            statusLabel: 'Tamper Alert',
+            orderId
+          },
+          sourceId: socket.id,
+          version: state.version,
+          ts: Date.now()
+        };
+        broadcastToRooms(response);
+        return;
+      }
+    }
+
+    // Fallback: just broadcast the warning metadata notification
+    const response = {
+      clientId: payload.clientId || '',
+      type: 'LEDGER_TAMPERED',
+      rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'],
+      updates: [],
+      meta: {
+        toast: `🚨 SECURITY ALERT: Cryptographic ledger mismatch detected for dispatch #${orderId.slice(-6).toUpperCase()}!`,
+        statusLabel: 'Tamper Alert',
+        orderId
+      },
+      sourceId: socket.id,
+      version: state.version,
+      ts: Date.now()
+    };
+    broadcastToRooms(response);
+  });
+
   socket.on('disconnect', () => {
     socket.removeAllListeners();
   });
