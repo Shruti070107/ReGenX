@@ -2187,7 +2187,11 @@ function executeLogin(acc) {
   updateNotificationBadge();
   updateOfflineQueueIndicator();
   buildSidebar();
+  
+  // CRITICAL FIX: Clear existing timer before setting a new one to prevent exponential leak
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
   autoRefreshTimer = setInterval(() => refreshCurrentView(), 15000);
+  
   ReGenXRealtime?.setSession(SESSION);
 }
 
