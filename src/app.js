@@ -1953,6 +1953,11 @@ window.detectGPS = function() {
         regMapInstance.setView([detectedPos.lat, detectedPos.lng], 14);
         regMarker.setLatLng([detectedPos.lat, detectedPos.lng]);
       }
+
+      // CRITICAL FIX: Force Leaflet to recalculate tile sizes after container unhides
+      setTimeout(() => {
+        if(regMapInstance) regMapInstance.invalidateSize();
+      }, 100);
     },
     err => { st.innerHTML = `<span style="color:var(--red)">✗ Failed to detect. Check permissions.</span>`; },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -1972,7 +1977,7 @@ window.searchLocation = async function() {
       const lat = parseFloat(data[0].lat);
       const lng = parseFloat(data[0].lon);
       detectedPos = { lat, lng };
-      st.innerHTML = `<span style="color:var(--green)">✓ Found: ${escapeHTML(data[0].display_name.split(',')[0])}</span>`;
+      st.innerHTML = `<span style="color:var(--green)">✓ Found: ${data[0].display_name.split(',')[0]}</span>`;
       
       const mapEl = document.getElementById('reg-map');
       mapEl.classList.add('show');
@@ -1992,6 +1997,11 @@ window.searchLocation = async function() {
         regMapInstance.setView([lat, lng], 14);
         regMarker.setLatLng([lat, lng]);
       }
+
+      // CRITICAL FIX: Force Leaflet to recalculate tile sizes after container unhides
+      setTimeout(() => {
+        if(regMapInstance) regMapInstance.invalidateSize();
+      }, 100);
     } else {
       st.innerHTML = `<span style="color:var(--amber)">⚠ Not found. Try adding city name.</span>`;
     }
