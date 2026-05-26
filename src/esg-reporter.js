@@ -194,12 +194,12 @@ export const ESGReporter = {
                                 return `
                                     <div style="background:var(--surface-hover); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:12px;">
                                         <div class="between" style="margin-bottom:6px;">
-                                            <span style="font-weight:700; font-size:13px;">${o.wasteType}</span>
+                                            <span style="font-weight:700; font-size:13px;">${escapeHTML(o.wasteType)}</span>
                                             <span class="badge ${score >= 75 ? 'badge-green' : 'badge-amber'}" style="font-size:10px;">${score}% Quality</span>
                                         </div>
                                         <div class="between" style="font-size:11px; color:var(--text-muted);">
-                                            <div>Weight: <strong>${o.actualKg || o.kg} kg</strong></div>
-                                            <div style="font-family:monospace; font-size:9px;">TX: ${orderHash.slice(0,16)}...</div>
+                                            <div>Weight: <strong>${escapeHTML(o.actualKg || o.kg)} kg</strong></div>
+                                            <div style="font-family:monospace; font-size:9px;">TX: ${escapeHTML(orderHash.slice(0,16))}...</div>
                                         </div>
                                         <div style="font-size:10px; color:var(--text-muted); margin-top:6px; text-align:right;">
                                             Attested: ${new Date(o.ts).toLocaleDateString('en-IN')}
@@ -229,15 +229,15 @@ export const ESGReporter = {
                                 <div style="text-align:center; margin-bottom:30px;">
                                     <h1 style="color:#0D9488; font-size:26px; margin:0 0 6px 0; font-family:'Space Grotesk',sans-serif; font-weight:800; letter-spacing:-1px;">ReGenX Protocol</h1>
                                     <h2 style="color:#64748B; font-size:15px; margin:0 0 10px 0; font-family:'Inter',sans-serif; font-weight:600; text-transform:uppercase; letter-spacing:1px;">Environmental, Social, & Governance (ESG) Impact Profile</h2>
-                                    <p style="color:#94A3B8; font-size:11px; margin:0;">Attestation Date: ${dateStr}</p>
+                                    <p style="color:#94A3B8; font-size:11px; margin:0;">Attestation Date: ${escapeHTML(dateStr)}</p>
                                 </div>
 
                                 <div style="margin-bottom:24px; padding:16px; border-left:4px solid #0D9488; background:#F8FAFC; border-radius:0 8px 8px 0;">
                                     <h3 style="margin:0 0 8px 0; color:#0F172A; font-size:14px; font-family:'Space Grotesk',sans-serif;">Entity Profile</h3>
                                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px;">
-                                        <div><strong>Organization/Facility:</strong> ${account.org || account.name}</div>
-                                        <div><strong>Network Identifier:</strong> ${account.id || 'N/A'}</div>
-                                        <div><strong>Assigned Protocol Role:</strong> ${account.role ? account.role.toUpperCase() : 'USER'}</div>
+                                        <div><strong>Organization/Facility:</strong> ${escapeHTML(account.org || account.name)}</div>
+                                        <div><strong>Network Identifier:</strong> ${escapeHTML(account.id || 'N/A')}</div>
+                                        <div><strong>Assigned Protocol Role:</strong> ${escapeHTML(account.role ? account.role.toUpperCase() : 'USER')}</div>
                                         <div><strong>Attestation Node Status:</strong> Verified & Active</div>
                                     </div>
                                 </div>
@@ -272,9 +272,9 @@ export const ESGReporter = {
                                         ${history.length ? history.slice(0, 4).map(o => `
                                             <tr>
                                                 <td>${new Date(o.ts).toLocaleDateString('en-US', {month:'short',day:'numeric'})}</td>
-                                                <td>${o.wasteType.split(' ')[0]}</td>
-                                                <td>${o.actualKg || o.kg} kg</td>
-                                                <td><strong>${o.segScore || (o.quality === 'Good (Segregated)' ? 85 : 45)}%</strong></td>
+                                                <td>${escapeHTML(o.wasteType.split(' ')[0])}</td>
+                                                <td>${escapeHTML(o.actualKg || o.kg)} kg</td>
+                                                <td><strong>${escapeHTML(o.segScore || (o.quality === 'Good (Segregated)' ? 85 : 45))}%</strong></td>
                                             </tr>
                                         `).join('') : `
                                             <tr>
@@ -287,7 +287,7 @@ export const ESGReporter = {
                                 <div style="margin-top:36px; text-align:center; font-size:9px; color:#94A3B8; border-top:1px dashed #E2E8F0; padding-top:16px; position:relative;">
                                     <div class="esg-preview-watermark">VERIFIED</div>
                                     <p style="margin:0 0 4px 0;">This ESG record is digitally verified on the ReGenX smart registry ledger network.</p>
-                                    <p style="font-family:monospace; background:#F1F5F9; display:inline-block; padding:3px 6px; border-radius:4px; color:#475569; margin:0;">Signature Hash: ${reportHash.slice(0, 32)}...</p>
+                                    <p style="font-family:monospace; background:#F1F5F9; display:inline-block; padding:3px 6px; border-radius:4px; color:#475569; margin:0;">Signature Hash: ${escapeHTML(reportHash.slice(0, 32))}...</p>
                                 </div>
                             </div>
                         </div>
@@ -446,13 +446,13 @@ export const ESGReporter = {
                 <table style="width:100%; font-size:12px; border-collapse:collapse;">
                     <tr>
                         <td style="padding:6px 0; color:#64748B; width:30%;"><strong>Organization Name:</strong></td>
-                        <td style="padding:6px 0; color:#0F172A;">${account.org || account.name}</td>
+                        <td style="padding:6px 0; color:#0F172A;">${escapeHTML(account.org || account.name)}</td>
                         <td style="padding:6px 0; color:#64748B; width:25%;"><strong>Registry Role:</strong></td>
-                        <td style="padding:6px 0; color:#0F172A; text-transform:uppercase;">${account.role ? account.role.toUpperCase() : 'USER'}</td>
+                        <td style="padding:6px 0; color:#0F172A; text-transform:uppercase;">${escapeHTML(account.role ? account.role.toUpperCase() : 'USER')}</td>
                     </tr>
                     <tr>
                         <td style="padding:6px 0; color:#64748B;"><strong>Network node ID:</strong></td>
-                        <td style="padding:6px 0; color:#0F172A; font-family:monospace;">${account.id || 'N/A'}</td>
+                        <td style="padding:6px 0; color:#0F172A; font-family:monospace;">${escapeHTML(account.id || 'N/A')}</td>
                         <td style="padding:6px 0; color:#64748B;"><strong>Compliance status:</strong></td>
                         <td style="padding:6px 0; color:#16A34A; font-weight:700;">CERTIFIED COMPLIANT</td>
                     </tr>
