@@ -185,15 +185,67 @@ window.BioScanner = (function () {
     }
   }
 
+  // ── BACKEND & MEMORY MANAGEMENT ──────────────────────────────────────────────
+  async function ensureBackend() {
+    try {
+      if (window.tf) {
+        const currentBackend = tf.getBackend();
+        console.log(`[BioScanner] Current TFJS backend: ${currentBackend}`);
+        
+        // Test WebGL context
+        if (currentBackend === 'webgl') {
+          try {
+            const testTensor = tf.zeros([1]);
+            testTensor.dispose();
+          } catch (webglError) {
+            console.warn("[BioScanner] WebGL test failed (context likely lost). Switching to CPU.", webglError);
+            await tf.setBackend('cpu');
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[BioScanner] Error in ensureBackend:", e);
+    }
+  }
+
   // ── SCAN ─────────────────────────────────────────────────────────────────────
   async function performScan(imageSource) {
     setUiState('scanning');
 
     try {
+      // Ensure backend is functioning, falling back to CPU if WebGL fails test
+      await ensureBackend();
+
       const model = await loadModel();
       if (!model) throw new Error('Model unavailable');
 
-      const preds = await model.classify(imageSource);
+      let preds;
+      if (window.tf) {
+        let imgTensor = null;
+        try {
+          imgTensor = tf.browser.fromPixels(imageSource);
+          preds = await model.classify(imgTensor);
+        } catch (inferenceError) {
+          console.warn("[BioScanner] WebGL inference failed. Re-trying on CPU.", inferenceError);
+          // Force CPU fallback
+          await tf.setBackend('cpu');
+          if (imgTensor) {
+            imgTensor.dispose();
+            imgTensor = null;
+          }
+          imgTensor = tf.browser.fromPixels(imageSource);
+          preds = await model.classify(imgTensor);
+        } finally {
+          if (imgTensor) {
+            imgTensor.dispose();
+            console.log("[BioScanner] Scan complete. Input tensor successfully disposed.");
+          }
+        }
+      } else {
+        // Fallback for non-TF environment
+        preds = await model.classify(imageSource);
+      }
+
       const result = classifyResult(preds);
       _currentResult = result;
 
