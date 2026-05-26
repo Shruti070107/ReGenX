@@ -763,10 +763,13 @@ function loadTrustLedger() {
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
     const ledger = parsed.filter(e => e && typeof e === 'object');
-    const verification = TrustProtocol.verifyLedgerIntegrity(ledger);
-    if (!verification.valid) {
-      handleTrustLedgerTamper(verification);
-    }
+    TrustProtocol.verifyLedgerIntegrity(ledger)
+      .then((verification) => {
+        if (!verification.valid) handleTrustLedgerTamper(verification);
+      })
+      .catch(() => {
+        handleTrustLedgerTamper({ valid: false, tampered: true, brokenIndex: null });
+      });
     return ledger;
   } catch {
     handleTrustLedgerTamper({ valid: false, tampered: true, brokenIndex: null });
@@ -812,7 +815,7 @@ async function saveTrustLedger(events) {
   try {
     const capped = Array.isArray(events) ? events.slice(-200) : [];
     const prepared = await prepareTrustLedgerForWrite(capped);
-    const verification = TrustProtocol.verifyLedgerIntegrity(prepared);
+    const verification = await TrustProtocol.verifyLedgerIntegrity(prepared);
     if (!verification.valid) {
       handleTrustLedgerTamper(verification);
       return false;
@@ -843,15 +846,10 @@ async function generateLedgerHash(entry, previousHash = 'GENESIS') {
  * @returns {Object} Canonical entry payload.
  */
 function buildTrustLedgerPayload(entry, previousHash = 'GENESIS') {
+  const canonical = TrustProtocol.canonicalizeLedgerEntry(entry, previousHash);
   return {
-    previousHash: typeof previousHash === 'string' && previousHash ? previousHash : 'GENESIS',
-    orderId: typeof entry?.orderId === 'string' ? entry.orderId : String(entry?.orderId ?? ''),
-    event: typeof entry?.event === 'string' ? entry.event : String(entry?.event ?? ''),
-    ts: Number.isFinite(entry?.ts) ? entry.ts : ts(),
-    actorRole: typeof entry?.actorRole === 'string' ? entry.actorRole : String(entry?.actorRole ?? ''),
-    actorId: typeof entry?.actorId === 'string' ? entry.actorId : String(entry?.actorId ?? ''),
-    lat: Number.isFinite(entry?.lat) ? entry.lat : null,
-    lng: Number.isFinite(entry?.lng) ? entry.lng : null
+    ...canonical,
+    ts: Number.isFinite(canonical.ts) ? canonical.ts : ts()
   };
 }
 
@@ -954,7 +952,7 @@ function getOrderIntegrity(order) {
 async function recordTrustEvent(order, event, actorRole, coords = {}) {
   if (!order) return false;
   const ledger = loadTrustLedger();
-  const verification = TrustProtocol.verifyLedgerIntegrity(ledger);
+  const verification = await TrustProtocol.verifyLedgerIntegrity(ledger);
   if (!verification.valid) {
     handleTrustLedgerTamper(verification);
     return false;
@@ -981,13 +979,14 @@ async function recordTrustEvent(order, event, actorRole, coords = {}) {
   entry.hash = await generateLedgerHash(entry, previousHash);
 
   const nextLedger = [...preparedLedger, entry];
+  const nextLedgerVerification = await TrustProtocol.verifyLedgerIntegrity(nextLedger);
+  if (!nextLedgerVerification.valid) {
+    handleTrustLedgerTamper(nextLedgerVerification);
+    return false;
+  }
   const route = getOrderRouteEndpoints(order);
   const orderEvents = nextLedger.filter(e => e.orderId === order.id);
   const integrity = TrustProtocol.calculateIntegrityScore(orderEvents, route, distanceKm);
-  if (integrity.tampered) {
-    handleTrustLedgerTamper(integrity);
-    return false;
-  }
   entry.trustScore = integrity.score;
   return saveTrustLedger(nextLedger);
 }
@@ -4380,27 +4379,8 @@ window.openIntegrityScan = function(orderId) {
 
   setTimeout(async () => {
     const events = getOrderLedgerEvents(orderId);
-    let isTampered = false;
-
-    for (const e of events) {
-      if (!e.hash) {
-        isTampered = true;
-        break;
-      }
-
-      const { hash: storedHash, ...payload } = e;
-      try {
-        const expectedHash = await generateLedgerHash(payload);
-        if (normalizeHash(storedHash) !== normalizeHash(expectedHash)) {
-          isTampered = true;
-          break;
-        }
-      } catch (error) {
-        console.error('Failed to verify ledger hash:', error);
-        isTampered = true;
-        break;
-      }
-    }
+    const fullLedgerVerification = await TrustProtocol.verifyLedgerIntegrity(loadTrustLedger());
+    const isTampered = !fullLedgerVerification.valid;
 
     const integrity = getOrderIntegrity(order);
     const statusClass = isTampered ? 'badge-red' : (integrity.score >= 90 ? 'badge-green' : integrity.score >= 75 ? 'badge-blue' : integrity.score >= 60 ? 'badge-amber' : 'badge-red');
