@@ -74,7 +74,7 @@ export const CloudSync = {
                     }
                 }
             } else {
-                console.warn("Could not load /.env file, status:", response.status);
+                console.warn("[CloudSync] Standard configuration could not load /.env file, status:", response.status);
             }
         } catch (e) {
             console.warn("Failed to fetch or parse .env file. Falling back to defaults.", e);
@@ -262,9 +262,9 @@ export const CloudSync = {
 
     /**
      * Sanitizes an order object to match database attribute schemas.
-     * Ensures all values match correct types.
+     * Ensures all values match correct types and fallbacks default to empty strings.
      * @param {Object} doc - Raw order document.
-     * @returns {Object} Sanitized object ready for Appwrite.
+     * @returns {Object} Sanitized object mapped exactly to Appwrite attributes.
      */
     sanitizeDoc: (doc) => {
         const sanitized = {};

@@ -8,7 +8,7 @@
 /**
  * @typedef {Object} PredictionResult
  * @property {number} expectedKg - Predicted weight in KG.
- * @property {string} confidence - Confidence level (Low/Med/High).
+ * @property {('Low'|'Medium'|'High')} confidence - The statistical confidence scale.
  * @property {string} trend - Upward/Downward trend.
  */
 
