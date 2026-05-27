@@ -8,6 +8,7 @@ import { ReGenXRealtime } from './realtime-sync.js';
 import { CloudSync } from './cloud-sync.js';
 import { ESGReporter } from './esg-reporter.js';
 import { AccessibilityManager } from './accessibility.js';
+import { safeNumber, validateNumber } from './utils/validation';
 const STORAGE_KEY_PREFIX = "regenx-v3:";
 const TRUST_LEDGER_KEY = STORAGE_KEY_PREFIX + "trust-ledger";
 const ESG_ALERTS_KEY = STORAGE_KEY_PREFIX + "esg-alerts";
@@ -988,8 +989,8 @@ window.clearEsgAlerts = function() {
 function addEsgAlertsForOrder(order) {
   if (!order) return;
   const alerts = [];
-  const expected = parseFloat(order.kg || 0);
-  const actual = parseFloat(order.actualKg || 0);
+  const expected = safeNumber(order.kg, 0);
+  const actual = safeNumber(order.actualKg, 0);
   const diffRatio = expected ? Math.abs(actual - expected) / expected : 0;
 
   if (expected && actual && diffRatio > 0.25) {
@@ -1004,7 +1005,7 @@ function addEsgAlertsForOrder(order) {
     });
   }
 
-  if (parseFloat(order.segScore || 0) > 0 && parseFloat(order.segScore || 0) < 60) {
+  if (safeNumber(order.segScore,0) > 0 && safeNumber(order.segScore,0) < 60) {
     alerts.push({
       id: 'alert-' + uid(),
       orderId: order.id,
@@ -3352,7 +3353,7 @@ async function renderProvider(mc, fullRender) {
         renderMetricCard({
           title: 'CO₂ Offset (kg)',
           value: orders.length ? Math.round(orders.reduce((sum, o) => {
-            const kg = parseFloat(o.actualKg || o.kg) || 0;
+            const kg = safeNumber(o.actualKg || o.kg, 0);
             const plantAcc = DB.get('acc:' + o.plantId);
             return sum + (kg * getCO2Factor(o.wasteType, plantAcc?.processingMethod));
           }, 0)) : null,
@@ -3616,7 +3617,18 @@ window.clearAllHistory = function(role) {
 
 window.submitPvRequest = async function() {
   const type = document.getElementById('req-type').value;
-  const kg = parseInt(document.getElementById('req-kg').value);
+  const kgInput = document.getElementById('req-kg').value;
+  const kgValidation = validateNumber(kgInput, {
+    min: 50,
+    max: 50000,
+    decimals: 2,
+    allowZero: false
+  });
+  if (!kgValidation.valid) {
+    return showToast(`⚠ ${kgValidation.error}`);
+  }
+
+  const kg = kgValidation.value;
   const shift = document.getElementById('req-shift').value;
   
   if (!kg || kg < 50) return showToast("⚠ Minimum 50 kg requirement not met to ensure net-positive energy yield.");
@@ -4165,7 +4177,7 @@ window.openPickupConfirm = function(id) {
   const html = `
     <h3 class="modal-title">Confirm Collection</h3>
     <p class="modal-sub">Verify the load before continuing to plant.</p>
-    <div class="form-group"><label class="form-label">Actual Weight Collected (kg)</label><input type="number" id="m-kg" class="form-input"></div>
+    <div class="form-group"><label class="form-label">Actual Weight Collected (kg)</label><input type="number" id="m-kg" class="form-input" min="1" max="50000" step="0.1" required ></div>
     <div class="form-group"><label class="form-label">Quality Observation</label><select id="m-qual" class="form-select"><option>Good (Segregated)</option><option>Mixed (Contaminated)</option></select></div>
     <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="confirmPickup('${id}')">Confirm ✓</button></div>
   `;
@@ -4173,8 +4185,17 @@ window.openPickupConfirm = function(id) {
   document.getElementById('modal').classList.add('open');
 }
 window.confirmPickup = async function(id) {
-  const kg = document.getElementById('m-kg').value;
-  if(!kg) return showToast("⚠ Enter weight.");
+  const mKgValue = document.getElementById('m-kg').value;
+  const weightValidation = validateNumber(mKgValue, {
+    min: 1,
+    max: 50000,
+    decimals: 2,
+    allowZero: false
+  });
+  if (!weightValidation.valid) {
+    return showToast(`⚠ ${weightValidation.error}`);
+  }
+  const kg = weightValidation.value;
   const o = getOrder(id); o.status = 'picked_up'; o.actualKg = kg; o.quality = document.getElementById('m-qual').value;
   saveOrder(o);
   updateSlaEntry(o.id, { pickupTs: ts(), status: 'picked_up' });
@@ -4604,9 +4625,9 @@ async function renderPlant(mc, fullRender) {
       <div style="max-width:600px; margin:0 auto;">
         <div class="glass-card">
           <h3 class="heading" style="margin-bottom:24px;">Log Daily Output</h3>
-          <div class="form-group"><label class="form-label">Biogas Produced (m³)</label><input class="form-input" id="out-bio" type="number" step="0.1"></div>
-          <div class="form-group"><label class="form-label">Compost Yield (kg)</label><input class="form-input" id="out-comp" type="number" step="0.1"></div>
-          <div class="form-group"><label class="form-label">Digester Temp (°C) <span style="font-size:11px; color:var(--amber)">(Auto-detected)</span></label><input class="form-input" id="out-temp" type="number" step="0.1" readonly placeholder="Fetching live temp..."></div>
+          <div class="form-group"><label class="form-label">Biogas Produced (m³)</label><input class="form-input" id="out-bio" type="number" min="0" max="100000" step="0.1"></div>
+          <div class="form-group"><label class="form-label">Compost Yield (kg)</label><input class="form-input" id="out-comp" type="number" min="0" max="100000" step="0.1"></div>
+          <div class="form-group"><label class="form-label">Digester Temp (°C) <span style="font-size:11px; color:var(--amber)">(Auto-detected)</span></label><input class="form-input" id="out-temp" type="number"  min="10" max="90" step="0.1" readonly placeholder="Fetching live temp..."></div>
           <div class="form-group">
             <label class="form-label">Processing Method <span style="font-size:11px; color:var(--text-muted)">(Applied to CO₂ offset calculations)</span></label>
             <select class="form-input" id="out-method">
@@ -4641,7 +4662,7 @@ window.openPlantConfirm = function(id) {
     <div class="form-group">
         <label class="form-label">Segregation Score (0-100)</label>
         <div style="display:flex; gap:8px;">
-            <input type="number" id="p-score" class="form-input" style="flex:1;">
+            <input type="number" id="p-score" class="form-input" min="0" max="100" step="1" style="flex:1;" required>
             <button class="btn btn-outline-primary" style="white-space:nowrap; border:2px solid var(--blue); color:var(--blue);" onclick="window.VisionScanner.openScanner('p-score')">📸 AI Scan</button>
         </div>
     </div>
@@ -4654,7 +4675,17 @@ window.openPlantConfirm = function(id) {
 window.confirmPlantReceipt = async function(id) {
   const o = getOrder(id); if(!o) return;
   if (o.status === 'completed') return showToast('Order already processed.');
-  const score = document.getElementById('p-score').value || 0;
+  const scoreInput = document.getElementById('p-score').value;
+  const scoreValidation = validateNumber(scoreInput, {
+    min: 0,
+    max: 100,
+    decimals: 0
+  });
+  if (!scoreValidation.valid) {
+    return showToast('Segregation score must be between 0 and 100.');
+  }
+
+  const score = scoreValidation.value;
   o.status = 'completed'; o.segScore = score;
   
   const providerAcc = DB.get('acc:' + o.providerId);
@@ -4732,7 +4763,7 @@ await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION
   });
   addEsgAlertsForOrder(o);
 
-  const kgProcessed = parseFloat(o.actualKg || o.kg || 0);
+  const kgProcessed = safeNumber(o.actualKg || o.kg, 0);
 
   if (kgProcessed > 0) {
     const energyKwh = parseFloat((kgProcessed * 0.35).toFixed(2));
@@ -4774,7 +4805,7 @@ await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION
     });
   }
   if (kgProcessed > 0) {
-    const segScore = parseFloat(o.segScore || 0);
+    const segScore = safeNumber(o.segScore,0);
     const qualityScore = Math.max(10, Math.min(100, Math.round(segScore || 70)));
     addQualityEntry({
       id: 'qlt-' + uid(),
@@ -4794,9 +4825,40 @@ await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION
 window.savePlantLog = function() {
   const bio = document.getElementById('out-bio').value;
   const comp = document.getElementById('out-comp').value;
+  const temp = document.getElementById('out-temp').value;
+  const bioValidation = validateNumber(bio, {
+    min: 0,
+    max: 100000,
+    decimals: 2
+  });
 
-  if(!bio && !comp)
-    return window.showToast("⚠ Enter output values.");
+  const compValidation = validateNumber(comp, {
+    min: 0,
+    max: 100000,
+    decimals: 2
+  });
+  
+  const tempValidation = validateNumber(temp, {
+    min: 10,
+    max: 90,
+    decimals: 1
+  });
+
+  if (!bioValidation.valid) {
+    return showToast(`Biogas Error: ${bioValidation.error}`);
+  }
+
+  if (!compValidation.valid) {
+    return showToast(`Compost Error: ${compValidation.error}`);
+  }
+  
+  if (!tempValidation.valid) {
+    return showToast(`Temperature Error: ${tempValidation.error}`);
+  }
+  // SAFE SANITIZED VALUES
+  const validatedBio = bioValidation.value;
+  const validatedComp = compValidation.value;
+  const validatedTemp = tempValidation.value;
 
   // Persist processing method to plant account so CO₂ factor is applied consistently
   const method =
@@ -4808,13 +4870,15 @@ window.savePlantLog = function() {
     DB.set('acc:' + SESSION.id, SESSION, { localOnly: true });
   }
 
-  DB.set('log:' + uid(), {
-    id: uid(),
+  const logId = uid();
+  DB.set('log:' + logId, {
+    id: logId,
     ts: ts(),
     plantId: SESSION.id,
-    bio,
-    comp,
-    temp: document.getElementById('out-temp').value
+    // USING VALIDATED VALUES
+    bio: validatedBio,
+    comp: validatedComp,
+    temp: validatedTemp
   });
 
   addWorkflowNotification({
@@ -4844,8 +4908,8 @@ function initPlChart() {
       // Just map the last 6 logs
       const recent = logs.slice(0,6).reverse();
       for(let i=0; i<recent.length; i++){
-          bioData[5 - recent.length + 1 + i] = parseFloat(recent[i].bio||0);
-          predData[5 - recent.length + 1 + i] = parseFloat(recent[i].bio||0) * (1 + (Math.random()*0.05)); // AI Prediction slightly above actual
+          bioData[5 - recent.length + 1 + i] = safeNumber(recent[i].bio,0);
+          predData[5 - recent.length + 1 + i] = safeNumber(recent[i].bio,0) * (1 + (Math.random()*0.05)); // AI Prediction slightly above actual
       }
   }
 
@@ -4914,7 +4978,16 @@ function startIoTSim() {
       if (b.status === 'offline') return;
       // Advance fill by rate ± small noise, clamp 0-100
       const delta = (b.rate || 0.5) + (Math.random() - 0.4) * 0.3;
-      b.fill = Math.min(100, Math.max(0, parseFloat((b.fill + delta).toFixed(1))));
+      const currentFill = safeNumber(b.fill, 0);
+      const currentRate = safeNumber(b.rate, 0.5);
+
+      const delta = currentRate + (Math.random() - 0.4) * 0.3;
+
+      b.fill = clampNumber(
+        safeNumber(Number((currentFill + delta).toFixed(1)), 0),
+        0,
+        100
+      );
       b.lastReading = Date.now();
       // Simulate occasional temp/humidity changes
       b.temp = parseFloat((22 + Math.random() * 8).toFixed(1));
@@ -5115,8 +5188,27 @@ window.iotAddBin = function() {
 
 window.iotSaveNewBin = function() {
   const name = document.getElementById('iot-m-name').value.trim();
-  const fill = parseFloat(document.getElementById('iot-m-fill').value) || 0;
-  const rate = parseFloat(document.getElementById('iot-m-rate').value) || 0.8;
+  const fillValidation = validateNumber(fillInput, {
+    min: 0,
+    max: 100,
+    decimals: 1
+  });
+
+  const rateValidation = validateNumber(rateInput, {
+    min: 0.1,
+    max: 500,
+    decimals: 2,
+    allowZero: false
+  });
+  if (!fillValidation.valid) {
+    return showToast(fillValidation.error);
+  }
+
+  if (!rateValidation.valid) {
+    return showToast(rateValidation.error);
+  }
+  const fill = fillValidation.value;
+  const rate = rateValidation.value;
   if (!name) return showToast('⚠ Enter a bin name.');
   const bins = getIoTBins();
   bins.push({ id: 'bin-' + uid(), name, fill, rate, status: 'active', lastReading: Date.now(), temp: 24, humidity: 60, methane: 0 });

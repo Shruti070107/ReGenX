@@ -1,3 +1,4 @@
+import { safeNumber } from "./utils/validation";
 /**
  * @fileoverview ReGenX Cryptographic Verification & Public Audit Portal
  * Implements client-side SHA-256 matching and verified environmental origin auditing.
@@ -6,6 +7,8 @@
  * Phase 2 Upgrade: Optimized verification timelines and certified compliance badges.
  * @author GSSoC Contributor
  */
+
+import { safeNumber } from "./utils/validation";
 
 const STORAGE_KEY_PREFIX = 'regenx-v3:';
 const AUDIT_REGISTRY_KEY = STORAGE_KEY_PREFIX + 'audit-registry';
@@ -270,7 +273,7 @@ export const AuditPortal = {
                 let timelineSteps = [];
 
                 if (matchedOrder) {
-                    const kgVal = parseFloat(matchedOrder.actualKg || matchedOrder.kg || 0);
+                    const kgVal = safeNumber(matchedOrder.actualKg || matchedOrder.kg, 0);
                     const co2Saved = Math.round(kgVal * 0.62 * 10) / 10;
                     const tokens = matchedOrder.tokensMinted || Math.round(kgVal * 2);
 
@@ -530,6 +533,7 @@ export const AuditPortal = {
                                     <p style="font-size: 12px; color: ${step.icon === '⚠️' ? '#EF4444' : 'var(--text-muted)'}; line-height: 1.4; margin: 0;">${step.desc}</p>
                                 </div>
                             </div>
+                            `).join('')}
                             </div>
                         </div>
 

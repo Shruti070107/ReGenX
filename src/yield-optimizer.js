@@ -1,9 +1,12 @@
+import { safeNumber } from "./utils/validation";
 /**
  * @fileoverview ReGenX AI Digester Yield Optimization Engine
  * Mathematical models for predicting and optimizing anaerobic digestion.
  * Phase 2 Upgrade: Integrated biological yield estimation models based on organic purity.
  * @author GSSoC Contributor
  */
+
+import { safeNumber } from "./utils/validation";
 
 export const YieldOptimizer = {
     /**
@@ -23,14 +26,14 @@ export const YieldOptimizer = {
 
         // Calculate average segregation score (quality of organic matter)
         const totalScore = recentIntakes.reduce((sum, o) => {
-            const rawScore = parseInt(o.segScore) || 50;
+            const rawScore = safeNumber(o.segScore,0) || 50;
             const cappedScore = Math.max(0, Math.min(100, rawScore));
             return sum + cappedScore;
         }, 0);
         const avgScore = totalScore / recentIntakes.length;
 
         // Calculate total mass
-        const totalKg = recentIntakes.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
+        const totalKg = recentIntakes.reduce((sum, o) => sum + (safeNumber(o.actualKg || o.kg,0)), 0);
 
         // Theoretical Model: 
         // High quality (Score > 80) yields ~0.8 m3/kg

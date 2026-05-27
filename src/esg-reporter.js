@@ -1,3 +1,4 @@
+import { safeNumber } from "./utils/validation";
 /**
  * @fileoverview ReGenX Enterprise ESG Reporting Engine
  * Generates high-fidelity HTML-to-PDF reports for Corporate Social Responsibility metrics.
@@ -79,7 +80,7 @@ export const ESGReporter = {
     renderHub: (mc, fullRender, account, history) => {
         if (!fullRender) return;
 
-        const totalKg = history.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
+        const totalKg = history.reduce((sum, o) => sum + (safeNumber(o.actualKg || o.kg,0)), 0);
         const totalCO2 = Math.round(totalKg * 0.62); // 0.62 kg CO2 per kg bio-waste
         const totalTokens = account.tokens || 0;
         
@@ -355,7 +356,7 @@ export const ESGReporter = {
         }
 
         // Calculate Metrics
-        const totalKg = history.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
+        const totalKg = history.reduce((sum, o) => sum + (safeNumber(o.actualKg || o.kg, 0)), 0);
         const totalTokens = account.tokens || 0;
         // Load BioScan history from localStorage
         const scanHistory = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
@@ -366,7 +367,7 @@ export const ESGReporter = {
 
         // Per-order CO₂ calculation using waste-type-specific IPCC 2006 / GHG Protocol factors
         const co2Details = history.map(o => {
-            const kg = parseFloat(o.actualKg || o.kg) || 0;
+            const kg = safeNumber(o.actualKg || o.kg,0);
             const factor = window.getCO2Factor
                 ? window.getCO2Factor(o.wasteType, o.processingMethod)
                 : 0.55;
