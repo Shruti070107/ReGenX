@@ -76,7 +76,7 @@ export const ESGReporter = {
      * @param {Object} account - Current user SESSION object.
      * @param {Array<Object>} history - Array of completed order objects.
      */
-    renderHub: (mc, fullRender, account, history) => {
+    renderHub: async (mc, fullRender, account, history) => {
         if (!fullRender) return;
 
         const totalKg = history.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
@@ -93,7 +93,37 @@ export const ESGReporter = {
             : 0;
 
         const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        const reportHash = ESGReporter.generateAuditHash();
+        
+        const historyWithHashes = await Promise.all(history.map(async (o) => {
+            let txHash = o.txHash;
+            if (!txHash) {
+                try {
+                    txHash = await ESGReporter.generateAuditHash({
+                        id: o.id,
+                        wasteType: o.wasteType,
+                        kg: o.actualKg || o.kg,
+                        ts: o.ts
+                    });
+                } catch (e) {
+                    txHash = '0x' + '0'.repeat(64);
+                }
+            }
+            return { ...o, txHash };
+        }));
+
+        let reportHash = '';
+        try {
+            reportHash = await ESGReporter.generateAuditHash({
+                org: account.org || account.name,
+                userId: account.id,
+                totalKg,
+                totalCO2,
+                dispatchesCount: history.length,
+                ts: Date.now()
+            });
+        } catch (e) {
+            reportHash = '0x' + '0'.repeat(64);
+        }
 
         let qualityBadgeColor = 'badge-red';
         let qualityText = 'Needs Improvement';
@@ -189,8 +219,8 @@ export const ESGReporter = {
                             <span style="font-size:11px; font-weight:600; color:var(--text-muted); background:var(--border); padding:4px 8px; border-radius:6px;">Ledger Sync: Active</span>
                         </div>
                         <div style="flex:1; overflow-y:auto; max-height:480px; padding-right:4px;">
-                            ${history.length ? history.map(o => {
-                                const orderHash = o.txHash || ESGReporter.generateAuditHash().slice(0, 18) + '...';
+                            ${historyWithHashes.length ? historyWithHashes.map(o => {
+                                const orderHash = o.txHash;
                                 const score = parseFloat(o.segScore) || (o.quality === 'Good (Segregated)' ? 85 : 45);
                                 return `
                                     <div style="background:var(--surface-hover); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:12px;">
@@ -357,6 +387,24 @@ export const ESGReporter = {
         // Calculate Metrics
         const totalKg = history.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
         const totalTokens = account.tokens || 0;
+
+        // Precompute order hashes asynchronously to avoid calling generateAuditHash synchronously in mapping
+        const historyWithHashes = await Promise.all(history.map(async (o) => {
+            let txHash = o.txHash;
+            if (!txHash) {
+                try {
+                    txHash = await ESGReporter.generateAuditHash({
+                        id: o.id,
+                        wasteType: o.wasteType,
+                        kg: o.actualKg || o.kg,
+                        ts: o.ts
+                    });
+                } catch (e) {
+                    txHash = '0x' + '0'.repeat(64);
+                }
+            }
+            return { ...o, txHash };
+        }));
         // Load BioScan history from localStorage
         const scanHistory = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
         const avgOrganicPct = scanHistory.length
@@ -495,8 +543,8 @@ export const ESGReporter = {
                     </tr>
                 </thead>
                 <tbody>
-                    ${history.length ? history.map(o => {
-                        const h = o.txHash || ESGReporter.generateAuditHash();
+                    ${historyWithHashes.length ? historyWithHashes.map(o => {
+                        const h = o.txHash;
                         const s = parseFloat(o.segScore) || (o.quality === 'Good (Segregated)' ? 85 : 45);
                         return `
                             <tr>
