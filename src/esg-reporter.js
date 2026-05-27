@@ -80,7 +80,14 @@ export const ESGReporter = {
         if (!fullRender) return;
 
         const totalKg = history.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
-        const totalCO2 = Math.round(totalKg * 0.62); // 0.62 kg CO2 per kg bio-waste
+        const co2Details = history.map(o => {
+            const kg = parseFloat(o.actualKg || o.kg) || 0;
+            const factor = window.getCO2Factor
+                ? window.getCO2Factor(o.wasteType, o.processingMethod)
+                : 0.55;
+            return kg * factor;
+        });
+        const totalCO2 = Math.round(co2Details.reduce((sum, co2) => sum + co2, 0));
         const totalTokens = account.tokens || 0;
         
         // Compute average segregation score

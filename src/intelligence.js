@@ -56,11 +56,12 @@ export const Intelligence = {
         return providers.map(p => {
             const providerOrders = allOrders.filter(o => o.providerId === p.id);
             const intensity = Math.min(providerOrders.length / 10, 1);
+            const totalProviderKg = providerOrders.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
             return {
                 lat: p.lat + (Math.random() - 0.5) * 0.01, // Slight offset for visual "area"
                 lng: p.lng + (Math.random() - 0.5) * 0.01,
                 intensity,
-                reason: `${p.org} frequently dispatches ${Math.floor(intensity * 100)}kg+`
+                reason: `${p.org} frequently dispatches ${Math.floor(totalProviderKg)}kg+`
             };
         }).filter(z => z.intensity > 0.3);
     },
