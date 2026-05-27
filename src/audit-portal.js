@@ -194,11 +194,11 @@ export const AuditPortal = {
                             <div class="audit-registry-item">
                                 <div class="between" style="margin-bottom: 6px;">
                                     <span style="font-weight: 700; color: var(--text);">${escapeHTML(rec.org)}</span>
-                                    <span style="font-size: 11px; font-family: monospace; color: var(--green); font-weight: 700;">${rec.totalKg} Kg Offset</span>
+                                    <span style="font-size: 11px; font-family: monospace; color: var(--green); font-weight: 700;">${escapeHTML(rec.totalKg)} Kg Offset</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="text" value="${rec.hash}" readonly class="audit-registry-input" onclick="window.AuditPortal.copyHash('${rec.hash}')">
-                                    <button class="btn btn-ghost btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="window.AuditPortal.copyHash('${rec.hash}')">📋 Copy</button>
+                                    <input type="text" value="${escapeHTML(rec.hash)}" readonly class="audit-registry-input" data-action="audit-copy-hash" data-id="${escapeHTML(rec.hash)}">
+                                    <button type="button" class="btn btn-ghost btn-sm" style="padding: 2px 6px; font-size: 11px;" data-action="audit-copy-hash" data-id="${escapeHTML(rec.hash)}">📋 Copy</button>
                                 </div>
                             </div>
                         `).join('')}
@@ -257,7 +257,7 @@ export const AuditPortal = {
                         <span style="font-size: 40px; display: block; margin-bottom: 12px;">❌</span>
                         <h4 style="color: #EF4444; margin-bottom: 8px;">Verification Failed</h4>
                         <p style="font-size: 13px; color: var(--text-muted); max-width: 500px; margin: 0 auto; line-height: 1.5;">
-                            The identifier or signature hash <strong>${queryStr}</strong> was not found in the ReGenX ledger. This record may be unverified, modified, or not yet completed.
+                            The identifier or signature hash <strong>${escapeHTML(queryStr)}</strong> was not found in the ReGenX ledger. This record may be unverified, modified, or not yet completed.
                         </p>
                     </div>
                 `;
@@ -439,12 +439,12 @@ export const AuditPortal = {
                                     <div style="width: 24px; height: 24px; background: ${statusTone}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; font-weight: bold;">${verificationState === 'verified' ? '✓' : '!'}</div>
                                     <h4 style="color: ${statusTone}; font-size: 18px; margin: 0; font-family: 'Space Grotesk', sans-serif;">${statusLabel}</h4>
                                 </div>
-                                <div style="font-size: 11px; font-family: monospace; color: var(--text-muted); word-break: break-all; max-width: 480px;">Stored Hash: ${cleanHashText}</div>
-                                ${verificationState === 'tampered' ? `<div style="font-size: 11px; font-family: monospace; color: #EF4444; word-break: break-all; max-width: 480px;">Expected Hash: ${expectedHash}</div>` : ''}
+                                <div style="font-size: 11px; font-family: monospace; color: var(--text-muted); word-break: break-all; max-width: 480px;">Stored Hash: ${escapeHTML(cleanHashText)}</div>
+                                ${verificationState === 'tampered' ? `<div style="font-size: 11px; font-family: monospace; color: #EF4444; word-break: break-all; max-width: 480px;">Expected Hash: ${escapeHTML(expectedHash)}</div>` : ''}
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px;">Verification Time</div>
-                            <div style="font-size: 13px; font-weight: 600; color: var(--text);">${formatTimestamp(auditData.timestamp)}</div>
+                            <div style="font-size: 13px; font-weight: 600; color: var(--text);">${escapeHTML(formatTimestamp(auditData.timestamp))}</div>
                         </div>
                     </div>
 
@@ -470,22 +470,22 @@ export const AuditPortal = {
                                 <div style="margin-bottom: 20px;">
                                     <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;">Account Entity</div>
                                     <div style="font-weight: 700; font-size: 18px; color: var(--text);">${escapeHTML(auditData.org)}</div>
-                                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px;">Role: ${auditData.role.toUpperCase()} · ID: ${auditData.userId}</div>
+                                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px;">Role: ${escapeHTML(auditData.role.toUpperCase())} · ID: ${escapeHTML(auditData.userId)}</div>
                                 </div>
 
                                 <div style="margin-bottom: 24px;">
                                     <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 8px; letter-spacing: 0.5px;">Attested Impact Metrics</div>
                                     <div style="display: flex; gap: 10px;">
                                         <div style="flex: 1; text-align: center; padding: 10px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 8px;">
-                                            <div style="font-size: 16px; font-weight: 800; color: var(--green);">${auditData.totalKg} kg</div>
+                                            <div style="font-size: 16px; font-weight: 800; color: var(--green);">${escapeHTML(auditData.totalKg)} kg</div>
                                             <span style="font-size: 8px; text-transform: uppercase; font-weight: 700; color: var(--text-muted);">Recycled</span>
                                         </div>
                                         <div style="flex: 1; text-align: center; padding: 10px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 8px;">
-                                            <div style="font-size: 16px; font-weight: 800; color: var(--blue);">${auditData.totalCO2} kg</div>
+                                            <div style="font-size: 16px; font-weight: 800; color: var(--blue);">${escapeHTML(auditData.totalCO2)} kg</div>
                                             <span style="font-size: 8px; text-transform: uppercase; font-weight: 700; color: var(--text-muted);">CO₂ Saved</span>
                                         </div>
                                         <div style="flex: 1; text-align: center; padding: 10px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 8px;">
-                                            <div style="font-size: 16px; font-weight: 800; color: var(--amber);">${auditData.tokens} $RGX</div>
+                                            <div style="font-size: 16px; font-weight: 800; color: var(--amber);">${escapeHTML(auditData.tokens)} $RGX</div>
                                             <span style="font-size: 8px; text-transform: uppercase; font-weight: 700; color: var(--text-muted);">Minted</span>
                                         </div>
                                     </div>
@@ -494,14 +494,14 @@ export const AuditPortal = {
                                 <div class="between" style="align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px; margin-top: 16px;">
                                     <div style="max-width: 140px;">
                                         <div style="font-size: 8px; font-family: monospace; color: var(--text-muted); word-break: break-all; line-height: 1.3;">
-                                            SIGNATURE:<br>${auditData.hash.slice(0, 32)}<br>${auditData.hash.slice(32)}
+                                            SIGNATURE:<br>${escapeHTML(auditData.hash.slice(0, 32))}<br>${escapeHTML(auditData.hash.slice(32))}
                                         </div>
                                     </div>
                                     <div id="verification-qrcode" style="width: 80px; height: 80px; background: white; padding: 4px; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
                                 </div>
                             </div>
                             
-                            <button class="btn btn-secondary btn-full" onclick="window.AuditPortal.downloadBadge('${auditData.id}')" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <button type="button" class="btn btn-secondary btn-full" data-action="audit-download-badge" data-id="${escapeHTML(auditData.id)}" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
                                 📥 Download Certified Impact Badge (PDF)
                             </button>
                         </div>
@@ -519,15 +519,15 @@ export const AuditPortal = {
                                         
                                         <!-- Timeline Pin -->
                                         <div style="width: 34px; height: 34px; background: ${step.active ? 'var(--surface-hover)' : 'var(--surface)'}; border: 2px solid ${step.active ? 'var(--green)' : 'var(--border)'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.15); filter: ${step.active ? 'none' : 'grayscale(1)'}; transition: all 0.3s;">
-                                            ${step.icon}
+                                            ${escapeHTML(step.icon)}
                                         </div>
 
 <div class="glass-card" style="flex: 1; padding: 14px; border-color: ${step.active ? (step.icon === '⚠️' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.2)') : 'var(--border)'}; background: ${step.active ? (step.icon === '⚠️' ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255,255,255,0.02)') : 'rgba(255,255,255,0.01)'}; transition: all 0.3s; opacity: ${step.active ? 1 : 0.45};">
                                     <div class="between" style="margin-bottom: 4px; flex-wrap: wrap;">
-                                        <span style="font-weight: 700; font-size: 13px; color: ${step.active ? (step.icon === '⚠️' ? '#EF4444' : 'var(--text)') : 'var(--text-muted)'};">${step.label}</span>
-                                        <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${step.time}</span>
+                                        <span style="font-weight: 700; font-size: 13px; color: ${step.active ? (step.icon === '⚠️' ? '#EF4444' : 'var(--text)') : 'var(--text-muted)'};">${escapeHTML(step.label)}</span>
+                                        <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${escapeHTML(step.time)}</span>
                                     </div>
-                                    <p style="font-size: 12px; color: ${step.icon === '⚠️' ? '#EF4444' : 'var(--text-muted)'}; line-height: 1.4; margin: 0;">${step.desc}</p>
+                                    <p style="font-size: 12px; color: ${step.icon === '⚠️' ? '#EF4444' : 'var(--text-muted)'}; line-height: 1.4; margin: 0;">${escapeHTML(step.desc)}</p>
                                 </div>
                             </div>
                             </div>

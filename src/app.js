@@ -20,6 +20,136 @@ const QUALITY_LEDGER_KEY = STORAGE_KEY_PREFIX + "quality-ledger";
 const AUTOMATION_PIPELINE_KEY = STORAGE_KEY_PREFIX + "automation-pipeline";
 const SESSION_STATE_KEY = STORAGE_KEY_PREFIX + 'active-session';
 
+/**
+ * Escape a value for safe HTML rendering.
+ * @param {*} value - Value to escape.
+ * @returns {string} Escaped string.
+ */
+function escapeHTML(value) {
+  if (value === null || typeof value === 'undefined') return '';
+  return String(value).replace(/[&<>"'`]/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+    '`': '&#96;'
+  })[char]);
+}
+
+/**
+ * Sanitize a URL for safe usage in href/src/location targets.
+ * @param {*} value - Candidate URL.
+ * @returns {string} Safe URL or '#'.
+ */
+function sanitizeURL(value) {
+  if (value === null || typeof value === 'undefined') return '#';
+  const url = String(value).trim();
+  if (!url) return '#';
+  if (url.startsWith('#') || url.startsWith('/')) return url;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const protocol = parsed.protocol.toLowerCase();
+    return protocol === 'http:' || protocol === 'https:' ? parsed.toString() : '#';
+  } catch {
+    return '#';
+  }
+}
+
+/**
+ * Write trusted HTML into a node.
+ * @param {HTMLElement|null} element - Target element.
+ * @param {string} html - Safe HTML string.
+ */
+function setSafeHTML(element, html) {
+  if (!element) return;
+  element.innerHTML = html;
+}
+
+function installDelegatedActionHandlers() {
+  if (window.__regenxActionHandlersInstalled) return;
+  window.__regenxActionHandlersInstalled = true;
+
+  document.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-action]');
+    if (!target) return;
+
+    const action = target.dataset.action;
+    const id = target.dataset.id || '';
+    const status = target.dataset.status || '';
+    const url = sanitizeURL(target.dataset.url || '');
+    const price = Number(target.dataset.price || 0);
+    const name = target.dataset.name || '';
+
+    switch (action) {
+      case 'notification-read':
+        window.markNotificationRead?.(id);
+        break;
+      case 'open-url':
+        if (url !== '#') window.location.assign(url);
+        break;
+      case 'cancel-order':
+        window.cancelOrder?.(id);
+        break;
+      case 'rider-accept':
+        window.riderAccept?.(id);
+        break;
+      case 'rider-update':
+        window.riderUpdate?.(id, status);
+        break;
+      case 'pickup-confirm':
+        window.openPickupConfirm?.(id);
+        break;
+      case 'plant-confirm':
+        window.openPlantConfirm?.(id);
+        break;
+      case 'delete-order':
+        window.deleteOrder?.(id);
+        break;
+      case 'integrity-scan':
+        window.openIntegrityScan?.(id);
+        break;
+      case 'market-buy':
+        window.buyMarketItem?.(price, name);
+        break;
+      case 'resolve-esg-alert':
+        window.resolveEsgAlert?.(id);
+        break;
+      case 'auto-assign-task':
+        window.autoAssignTask?.(id);
+        break;
+      case 'complete-task':
+        window.updateAutomationTask?.(id, { status: 'done' });
+        break;
+      case 'iot-dispatch-bin':
+        window.iotDispatchFromBin?.(id);
+        break;
+      case 'iot-edit-bin':
+        window.iotEditBin?.(id);
+        break;
+      case 'iot-delete-bin':
+        window.iotDeleteBin?.(id);
+        break;
+      case 'iot-save-edit-bin':
+        window.iotSaveEditBin?.(id);
+        break;
+      case 'close-modal':
+        window.closeModal?.();
+        break;
+      case 'audit-copy-hash':
+        window.AuditPortal?.copyHash?.(id);
+        break;
+      case 'audit-download-badge':
+        window.AuditPortal?.downloadBadge?.(id);
+        break;
+      default:
+        break;
+    }
+  });
+}
+
+installDelegatedActionHandlers();
+
 console.log('APP JS LOADED');
 
 function saveActiveSession(accountId, viewId) {
@@ -366,13 +496,14 @@ function isDuplicateNotification(title, body) {
 function sendBrowserNotification(title, body, url = '/') {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try {
+    const safeUrl = sanitizeURL(url);
     const notification = new Notification(title, {
       body,
       icon: '/icons/icon-192x192.png',
       badge: '/icons/icon-72x72.png',
-      data: { url }
+      data: { url: safeUrl }
     });
-    notification.onclick = () => window.focus() && window.location.assign(url);
+    notification.onclick = () => window.focus() && safeUrl !== '#' && window.location.assign(safeUrl);
   } catch (e) {
     console.warn('Browser notification failed', e);
   }
@@ -384,7 +515,7 @@ function pushActivityFeed(event) {
   const item = document.createElement('div');
   item.className = 'gw-item';
   item.innerHTML = `
-    <div>${event.icon || '🔔'} ${event.title}</div>
+    <div>${escapeHTML(event.icon || '🔔')} ${escapeHTML(event.title)}</div>
     <div class="gw-time">${fmtDate(event.ts || Date.now())}</div>
   `;
   const first = feed.firstChild;
@@ -447,13 +578,13 @@ function renderNotificationCenter() {
   list.innerHTML = notifications.map(n => `
     <div class="notification-card ${n.read ? 'read' : 'unread'}">
       <div class="notification-card-header">
-        <div class="notification-card-title">${n.title}</div>
+        <div class="notification-card-title">${escapeHTML(n.title)}</div>
         <div class="notification-card-meta">${fmtDate(n.ts)}</div>
       </div>
-      <div class="notification-card-body">${n.body}</div>
+      <div class="notification-card-body">${escapeHTML(n.body)}</div>
       <div class="notification-card-actions">
-        <button class="btn btn-ghost btn-sm" onclick="markNotificationRead('${n.id}')">Mark read</button>
-        <button class="btn btn-ghost btn-sm" onclick="window.location.href='${n.url}'">View</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="notification-read" data-id="${escapeHTML(n.id)}">Mark read</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="open-url" data-url="${escapeHTML(sanitizeURL(n.url))}">View</button>
       </div>
     </div>
   `).join('');
@@ -1041,10 +1172,10 @@ function renderComplianceWidget() {
       const items = alerts.slice(0, 3).map(a => `
         <div class="compliance-item">
           <div>
-            <div class="compliance-title">${a.message}</div>
-            <div class="compliance-sub">Order #${a.orderId.slice(-6).toUpperCase()} · ${fmtDate(a.ts)}</div>
+            <div class="compliance-title">${escapeHTML(a.message)}</div>
+            <div class="compliance-sub">Order #${escapeHTML(a.orderId).slice(-6).toUpperCase()} · ${fmtDate(a.ts)}</div>
           </div>
-          <span class="badge ${a.severity === 'high' ? 'badge-red' : 'badge-amber'}">${a.severity.toUpperCase()}</span>
+          <span class="badge ${a.severity === 'high' ? 'badge-red' : 'badge-amber'}">${escapeHTML(String(a.severity || '').toUpperCase())}</span>
         </div>
       `).join('');
 
@@ -1148,7 +1279,7 @@ function renderReconciliationWidget() {
       <div class="reconciliation-bar"><span style="width:${summary.score}%;"></span></div>
       <div class="between" style="margin-top:10px; font-size:12px; color:var(--text-muted);">
         <div>${summary.total} ledger entries</div>
-        <button class="btn btn-ghost btn-sm" onclick="showView('v-reconciliation')">Open →</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="open-url" data-url="/">Open →</button>
       </div>
     </div>
   `;
@@ -2343,7 +2474,7 @@ function saveOrder(o) {
 function getAllLogs() { return DB.list('log:').map(k => DB.get(k)).filter(Boolean).sort((a,b)=>b.ts-a.ts); }
 
 function renderStatusBadge(label, tone = 'neutral') {
-  return `<span class="status-badge status-badge-${tone}">${label}</span>`;
+  return `<span class="status-badge status-badge-${escapeHTML(tone)}">${escapeHTML(label)}</span>`;
 }
 
 function renderLoadingSkeleton(lines = 2) {
@@ -2371,9 +2502,9 @@ function renderErrorState({ title = 'Operational error', description = 'Unable t
         <div class="dashboard-state-icon">⚠️</div>
         ${renderStatusBadge('Error', 'error')}
       </div>
-      <div class="dashboard-state-title">${title}</div>
-      <div class="dashboard-state-desc">${description}</div>
-      ${subtext ? `<div class="dashboard-state-sub">${subtext}</div>` : ''}
+      <div class="dashboard-state-title">${escapeHTML(title)}</div>
+      <div class="dashboard-state-desc">${escapeHTML(description)}</div>
+      ${subtext ? `<div class="dashboard-state-sub">${escapeHTML(subtext)}</div>` : ''}
       ${actionHtml ? `<div class="dashboard-state-actions">${actionHtml}</div>` : ''}
     </div>
   `;
@@ -2383,12 +2514,12 @@ function renderEmptyStateCard({ icon = '◌', title = 'No data available', descr
   return `
     <div class="dashboard-state dashboard-state-empty">
       <div class="dashboard-state-head">
-        <div class="dashboard-state-icon">${icon}</div>
+        <div class="dashboard-state-icon">${escapeHTML(icon)}</div>
         ${renderStatusBadge(statusLabel, tone)}
       </div>
-      <div class="dashboard-state-title">${title}</div>
-      <div class="dashboard-state-desc">${description}</div>
-      ${subtext ? `<div class="dashboard-state-sub">${subtext}</div>` : ''}
+      <div class="dashboard-state-title">${escapeHTML(title)}</div>
+      <div class="dashboard-state-desc">${escapeHTML(description)}</div>
+      ${subtext ? `<div class="dashboard-state-sub">${escapeHTML(subtext)}</div>` : ''}
       ${actionHtml ? `<div class="dashboard-state-actions">${actionHtml}</div>` : ''}
     </div>
   `;
@@ -2412,16 +2543,16 @@ function renderMetricCard({ title, value, description = '', status = 'active', i
   return `
     <div class="stat-card dashboard-state dashboard-state-active state-${tone}"${style}>
       <div class="dashboard-state-head">
-        <div class="dashboard-state-icon">${icon}</div>
+        <div class="dashboard-state-icon">${escapeHTML(icon)}</div>
         ${renderStatusBadge(statusLabel, tone)}
       </div>
       <div class="dashboard-state-body">
         <div class="metric-hero-row">
-          <div class="metric-hero-value">${valueText}${unit ? `<span class="metric-unit">${unit}</span>` : ''}</div>
-          ${trend ? `<span class="metric-trend metric-trend-${trendTone}"><span>${trendArrow}</span><span>${trend.label || trend.text || ''}</span></span>` : ''}
+          <div class="metric-hero-value">${escapeHTML(valueText)}${unit ? `<span class="metric-unit">${escapeHTML(unit)}</span>` : ''}</div>
+          ${trend ? `<span class="metric-trend metric-trend-${escapeHTML(trendTone)}"><span>${escapeHTML(trendArrow)}</span><span>${escapeHTML(trend.label || trend.text || '')}</span></span>` : ''}
         </div>
-        <div class="metric-title">${title}</div>
-        ${description ? `<div class="metric-desc">${description}</div>` : ''}
+        <div class="metric-title">${escapeHTML(title)}</div>
+        ${description ? `<div class="metric-desc">${escapeHTML(description)}</div>` : ''}
       </div>
       ${sparkline.length ? renderSparkline(sparkline, tone) : ''}
       ${actionHtml ? `<div class="dashboard-state-actions">${actionHtml}</div>` : ''}
@@ -2440,13 +2571,13 @@ function renderDashboardListState({ icon = '◌', title = 'No data available', d
 function renderSectionPlaceholder({ title = 'Loading data', description = 'Preparing dashboard state…' } = {}) {
   return `
     <div class="dashboard-section-placeholder">
-      <div class="dashboard-section-placeholder-title">${title}</div>
+      <div class="dashboard-section-placeholder-title">${escapeHTML(title)}</div>
       <div class="dashboard-section-placeholder-body">
         <div class="skeleton-loader" style="width:72%;"></div>
         <div class="skeleton-loader" style="width:58%;"></div>
         <div class="skeleton-loader" style="width:84%;"></div>
       </div>
-      <div class="dashboard-state-sub">${description}</div>
+      <div class="dashboard-state-sub">${escapeHTML(description)}</div>
     </div>
   `;
 }
@@ -2501,31 +2632,31 @@ function buildOrderCard(o, role) {
   
   let acts = '';
   if (role === 'provider' && o.status === 'requested') {
-    acts = `<button class="btn btn-ghost btn-sm" onclick="cancelOrder('${o.id}')">Cancel</button>`;
+    acts = `<button type="button" class="btn btn-ghost btn-sm" data-action="cancel-order" data-id="${escapeHTML(o.id)}">Cancel</button>`;
   }
   if (role === 'rider' && o.status === 'requested') {
-    acts = `<button class="btn btn-primary btn-sm" onclick="riderAccept('${o.id}')">Accept Route</button>`;
+    acts = `<button type="button" class="btn btn-primary btn-sm" data-action="rider-accept" data-id="${escapeHTML(o.id)}">Accept Route</button>`;
   }
   if (role === 'rider' && o.status === 'assigned' && o.riderId === SESSION.id) {
-    acts = `<button class="btn btn-amber btn-sm" onclick="riderUpdate('${o.id}','en_route')">Start Navigation →</button>`;
+    acts = `<button type="button" class="btn btn-amber btn-sm" data-action="rider-update" data-id="${escapeHTML(o.id)}" data-status="en_route">Start Navigation →</button>`;
   }
   if (role === 'rider' && o.status === 'en_route' && o.riderId === SESSION.id) {
-    acts = `<button class="btn btn-primary btn-sm" onclick="openPickupConfirm('${o.id}')">Confirm Collection ✓</button>`;
+    acts = `<button type="button" class="btn btn-primary btn-sm" data-action="pickup-confirm" data-id="${escapeHTML(o.id)}">Confirm Collection ✓</button>`;
   }
   if (role === 'rider' && o.status === 'picked_up' && o.riderId === SESSION.id) {
-    acts = `<button class="btn btn-amber btn-sm" onclick="riderUpdate('${o.id}','at_plant')">Arrived at Plant</button>`;
+    acts = `<button type="button" class="btn btn-amber btn-sm" data-action="rider-update" data-id="${escapeHTML(o.id)}" data-status="at_plant">Arrived at Plant</button>`;
   }
   if (role === 'plant' && o.status === 'at_plant' && o.plantId === SESSION.id) {
-    acts = `<button class="btn btn-primary btn-sm" onclick="openPlantConfirm('${o.id}')">Confirm Receipt ✓</button>`;
+    acts = `<button type="button" class="btn btn-primary btn-sm" data-action="plant-confirm" data-id="${escapeHTML(o.id)}">Confirm Receipt ✓</button>`;
   }
   if (['provider', 'rider', 'plant'].includes(role) && o.status === 'completed') {
-    acts += `<button class="btn btn-outline-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑 Delete Record</button>`;
+    acts += `<button type="button" class="btn btn-outline-danger btn-sm" data-action="delete-order" data-id="${escapeHTML(o.id)}">🗑 Delete Record</button>`;
   }
 
-  acts += `<button class="btn btn-ghost btn-sm" onclick="openIntegrityScan('${o.id}')">🛡 Integrity Scan</button>`;
+  acts += `<button type="button" class="btn btn-ghost btn-sm" data-action="integrity-scan" data-id="${escapeHTML(o.id)}">🛡 Integrity Scan</button>`;
 
   return `
-    <div class="order-card" data-status="${o.status}">
+    <div class="order-card" data-status="${escapeHTML(o.status)}">
       <div class="oc-header">
         <div class="oc-title">${escapeHTML(o.providerOrg)} <span style="font-size:12px;color:var(--text-muted);font-family:monospace">#${escapeHTML(o.id).slice(-6).toUpperCase()}</span></div>
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -2534,13 +2665,13 @@ function buildOrderCard(o, role) {
         </div>
       </div>
       <div class="oc-meta">
-        <div class="oc-meta-item">🗑 ${o.wasteType} (${o.kg}kg)</div>
-        <div class="oc-meta-item">🕒 ${o.shift}</div>
-        <div class="oc-meta-item">⚗️ Dest: ${o.plantName}</div>
+        <div class="oc-meta-item">🗑 ${escapeHTML(o.wasteType)} (${escapeHTML(o.kg)}kg)</div>
+        <div class="oc-meta-item">🕒 ${escapeHTML(o.shift)}</div>
+        <div class="oc-meta-item">⚗️ Dest: ${escapeHTML(o.plantName)}</div>
       </div>
       ${buildStatusStepper(o.status)}
-      ${o.actualKg ? `<div style="margin-bottom:8px;font-size:13px;color:var(--green);font-weight:600;">✓ Actual Collected: ${o.actualKg}kg (Quality: ${o.quality})</div>` : ''}
-      ${o.tokensMinted ? `<div style="margin-bottom:8px;font-size:13px;color:var(--amber);font-weight:600;">🪙 Minted ${o.tokensMinted} $RGX <span style="font-size:10px; color:var(--text-muted); font-family:monospace; margin-left:8px;">TX: ${o.txHash.slice(0,12)}...</span></div>` : ''}
+      ${o.actualKg ? `<div style="margin-bottom:8px;font-size:13px;color:var(--green);font-weight:600;">✓ Actual Collected: ${escapeHTML(o.actualKg)}kg (Quality: ${escapeHTML(o.quality)})</div>` : ''}
+      ${o.tokensMinted ? `<div style="margin-bottom:8px;font-size:13px;color:var(--amber);font-weight:600;">🪙 Minted ${escapeHTML(o.tokensMinted)} $RGX <span style="font-size:10px; color:var(--text-muted); font-family:monospace; margin-left:8px;">TX: ${escapeHTML(o.txHash).slice(0,12)}...</span></div>` : ''}
       ${acts ? `<div class="oc-actions">${acts}</div>` : ''}
     </div>
   `;
@@ -2688,7 +2819,7 @@ async function refreshCurrentView(fullRender = false) {
             <div class="mc-title">${escapeHTML(item.name)}</div>
             <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">${escapeHTML(item.description)}</p>
             <div class="mc-price">${item.price} $RGX</div>
-            <button class="btn btn-primary btn-full" onclick="buyMarketItem(${item.price}, '${escapeHTML(item.name)}')">Mint Asset</button>
+            <button type="button" class="btn btn-primary btn-full" data-action="market-buy" data-price="${escapeHTML(item.price)}" data-name="${escapeHTML(item.name)}">Mint Asset</button>
           </div>
          `).join('')}
       </div>
@@ -2741,12 +2872,12 @@ function renderCompliance(mc, fullRender) {
           ${openAlerts.length ? openAlerts.map(a => `
             <div class="compliance-item">
               <div>
-                <div class="compliance-title">${a.message}</div>
-                <div class="compliance-sub">Order #${a.orderId.slice(-6).toUpperCase()} · ${fmtDate(a.ts)}</div>
+                <div class="compliance-title">${escapeHTML(a.message)}</div>
+                <div class="compliance-sub">Order #${escapeHTML(a.orderId).slice(-6).toUpperCase()} · ${fmtDate(a.ts)}</div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
-                <span class="badge ${a.severity === 'high' ? 'badge-red' : 'badge-amber'}">${a.severity.toUpperCase()}</span>
-                <button class="btn btn-ghost btn-sm" onclick="resolveEsgAlert('${a.id}')">Resolve</button>
+                <span class="badge ${a.severity === 'high' ? 'badge-red' : 'badge-amber'}">${escapeHTML(String(a.severity || '').toUpperCase())}</span>
+                <button type="button" class="btn btn-ghost btn-sm" data-action="resolve-esg-alert" data-id="${escapeHTML(a.id)}">Resolve</button>
               </div>
             </div>
       `).join('') : renderDashboardListState({
@@ -2763,8 +2894,8 @@ function renderCompliance(mc, fullRender) {
           ${resolvedAlerts.length ? resolvedAlerts.slice(0, 8).map(a => `
             <div class="compliance-item resolved">
               <div>
-                <div class="compliance-title">${a.message}</div>
-                <div class="compliance-sub">Order #${a.orderId.slice(-6).toUpperCase()} · ${fmtDate(a.ts)}</div>
+                <div class="compliance-title">${escapeHTML(a.message)}</div>
+                <div class="compliance-sub">Order #${escapeHTML(a.orderId).slice(-6).toUpperCase()} · ${fmtDate(a.ts)}</div>
               </div>
               <span class="badge badge-green">RESOLVED</span>
             </div>
@@ -2817,7 +2948,7 @@ function renderReconciliation(mc, fullRender) {
           <div class="reconciliation-item ${e.deltaPct >= 8 ? 'flagged' : ''}">
             <div>
               <div class="reconciliation-title">Order #${escapeHTML(e.orderId).slice(-6).toUpperCase()} · ${escapeHTML(e.org)}</div>
-              <div class="reconciliation-sub">Expected ${e.expectedTokens} $RGX · Minted ${e.mintedTokens} $RGX · Δ ${e.deltaPct.toFixed(1)}%</div>
+              <div class="reconciliation-sub">Expected ${escapeHTML(e.expectedTokens)} $RGX · Minted ${escapeHTML(e.mintedTokens)} $RGX · Δ ${escapeHTML(e.deltaPct.toFixed(1))}%</div>
               <div class="reconciliation-sub">${fmtDate(e.ts)} · Trust ${e.trustScore}%</div>
             </div>
             <span class="badge ${e.deltaPct >= 8 ? 'badge-red' : 'badge-green'}">${e.deltaPct >= 8 ? 'FLAG' : 'OK'}</span>
@@ -3130,13 +3261,13 @@ function renderAutomationPipeline(mc, fullRender) {
         ${tasks.length ? tasks.map(t => `
           <div class="automation-item">
             <div>
-              <div class="automation-title">${t.title}</div>
-              <div class="automation-sub">${t.owner} · ${t.priority.toUpperCase()} · ${fmtDate(t.ts)}</div>
+              <div class="automation-title">${escapeHTML(t.title)}</div>
+              <div class="automation-sub">${escapeHTML(t.owner)} · ${escapeHTML(String(t.priority || '').toUpperCase())} · ${fmtDate(t.ts)}</div>
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
-              <span class="badge ${t.status === 'done' ? 'badge-green' : t.status === 'active' ? 'badge-amber' : 'badge-blue'}">${t.status.toUpperCase()}</span>
-              ${t.status === 'queued' ? `<button class="btn btn-ghost btn-sm" onclick="autoAssignTask('${t.id}')">Assign</button>` : ''}
-              ${t.status !== 'done' ? `<button class="btn btn-ghost btn-sm" onclick="updateAutomationTask('${t.id}', { status: 'done' })">Done</button>` : ''}
+              <span class="badge ${t.status === 'done' ? 'badge-green' : t.status === 'active' ? 'badge-amber' : 'badge-blue'}">${escapeHTML(String(t.status || '').toUpperCase())}</span>
+              ${t.status === 'queued' ? `<button type="button" class="btn btn-ghost btn-sm" data-action="auto-assign-task" data-id="${escapeHTML(t.id)}">Assign</button>` : ''}
+              ${t.status !== 'done' ? `<button type="button" class="btn btn-ghost btn-sm" data-action="complete-task" data-id="${escapeHTML(t.id)}">Done</button>` : ''}
             </div>
           </div>
         `).join('') : '<div class="empty-state">No automation tasks queued.</div>'}
@@ -3408,7 +3539,7 @@ async function renderProvider(mc, fullRender) {
                 <div style="display:flex;align-items:center;gap:8px;">
                   ${badge}
                   <span style="font-size:13px;font-weight:700;color:${col};">${b.fill}%</span>
-                  ${b.fill >= 85 ? `<button class="btn btn-primary btn-sm" style="font-size:10px;padding:3px 8px;" onclick="iotDispatchFromBin('${b.id}')">🚀 Dispatch</button>` : ''}
+                  ${b.fill >= 85 ? `<button type="button" class="btn btn-primary btn-sm" style="font-size:10px;padding:3px 8px;" data-action="iot-dispatch-bin" data-id="${escapeHTML(b.id)}">🚀 Dispatch</button>` : ''}
                 </div>
               </div>
               <div style="height:8px;background:var(--border);border-radius:999px;overflow:hidden;">
@@ -4167,7 +4298,7 @@ window.openPickupConfirm = function(id) {
     <p class="modal-sub">Verify the load before continuing to plant.</p>
     <div class="form-group"><label class="form-label">Actual Weight Collected (kg)</label><input type="number" id="m-kg" class="form-input"></div>
     <div class="form-group"><label class="form-label">Quality Observation</label><select id="m-qual" class="form-select"><option>Good (Segregated)</option><option>Mixed (Contaminated)</option></select></div>
-    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="confirmPickup('${id}')">Confirm ✓</button></div>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" data-action="close-modal">Cancel</button><button type="button" class="btn btn-primary" data-action="pickup-confirm" data-id="${escapeHTML(id)}">Confirm ✓</button></div>
   `;
   document.getElementById('modal-box').innerHTML = html;
   document.getElementById('modal').classList.add('open');
@@ -4373,14 +4504,14 @@ window.openDigitalPassport = function() {
     
     const html = `
         <div style="text-align:center; padding:20px;">
-            <div style="font-size:64px; margin-bottom:16px;">${rank.icon}</div>
+          <div style="font-size:64px; margin-bottom:16px;">${escapeHTML(rank.icon)}</div>
             <h3 class="modal-title">${escapeHTML(SESSION.org)}</h3>
             <p class="modal-sub">Verified Circular Economy Provider</p>
             
             <div class="glass-card" style="background:var(--bg); border:2px solid ${rank.color}; margin-bottom:24px; padding:20px;">
                 <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Trust Protocol Identity</div>
-                <div style="font-size:24px; font-weight:800; color:${rank.color};">${rank.name} Class</div>
-                <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Account ID: <span style="font-family:monospace;">${SESSION.id.slice(0,12)}...</span></div>
+            <div style="font-size:24px; font-weight:800; color:${rank.color};">${escapeHTML(rank.name)} Class</div>
+            <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Account ID: <span style="font-family:monospace;">${escapeHTML(SESSION.id.slice(0,12))}...</span></div>
             </div>
             
             <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); gap:12px; margin-bottom:24px;">
@@ -4520,20 +4651,20 @@ async function renderPlant(mc, fullRender) {
           <div class="glass-card" style="margin-bottom:32px; border:2px solid var(--blue); background:linear-gradient(135deg, var(--surface) 0%, var(--blue-light) 100%);">
             <div class="between" style="margin-bottom:16px;">
                <div class="ai-badge" style="background:var(--blue);">✨ Methane Optimizer</div>
-               <div class="badge badge-green">${yieldPrediction.healthStatus}</div>
+            <div class="badge badge-green">${escapeHTML(yieldPrediction.healthStatus)}</div>
             </div>
             <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); gap:12px; margin-bottom:16px;">
                <div class="stat-card" style="padding:12px; text-align:center;">
-                  <div style="font-size:24px; font-weight:800; color:var(--blue);">${yieldPrediction.predictedMethane} m³</div>
+              <div style="font-size:24px; font-weight:800; color:var(--blue);">${escapeHTML(yieldPrediction.predictedMethane)} m³</div>
                   <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Predicted Daily Yield</div>
                </div>
                <div class="stat-card" style="padding:12px; text-align:center;">
-                  <div style="font-size:24px; font-weight:800; color:var(--amber);">${yieldPrediction.optimalTemp}°C</div>
+              <div style="font-size:24px; font-weight:800; color:var(--amber);">${escapeHTML(yieldPrediction.optimalTemp)}°C</div>
                   <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Target Digester Temp</div>
                </div>
             </div>
             <div style="font-size:13px; background:rgba(255,255,255,0.5); padding:12px; border-radius:8px; border-left:4px solid var(--blue);">
-               <strong>AI Recommendation:</strong> ${yieldPrediction.recommendation}
+            <strong>AI Recommendation:</strong> ${escapeHTML(yieldPrediction.recommendation)}
             </div>
           </div>
         `;
@@ -4550,7 +4681,7 @@ async function renderPlant(mc, fullRender) {
     document.getElementById('pl-out-logs').innerHTML = logs.length ? logs.slice(0,4).map(l => `
       <div class="glass-card" style="padding:16px; margin-bottom:12px;">
          <div class="between" style="margin-bottom:8px;"><span class="badge badge-blue">Log</span> <span class="muted" style="font-size:12px">${fmtDate(l.ts)}</span></div>
-         <div style="font-size:14px;"><strong>Biogas:</strong> ${l.bio} m³ &nbsp;·&nbsp; <strong>Compost:</strong> ${l.comp} kg</div>
+         <div style="font-size:14px;"><strong>Biogas:</strong> ${escapeHTML(l.bio)} m³ &nbsp;·&nbsp; <strong>Compost:</strong> ${escapeHTML(l.comp)} kg</div>
       </div>
     `).join('') : renderDashboardListState({
       icon: '📜',
@@ -4645,7 +4776,7 @@ window.openPlantConfirm = function(id) {
             <button class="btn btn-outline-primary" style="white-space:nowrap; border:2px solid var(--blue); color:var(--blue);" onclick="window.VisionScanner.openScanner('p-score')">📸 AI Scan</button>
         </div>
     </div>
-    <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="confirmPlantReceipt('${id}')">Accept Load ✓</button></div>
+    <div class="modal-actions"><button type="button" class="btn btn-ghost" data-action="close-modal">Cancel</button><button type="button" class="btn btn-primary" data-action="plant-confirm" data-id="${escapeHTML(id)}">Accept Load ✓</button></div>
   `;
   document.getElementById('modal-box').innerHTML = html;
   document.getElementById('modal').classList.add('open');
@@ -4976,8 +5107,8 @@ function buildBinCard(b) {
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <span id="iot-badge-${b.id}">${iotStatusBadge(b)}</span>
-        <button class="btn btn-ghost btn-sm" onclick="iotEditBin('${b.id}')" title="Edit">✏️</button>
-        <button class="btn btn-outline-danger btn-sm" onclick="iotDeleteBin('${b.id}')" title="Delete">🗑</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="iot-edit-bin" data-id="${escapeHTML(b.id)}" title="Edit">✏️</button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-action="iot-delete-bin" data-id="${escapeHTML(b.id)}" title="Delete">🗑</button>
       </div>
     </div>
 
@@ -5017,7 +5148,7 @@ function buildBinCard(b) {
     ${b.fill >= 85 ? `
     <div class="iot-alert-banner">
       ⚠️ <strong>Bin is critically full!</strong> Dispatch a collection immediately to prevent overflow.
-      <button class="btn btn-primary btn-sm" style="margin-left:8px;" onclick="iotDispatchFromBin('${b.id}')">🚀 Dispatch Now</button>
+      <button type="button" class="btn btn-primary btn-sm" style="margin-left:8px;" data-action="iot-dispatch-bin" data-id="${escapeHTML(b.id)}">🚀 Dispatch Now</button>
     </div>` : ''}
   </div>`;
 }
@@ -5145,7 +5276,7 @@ window.iotEditBin = function(id) {
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="iotSaveEditBin('${id}')">Save Changes ✓</button>
+      <button type="button" class="btn btn-primary" data-action="iot-save-edit-bin" data-id="${escapeHTML(id)}">Save Changes ✓</button>
     </div>`;
   document.getElementById('modal-box').innerHTML = html;
   document.getElementById('modal').classList.add('open');
