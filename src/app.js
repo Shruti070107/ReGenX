@@ -3482,6 +3482,68 @@ async function renderProvider(mc, fullRender) {
     });
   }
 }
+/**
+ * @function _applyBioScanResult
+ * @description Applies BioScan AI results to the dispatch form after the
+ * v-pv-req view has fully rendered. Replaces the previous Math.random()
+ * kg assignment with a deterministic estimate derived from scan outputs.
+ * @param {number} score - Segregation score (0-100) from BioScan.
+ * @param {number} organicPercent - Organic content percentage (0-100).
+ * @returns {void}
+ */
+window._applyBioScanResult = function(score, organicPercent) {
+  const rKg  = document.getElementById('req-kg');
+  const rType = document.getElementById('req-type');
+
+  if (!rKg || !rType) {
+    setTimeout(() => window._applyBioScanResult(score, organicPercent), 300);
+    return;
+  }
+
+  // Waste type — three-way branch
+  rType.value = organicPercent > 70
+    ? 'Food waste (wet)'
+    : organicPercent > 40
+      ? 'Vegetable scraps'
+      : 'Mixed kitchen waste';
+
+  /**
+   * AI kg estimate:
+   * Base: organicPercent 0–100 → 50–300kg batch range
+   * Multiplier: higher segregation = less contamination loss
+   * Clamped to platform min 50kg, max 500kg
+   */
+  const base       = 50 + (organicPercent / 100) * 250;
+  const multiplier = (score / 100) * 0.4 + 0.6;
+  const estimated  = Math.round(Math.min(500, Math.max(50, base * multiplier)));
+
+  rKg.value       = estimated;
+  rKg.placeholder = 'AI estimate — verify before submitting';
+
+  // Inject AI badge below kg input
+  const formGroup = rKg.closest('.form-group');
+  if (formGroup) {
+    const existing = formGroup.querySelector('.ai-scan-badge');
+    if (existing) existing.remove();
+    const badge = document.createElement('div');
+    badge.className = 'ai-badge ai-scan-badge';
+    badge.style.cssText = 'margin-top:8px; display:inline-block;';
+    badge.textContent = '✨ AI Estimate — verify before submitting';
+    formGroup.appendChild(badge);
+    if (window.gsap) {
+      gsap.fromTo(rKg,
+        { boxShadow: '0 0 0 0 rgba(13,148,136,0)' },
+        { boxShadow: '0 0 0 4px rgba(13,148,136,0.3)',
+          duration: 0.4, yoyo: true, repeat: 1, ease: 'power2.out' }
+      );
+    }
+  }
+
+  window.showToast(
+    `✓ Scanner Applied: ${score}% Segregation · ~${estimated}kg estimated`
+  );
+  closeScanner();
+};
 
 window.openScanner = function() {
   const mb = document.getElementById('modal-box');
@@ -3499,12 +3561,7 @@ window.openScanner = function() {
     onBack: () => closeScanner(),
     onApply: (score, organicPercent) => {
       showView('v-pv-req');
-      setTimeout(() => {
-        const rKg = document.getElementById('req-kg'); if(rKg) rKg.value = Math.floor(Math.random() * 150 + 50); 
-        const rType = document.getElementById('req-type'); if(rType) rType.value = organicPercent > 70 ? "Food Waste" : "Dry Waste";
-        showToast(`✓ Scanner Data Applied: ${score}% Segregation Score`);
-        closeScanner();
-      }, 200);
+      setTimeout(() => window._applyBioScanResult(score, organicPercent), 400);
     },
     onScanSaved: (record) => {
       const history = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
@@ -5198,8 +5255,6 @@ window.syncIoTAlertBadge = syncIoTAlertBadge;
   }
 })();
 
-document.getElementById('login-screen').style.display = 'flex';
-switchAuthTab('login');
 
 // ── Initialize Appwrite Cloud Sync Engine ──
 setTimeout(() => { ReGenXRealtime?.init(); ReGenXRealtime?.requestSnapshot?.(); }, 1000);
@@ -5219,6 +5274,9 @@ window.toggleSidebar = toggleSidebar;
 window.toggleSmartAlerts = toggleSmartAlerts;
 window.saveOrder = saveOrder;
 window.refreshCurrentView = refreshCurrentView;
+
+document.getElementById('login-screen').style.display = 'flex';
+switchAuthTab('login');
 
 /**
  * Returns the currently active view ID.
