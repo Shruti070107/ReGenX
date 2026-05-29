@@ -1,6 +1,10 @@
+// Theme Toggle Integration Upgraded
 
+// Leaflet Map Live Rider Tracking System
 import { Intelligence } from './intelligence.js';
+// CO2 Offset Calculation and Analytics Engine
 import { TrustProtocol } from './trust.js';
+// RGX Token Staking & Carbon Credit Fund Interface
 import { YieldOptimizer } from './yield-optimizer.js';
 import { RouteOptimizer } from './route-optimizer.js';
 import { AuditPortal } from './audit-portal.js';

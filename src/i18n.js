@@ -163,22 +163,23 @@ window.i18nDictionary = {
  */
 window.translateText = function(text, lang) {
   if (!text) return "";
+  const activeLang = lang || window.currentLanguage || 'en';
   const cleaned = text.trim();
   if (cleaned.length === 0) return text;
 
   const dict = window.i18nDictionary;
-  if (!dict || lang === 'en') return text;
+  if (!dict || activeLang === 'en') return text;
 
   // 1. Exact Match
-  if (dict[cleaned] && dict[cleaned][lang]) {
-    return dict[cleaned][lang];
+  if (dict[cleaned] && dict[cleaned][activeLang]) {
+    return dict[cleaned][activeLang];
   }
 
   // 2. Case-insensitive Match
   const lowerText = cleaned.toLowerCase();
   for (const key in dict) {
-    if (key.toLowerCase() === lowerText && dict[key][lang]) {
-      return dict[key][lang];
+    if (key.toLowerCase() === lowerText && dict[key][activeLang]) {
+      return dict[key][activeLang];
     }
   }
 
@@ -205,8 +206,8 @@ window.translateText = function(text, lang) {
 
   for (const key in phraseReplacements) {
     const regex = new RegExp(`\\b${key}\\b`, 'gi');
-    if (regex.test(translated) && phraseReplacements[key][lang]) {
-      translated = translated.replace(regex, phraseReplacements[key][lang]);
+    if (regex.test(translated) && phraseReplacements[key][activeLang]) {
+      translated = translated.replace(regex, phraseReplacements[key][activeLang]);
     }
   }
 
