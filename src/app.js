@@ -3544,42 +3544,75 @@ window.closeScanner = function() {
 
 let pvChartInstance = null;
 
+/**
+ * @function initPvChart
+ * @description Initialises the provider impact analytics bar chart.
+ * When no completed orders exist, renders a glassmorphic empty state
+ * with a CTA instead of a blank Chart.js instance with a 0–1 Y-axis.
+ * @returns {void}
+ */
 function initPvChart() {
   const ctx = document.getElementById('pvChart');
-  if(!ctx || window.Chart === undefined) return;
-  if(pvChartInstance) pvChartInstance.destroy();
-  
-  // Calculate dynamic weekly data from real history
-  const orders = getAllOrders().filter(o => o.providerId === SESSION.id && o.status === 'completed');
-  let kgData = [0,0,0,0,0,0,0];
-  let co2Data = [0,0,0,0,0,0,0];
-  
-  // Dump all into current day for simplicity in local demo without real dates over weeks
-  const totKg = orders.reduce((s,o)=>s+parseInt(o.actualKg||o.kg), 0);
-  kgData[6] = totKg;
+  if (!ctx || window.Chart === undefined) return;
+  if (pvChartInstance) pvChartInstance.destroy();
+
+  const orders = getAllOrders().filter(
+    o => o.providerId === SESSION.id && o.status === 'completed'
+  );
+  const totKg = orders.reduce((s, o) => s + parseInt(o.actualKg || o.kg), 0);
+
+  // Empty state — no completed orders
+  if (totKg === 0) {
+    const container = ctx.closest('.chart-container');
+    if (container) {
+      container.innerHTML = `
+        <div style="height:100%; display:flex; flex-direction:column;
+          align-items:center; justify-content:center; text-align:center;
+          padding:32px; gap:12px;">
+          <div style="font-size:40px; opacity:0.5;">📊</div>
+          <div style="font-weight:700; font-size:16px; font-family:'Space Grotesk';">
+            No impact data yet
+          </div>
+          <div style="font-size:13px; color:var(--text-muted); max-width:260px;">
+            Complete your first dispatch to start tracking waste diverted
+            and CO₂ offset.
+          </div>
+          <button class="btn btn-primary" style="margin-top:8px;"
+            onclick="showView('v-pv-req')">
+            Create First Request →
+          </button>
+        </div>`;
+      if (window.gsap) {
+        gsap.fromTo(container,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.5, ease: 'power2.out' }
+        );
+      }
+    }
+    return;
+  }
+
+  // Normal render — existing logic unchanged
+  let kgData  = [0, 0, 0, 0, 0, 0, 0];
+  let co2Data = [0, 0, 0, 0, 0, 0, 0];
+  kgData[6]  = totKg;
   co2Data[6] = Math.round(orders.reduce((sum, o) => {
     const kg = parseInt(o.actualKg || o.kg) || 0;
     const plantAcc = DB.get('acc:' + o.plantId);
     return sum + (kg * getCO2Factor(o.wasteType, plantAcc?.processingMethod));
   }, 0));
-
   window._pvDynamicData = { kg: kgData, co2: co2Data, totKg, totCO2: co2Data[6] };
 
   pvChartInstance = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Today'],
-      datasets: [{
-        label: 'Waste Generated (kg)',
-        data: kgData,
-        backgroundColor: '#0D9488',
-        borderRadius: 4
-      }, {
-        label: 'CO2 Offset (kg)',
-        data: co2Data,
-        backgroundColor: '#3B82F6',
-        borderRadius: 4
-      }]
+      datasets: [
+        { label: 'Waste Generated (kg)', data: kgData,
+          backgroundColor: '#0D9488', borderRadius: 4 },
+        { label: 'CO2 Offset (kg)', data: co2Data,
+          backgroundColor: '#3B82F6', borderRadius: 4 }
+      ]
     },
     options: { responsive: true, maintainAspectRatio: false }
   });
