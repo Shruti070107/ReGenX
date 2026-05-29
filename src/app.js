@@ -56,9 +56,9 @@ function getDefaultViewForRole(role) {
 function isViewValidForRole(viewId, role) {
   if (!viewId || !role) return false;
   const validViews = {
-    provider: ['v-pv-dash','v-pv-req','v-iot-bins','v-pv-hist-week','v-pv-hist-month','v-compliance','v-reconciliation','v-sla','v-energy','v-sensor','v-emissions','v-quality','v-automation','v-market','v-audit-portal'],
-    rider: ['v-rd-dash','v-rd-jobs','v-rd-hist','v-compliance','v-reconciliation','v-sla','v-energy','v-sensor','v-emissions','v-quality','v-automation','v-audit-portal'],
-    plant: ['v-pl-dash','v-pl-in','v-pl-out','v-compliance','v-reconciliation','v-sla','v-energy','v-sensor','v-emissions','v-quality','v-automation','v-audit-portal']
+    provider: ['v-pv-dash', 'v-pv-req', 'v-iot-bins', 'v-pv-hist-week', 'v-pv-hist-month', 'v-compliance', 'v-reconciliation', 'v-sla', 'v-energy', 'v-sensor', 'v-emissions', 'v-quality', 'v-automation', 'v-market', 'v-audit-portal'],
+    rider: ['v-rd-dash', 'v-rd-jobs', 'v-rd-hist', 'v-compliance', 'v-reconciliation', 'v-sla', 'v-energy', 'v-sensor', 'v-emissions', 'v-quality', 'v-automation', 'v-audit-portal'],
+    plant: ['v-pl-dash', 'v-pl-in', 'v-pl-out', 'v-compliance', 'v-reconciliation', 'v-sla', 'v-energy', 'v-sensor', 'v-emissions', 'v-quality', 'v-automation', 'v-audit-portal']
   };
   return validViews[role]?.includes(viewId);
 }
@@ -87,7 +87,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── Push Notification Permission UI ──
-window.requestPushPermission = async function() {
+window.requestPushPermission = async function () {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
     window.showToast('✓ Smart Alerts are already enabled!');
@@ -143,7 +143,7 @@ function setAlertPreference(enabled) {
  * Background Sync when disabling.
  * @returns {Promise<void>}
  */
-window.toggleSmartAlerts = async function() {
+window.toggleSmartAlerts = async function () {
   const btn = document.getElementById('btn-smart-alerts');
   const isEnabled = getAlertPreference();
 
@@ -151,7 +151,7 @@ window.toggleSmartAlerts = async function() {
     // DISABLE PATH
     setAlertPreference(false);
     if (window._swReg && 'sync' in window._swReg) {
-      try { await window._swReg.sync.register('regenx-order-sync-pause'); } catch {}
+      try { await window._swReg.sync.register('regenx-order-sync-pause'); } catch { }
     }
     if (btn) {
       btn.style.background = 'transparent';
@@ -175,7 +175,7 @@ window.toggleSmartAlerts = async function() {
   if (permission === 'granted') {
     setAlertPreference(true);
     if (window._swReg && 'sync' in window._swReg) {
-      try { await window._swReg.sync.register('regenx-order-sync'); } catch {}
+      try { await window._swReg.sync.register('regenx-order-sync'); } catch { }
     }
     if (btn) {
       btn.style.background = 'linear-gradient(135deg, #F59E0B, #D97706)';
@@ -220,16 +220,16 @@ const SHIFTS = ['Morning Shift (08:00 - 12:00)', 'Evening Shift (16:00 - 20:00)'
  * GHG Protocol Scope 3 Technical Guidance.
  */
 const CO2_FACTORS = {
-  'Food waste (wet)':        { anaerobic_digestion: 0.67, composting: 0.20, biogas: 0.58, default: 0.67 },
-  'Vegetable scraps':        { anaerobic_digestion: 0.54, composting: 0.18, biogas: 0.45, default: 0.54 },
-  'Mixed kitchen waste':     { anaerobic_digestion: 0.60, composting: 0.22, biogas: 0.52, default: 0.60 },
+  'Food waste (wet)': { anaerobic_digestion: 0.67, composting: 0.20, biogas: 0.58, default: 0.67 },
+  'Vegetable scraps': { anaerobic_digestion: 0.54, composting: 0.18, biogas: 0.45, default: 0.54 },
+  'Mixed kitchen waste': { anaerobic_digestion: 0.60, composting: 0.22, biogas: 0.52, default: 0.60 },
   'Biodegradable packaging': { anaerobic_digestion: 0.35, composting: 0.12, biogas: 0.28, default: 0.35 }
 };
 
 const PROCESSING_METHODS = {
   anaerobic_digestion: 'Anaerobic Digestion',
-  composting:          'Composting',
-  biogas:              'Biogas Recovery'
+  composting: 'Composting',
+  biogas: 'Biogas Recovery'
 };
 
 /**
@@ -253,36 +253,38 @@ const DEDUP_WINDOW_MS = 30000;
 // ── DB HELPER ──
 const DB = {
   get: (key) => { try { const r = window.localStorage.getItem(STORAGE_KEY_PREFIX + key); return r ? JSON.parse(r) : null; } catch { return null; } },
-  set: (key, val, options = {}) => { try {
-    window.localStorage.setItem(STORAGE_KEY_PREFIX + key, JSON.stringify(val));
-    if (!options.silent && ReGenXRealtime) {
-      ReGenXRealtime.syncStorageMutation({
-        updates: [{ key: STORAGE_KEY_PREFIX + key, value: val, action: 'set' }],
-        rooms: options.rooms,
-        eventType: options.eventType || 'KPI_UPDATED',
-        meta: options.meta || {}
-      });
-    }
-    // Write-through to Appwrite — fire-and-forget, falls back to offline queue
-    if (!options.silent && !options.localOnly && val?.id) {
-      if (key.startsWith('ord:') && window.CloudSync) {
-        if (navigator.onLine && window.CloudSync.isLive) {
-          window.CloudSync.pushDocument(window.CloudSync.config?.ordersCollectionId, val)
-            .catch(() => window.CloudSync.queueOfflineWrite(key, val));
-        } else {
-          window.CloudSync.queueOfflineWrite(key, val);
-        }
-      } else if (key.startsWith('acc:') && window.CloudSync) {
-        if (navigator.onLine && window.CloudSync.isLive) {
-          window.CloudSync.pushAccount(val)
-            .catch(() => window.CloudSync.queueOfflineWrite(key, val));
-        } else {
-          window.CloudSync.queueOfflineWrite(key, val);
+  set: (key, val, options = {}) => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY_PREFIX + key, JSON.stringify(val));
+      if (!options.silent && ReGenXRealtime) {
+        ReGenXRealtime.syncStorageMutation({
+          updates: [{ key: STORAGE_KEY_PREFIX + key, value: val, action: 'set' }],
+          rooms: options.rooms,
+          eventType: options.eventType || 'KPI_UPDATED',
+          meta: options.meta || {}
+        });
+      }
+      // Write-through to Appwrite — fire-and-forget, falls back to offline queue
+      if (!options.silent && !options.localOnly && val?.id) {
+        if (key.startsWith('ord:') && window.CloudSync) {
+          if (navigator.onLine && window.CloudSync.isLive) {
+            window.CloudSync.pushDocument(window.CloudSync.config?.ordersCollectionId, val)
+              .catch(() => window.CloudSync.queueOfflineWrite(key, val));
+          } else {
+            window.CloudSync.queueOfflineWrite(key, val);
+          }
+        } else if (key.startsWith('acc:') && window.CloudSync) {
+          if (navigator.onLine && window.CloudSync.isLive) {
+            window.CloudSync.pushAccount(val)
+              .catch(() => window.CloudSync.queueOfflineWrite(key, val));
+          } else {
+            window.CloudSync.queueOfflineWrite(key, val);
+          }
         }
       }
-    }
-    return true;
-  } catch { return false; } },
+      return true;
+    } catch { return false; }
+  },
   list: (prefix) => {
     try {
       const keys = [];
@@ -424,7 +426,7 @@ function addWorkflowNotification({ title, body, role = 'all', type = 'workflow',
   pushActivityFeed({ title, icon: priority === 'high' ? '🚨' : '🔔', ts: item.ts });
 }
 
-window.openNotificationCenter = function(force) {
+window.openNotificationCenter = function (force) {
   const drawer = document.getElementById('notification-drawer');
   if (!drawer) return;
   const isOpen = force === undefined ? !drawer.classList.contains('open') : force;
@@ -459,7 +461,7 @@ function renderNotificationCenter() {
   `).join('');
 }
 
-window.markNotificationRead = function(id) {
+window.markNotificationRead = function (id) {
   const notifications = loadNotifications();
   const target = notifications.find(n => n.id === id);
   if (target) target.read = true;
@@ -468,7 +470,7 @@ window.markNotificationRead = function(id) {
   updateNotificationBadge();
 };
 
-window.markAllNotificationsRead = function() {
+window.markAllNotificationsRead = function () {
   const notifications = loadNotifications().map(n => ({ ...n, read: true }));
   saveNotifications(notifications);
   renderNotificationCenter();
@@ -512,15 +514,15 @@ async function flushOfflineQueue() {
   });
 }
 
-window.syncPendingActions = async function() {
+window.syncPendingActions = async function () {
   if (!navigator.onLine) return;
   if (window._swReg && 'sync' in window._swReg) {
-    window._swReg.sync.register('regenx-order-sync').catch(() => {});
+    window._swReg.sync.register('regenx-order-sync').catch(() => { });
   }
   await flushOfflineQueue();
 };
 
-window.handleRealtimeEvent = function(event) {
+window.handleRealtimeEvent = function (event) {
   if (!event || !event.type) return;
   const payload = event.payload || {};
   switch (event.type) {
@@ -904,7 +906,7 @@ function renderTrustIndexCard() {
     });
   }
   const badgeClass = score >= 90 ? 'badge-green' : score >= 75 ? 'badge-blue' : score >= 60 ? 'badge-amber' : 'badge-red';
-      return `
+  return `
         <div class="glass-card trust-index-card" style="margin-bottom:24px;">
           <div class="between" style="margin-bottom:12px;">
             <div>
@@ -964,7 +966,7 @@ function addEsgAlert(alert) {
  * Resolve an ESG alert by id.
  * @param {string} id - Alert id.
  */
-window.resolveEsgAlert = function(id) {
+window.resolveEsgAlert = function (id) {
   const alerts = loadEsgAlerts();
   const target = alerts.find(a => a.id === id);
   if (target) target.resolved = true;
@@ -975,7 +977,7 @@ window.resolveEsgAlert = function(id) {
 /**
  * Clear all ESG alerts.
  */
-window.clearEsgAlerts = function() {
+window.clearEsgAlerts = function () {
   if (!confirm('Clear all compliance alerts?')) return;
   saveEsgAlerts([]);
   refreshCurrentView(true);
@@ -1038,7 +1040,7 @@ function addEsgAlertsForOrder(order) {
  */
 function renderComplianceWidget() {
   const alerts = loadEsgAlerts().filter(a => !a.resolved).sort((a, b) => b.ts - a.ts);
-      const items = alerts.slice(0, 3).map(a => `
+  const items = alerts.slice(0, 3).map(a => `
         <div class="compliance-item">
           <div>
             <div class="compliance-title">${a.message}</div>
@@ -1058,13 +1060,13 @@ function renderComplianceWidget() {
         <button class="btn btn-ghost btn-sm" onclick="showView('v-compliance')">Open →</button>
       </div>
       ${alerts.length ? items : renderDashboardListState({
-        icon: '🧭',
-        title: 'No compliance alerts',
-        description: 'The ESG monitor has not detected any open alerts.',
-        subtext: 'Resolved alerts remain available in the audit history.',
-        statusLabel: 'Idle',
-        tone: 'inactive'
-      })}
+    icon: '🧭',
+    title: 'No compliance alerts',
+    description: 'The ESG monitor has not detected any open alerts.',
+    subtext: 'Resolved alerts remain available in the audit history.',
+    statusLabel: 'Idle',
+    tone: 'inactive'
+  })}
     </div>
   `;
 }
@@ -1646,7 +1648,7 @@ function seedAutomationPipeline() {
  * @param {string} id - Task id.
  * @param {Object} patch - Partial task fields.
  */
-window.updateAutomationTask = function(id, patch) {
+window.updateAutomationTask = function (id, patch) {
   const tasks = loadAutomationPipeline();
   const task = tasks.find(t => t.id === id);
   if (!task) return;
@@ -1659,14 +1661,14 @@ window.updateAutomationTask = function(id, patch) {
  * Auto-assign a queued task to the current user.
  * @param {string} id - Task id.
  */
-window.autoAssignTask = function(id) {
+window.autoAssignTask = function (id) {
   updateAutomationTask(id, { owner: SESSION.name || 'Admin', status: 'active' });
 }
 
 /**
  * Auto-assign the next queued task.
  */
-window.autoAssignNext = function() {
+window.autoAssignNext = function () {
   const tasks = loadAutomationPipeline();
   const next = tasks.find(t => t.status === 'queued');
   if (!next) return showToast('✓ No queued tasks left.');
@@ -1710,24 +1712,24 @@ function renderAutomationWidget() {
   `;
 }
 
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function ts() { return Date.now(); }
-function fmtDate(ms) { return new Date(ms).toLocaleDateString('en-IN', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
+function fmtDate(ms) { return new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
 function distanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371; const dLat = (lat2-lat1)*Math.PI/180; const dLon = (lon2-lon1)*Math.PI/180;
-  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-window.showToast = function(msg) {
+window.showToast = function (msg) {
   const t = document.getElementById('toast');
-  if(!t) return;
+  if (!t) return;
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-window.resetAppData = function() {
+window.resetAppData = function () {
   if (!confirm('⚠ This will delete ALL registered accounts, orders, and data. The app will reset to a fresh state. Continue?')) return;
   // Remove all keys that start with our prefix
   const keysToRemove = [];
@@ -1744,13 +1746,13 @@ window.resetAppData = function() {
   window.location.reload();
 }
 
-window.fetchWeather = async function(lat, lng) {
+window.fetchWeather = async function (lat, lng) {
   if (!lat || !lng) { lat = 28.5355; lng = 77.3910; } // Fallback to Noida coords if undefined
   try {
     const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
     const d = await r.json();
     return d.current_weather; // { temperature, windspeed, weathercode }
-  } catch(e) { return null; }
+  } catch (e) { return null; }
 }
 
 // ── STATE ──
@@ -1763,7 +1765,7 @@ let rMap = null; // Rider map instance
 let autoRefreshTimer = null;
 
 // ── THEME ──
-window.toggleTheme = function() {
+window.toggleTheme = function () {
   const current = document.documentElement.getAttribute('data-theme') || (document.documentElement.classList.contains('dark') ? 'dark' : 'light');
   const next = current === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
@@ -1901,51 +1903,51 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // ── AUTH & REGISTRATION ──
-window.switchAuthTab = function(tab) {
+window.switchAuthTab = function (tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.auth-view').forEach(v => v.classList.add('hidden'));
   document.getElementById('tab-' + tab).classList.add('active');
   document.getElementById('view-' + tab).classList.remove('hidden');
-  
+
   if (tab === 'login') refreshLoginDropdown();
 }
 
-window.selectRole = function(r) {
+window.selectRole = function (r) {
   selectedRole = r;
   document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
   document.getElementById('role-' + r).classList.add('selected');
   const l = document.getElementById('reg-org-label');
   const i = document.getElementById('reg-org');
-  if(r==='provider') { l.textContent = 'Hostel/Hotel Name'; i.placeholder = 'e.g. Omega Hostel'; }
-  if(r==='rider') { l.textContent = 'Vehicle ID'; i.placeholder = 'e.g. GN-Tempo-1'; }
-  if(r==='plant') { l.textContent = 'Plant Facility Name'; i.placeholder = 'e.g. Plant Alpha'; }
+  if (r === 'provider') { l.textContent = 'Hostel/Hotel Name'; i.placeholder = 'e.g. Omega Hostel'; }
+  if (r === 'rider') { l.textContent = 'Vehicle ID'; i.placeholder = 'e.g. GN-Tempo-1'; }
+  if (r === 'plant') { l.textContent = 'Plant Facility Name'; i.placeholder = 'e.g. Plant Alpha'; }
 }
 
 let detectedPos = null;
 let regMapInstance = null;
 let regMarker = null;
 
-window.detectGPS = function() {
+window.detectGPS = function () {
   const st = document.getElementById('gps-status');
-  if(!navigator.geolocation) { st.textContent = "GPS not supported by browser."; return; }
+  if (!navigator.geolocation) { st.textContent = "GPS not supported by browser."; return; }
   st.textContent = "Detecting high-accuracy location...";
-  
+
   navigator.geolocation.getCurrentPosition(
     pos => {
       detectedPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       st.innerHTML = `<span style="color:var(--green)">✓ Found! Drag pin to refine your exact address.</span>`;
-      
+
       const mapEl = document.getElementById('reg-map');
       mapEl.classList.add('show');
-      
-      if(!regMapInstance) {
+
+      if (!regMapInstance) {
         regMapInstance = L.map('reg-map').setView([detectedPos.lat, detectedPos.lng], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(regMapInstance);
-        
-        const dragIco = L.divIcon({html:"<div style='width:18px;height:18px;background:var(--green);border-radius:50%;border:2px solid white;box-shadow:0 0 10px rgba(0,0,0,0.4);'></div>", className:''});
-        regMarker = L.marker([detectedPos.lat, detectedPos.lng], {icon: dragIco, draggable: true}).addTo(regMapInstance);
-        
-        regMarker.on('dragend', function(e) {
+
+        const dragIco = L.divIcon({ html: "<div style='width:18px;height:18px;background:var(--green);border-radius:50%;border:2px solid white;box-shadow:0 0 10px rgba(0,0,0,0.4);'></div>", className: '' });
+        regMarker = L.marker([detectedPos.lat, detectedPos.lng], { icon: dragIco, draggable: true }).addTo(regMapInstance);
+
+        regMarker.on('dragend', function (e) {
           const mPos = regMarker.getLatLng();
           detectedPos = { lat: mPos.lat, lng: mPos.lng };
         });
@@ -1959,32 +1961,32 @@ window.detectGPS = function() {
   );
 }
 
-window.searchLocation = async function() {
+window.searchLocation = async function () {
   const query = document.getElementById('loc-search').value.trim();
   const st = document.getElementById('gps-status');
-  if(!query) { st.innerHTML = `<span style="color:var(--red)">⚠ Enter a location (e.g., "Amity Noida").</span>`; return; }
-  
+  if (!query) { st.innerHTML = `<span style="color:var(--red)">⚠ Enter a location (e.g., "Amity Noida").</span>`; return; }
+
   st.textContent = "Searching global maps...";
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
     const data = await res.json();
-    if(data && data.length > 0) {
+    if (data && data.length > 0) {
       const lat = parseFloat(data[0].lat);
       const lng = parseFloat(data[0].lon);
       detectedPos = { lat, lng };
       st.innerHTML = `<span style="color:var(--green)">✓ Found: ${escapeHTML(data[0].display_name.split(',')[0])}</span>`;
-      
+
       const mapEl = document.getElementById('reg-map');
       mapEl.classList.add('show');
-      
-      if(!regMapInstance) {
+
+      if (!regMapInstance) {
         regMapInstance = L.map('reg-map').setView([lat, lng], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(regMapInstance);
-        
-        const dragIco = L.divIcon({html:"<div style='width:18px;height:18px;background:var(--green);border-radius:50%;border:2px solid white;box-shadow:0 0 10px rgba(0,0,0,0.4);'></div>", className:''});
-        regMarker = L.marker([lat, lng], {icon: dragIco, draggable: true}).addTo(regMapInstance);
-        
-        regMarker.on('dragend', function(e) {
+
+        const dragIco = L.divIcon({ html: "<div style='width:18px;height:18px;background:var(--green);border-radius:50%;border:2px solid white;box-shadow:0 0 10px rgba(0,0,0,0.4);'></div>", className: '' });
+        regMarker = L.marker([lat, lng], { icon: dragIco, draggable: true }).addTo(regMapInstance);
+
+        regMarker.on('dragend', function (e) {
           const mPos = regMarker.getLatLng();
           detectedPos = { lat: mPos.lat, lng: mPos.lng };
         });
@@ -2000,15 +2002,15 @@ window.searchLocation = async function() {
   }
 }
 
-window.doRegister = async function() {
+window.doRegister = async function () {
   const name = document.getElementById('reg-name').value.trim();
   const org = document.getElementById('reg-org').value.trim();
-  if(!name || !org) return showToast("⚠ Please enter Name and Organisation.");
-  if(!detectedPos) return showToast("⚠ Please detect GPS Location first.");
-  
+  if (!name || !org) return showToast("⚠ Please enter Name and Organisation.");
+  if (!detectedPos) return showToast("⚠ Please detect GPS Location first.");
+
   const acc = { id: uid(), role: selectedRole, name, org, lat: detectedPos.lat, lng: detectedPos.lng, tokens: 0 };
   DB.set('acc:' + acc.id, acc);
-  
+
   // If no plants exist, establish a mock plant nearby to ensure routing works
   const plants = DB.list('acc:').map(k => DB.get(k)).filter(a => a.role === 'plant');
   if (plants.length === 0 && selectedRole !== 'plant') {
@@ -2017,10 +2019,10 @@ window.doRegister = async function() {
 
   // Show Splash Screen
   const splash = document.getElementById('success-splash');
-  if(splash) splash.classList.add('show');
-  
+  if (splash) splash.classList.add('show');
+
   setTimeout(() => {
-    if(splash) splash.classList.remove('show');
+    if (splash) splash.classList.remove('show');
     executeLogin(acc);
   }, 2500);
 }
@@ -2028,25 +2030,25 @@ window.doRegister = async function() {
 async function refreshLoginDropdown() {
   const sel = document.getElementById('login-account');
   const accounts = DB.list('acc:').map(k => DB.get(k));
-  if(accounts.length === 0) {
+  if (accounts.length === 0) {
     sel.innerHTML = '<option value="">-- No accounts registered yet --</option>';
   } else {
     sel.innerHTML = accounts.map(a => `<option value="${escapeHTML(a.id)}">${escapeHTML(a.name)} (${escapeHTML(a.org)}) - ${escapeHTML(a.role).toUpperCase()}</option>`).join('');
   }
 }
 
-window.doLogin = async function() {
+window.doLogin = async function () {
   const id = document.getElementById('login-account').value;
-  if(!id) return showToast("⚠ Please select an account or register first.");
+  if (!id) return showToast("⚠ Please select an account or register first.");
   const acc = DB.get('acc:' + id);
-  if(!acc) return;
+  if (!acc) return;
   executeLogin(acc);
 }
 
 let tickerTimer = null;
 function startTicker() {
   const t = document.getElementById('global-ticker');
-  if(!t) return;
+  if (!t) return;
   const msgs = [
     "AI Route Optimization Active. Saving 12% Fuel Fleet-wide.",
     "Plant Alpha just minted 250 $RGX for organic compost yield.",
@@ -2055,23 +2057,23 @@ function startTicker() {
   ];
   let i = 0;
   t.textContent = msgs[i];
-  if(tickerTimer) clearInterval(tickerTimer);
-  tickerTimer = setInterval(() => { i = (i+1)%msgs.length; t.textContent = msgs[i]; }, 20000);
+  if (tickerTimer) clearInterval(tickerTimer);
+  tickerTimer = setInterval(() => { i = (i + 1) % msgs.length; t.textContent = msgs[i]; }, 20000);
 }
 
 let gwTimer = null;
 function startGreenWall() {
   const feed = document.getElementById('gw-feed');
-  if(!feed) return;
-  if(gwTimer) clearInterval(gwTimer);
+  if (!feed) return;
+  if (gwTimer) clearInterval(gwTimer);
   feed.innerHTML = '';
-  
+
   const completedOrders = getAllOrders().filter(o => o.status === 'completed');
-  if(completedOrders.length === 0) {
+  if (completedOrders.length === 0) {
     feed.innerHTML = '<div class="gw-item" style="color:var(--text-muted)">No network activity yet. Complete a pickup to appear here!</div>';
     return;
   }
-  
+
   completedOrders.slice(0, 5).forEach(o => {
     const el = document.createElement('div');
     el.className = 'gw-item';
@@ -2080,10 +2082,10 @@ function startGreenWall() {
   });
 }
 
-window.buyMarketItem = function(price, name) {
-  if((SESSION.tokens || 0) < price) return showToast("⚠ Insufficient $RGX balance.");
-  
-  const hash = '0x' + Array.from({length:40}, () => Math.floor(Math.random()*16).toString(16)).join('');
+window.buyMarketItem = function (price, name) {
+  if ((SESSION.tokens || 0) < price) return showToast("⚠ Insufficient $RGX balance.");
+
+  const hash = '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
   const html = `
     <h3 class="modal-title">Web3 Smart Contract Interaction</h3>
     <p class="modal-sub">Minting <strong>${escapeHTML(name)}</strong> to the ReGen Layer-2 Network...</p>
@@ -2100,21 +2102,21 @@ window.buyMarketItem = function(price, name) {
   `;
   document.getElementById('modal-box').innerHTML = html;
   document.getElementById('modal').classList.add('open');
-  
+
   setTimeout(() => {
     SESSION.tokens -= price;
     DB.set('acc:' + SESSION.id, SESSION);
     document.getElementById('token-balance').textContent = SESSION.tokens;
     const b = document.getElementById('btn-close-mint');
-    if(b) { b.disabled = false; b.textContent = "Close & Claim Asset"; }
+    if (b) { b.disabled = false; b.textContent = "Close & Claim Asset"; }
     refreshCurrentView(true);
   }, 3500);
 }
 
-window.stakeTokens = function() {
+window.stakeTokens = function () {
   const amt = parseInt(prompt("How many $RGX tokens would you like to stake in the Community Digester Fund?"));
-  if(!amt || isNaN(amt) || amt <= 0) return;
-  if((SESSION.tokens || 0) < amt) return showToast("⚠ Insufficient balance to stake.");
+  if (!amt || isNaN(amt) || amt <= 0) return;
+  if ((SESSION.tokens || 0) < amt) return showToast("⚠ Insufficient balance to stake.");
   SESSION.tokens -= amt;
   SESSION.staked = (SESSION.staked || 0) + amt;
   DB.set('acc:' + SESSION.id, SESSION);
@@ -2123,8 +2125,8 @@ window.stakeTokens = function() {
   refreshCurrentView(true);
 }
 
-window.fundProject = function() {
-  if((SESSION.tokens || 0) < 500) return showToast("⚠ Insufficient balance. Need 500 $RGX.");
+window.fundProject = function () {
+  if ((SESSION.tokens || 0) < 500) return showToast("⚠ Insufficient balance. Need 500 $RGX.");
   SESSION.tokens -= 500;
   DB.set('acc:' + SESSION.id, SESSION);
   const cur = DB.get('global-fund') || 45200;
@@ -2148,13 +2150,13 @@ function executeLogin(acc) {
       console.warn('[Login] Cloud hydration failed, running on local data.', err)
     );
   }
-  
+
   document.getElementById('tb-name').textContent = acc.name;
   document.getElementById('tb-role').textContent = `${acc.role.toUpperCase()} · ${acc.org}`;
-  document.getElementById('tb-avatar').textContent = acc.name.slice(0,2).toUpperCase();
-  
+  document.getElementById('tb-avatar').textContent = acc.name.slice(0, 2).toUpperCase();
+
   // GPS RECOVERY: If coordinates are missing, attempt auto-detect
-  if(!acc.lat || !acc.lng) {
+  if (!acc.lat || !acc.lng) {
 
     navigator.geolocation.getCurrentPosition(pos => {
       acc.lat = pos.coords.latitude; acc.lng = pos.coords.longitude;
@@ -2163,7 +2165,7 @@ function executeLogin(acc) {
       showToast("✓ GPS Corrected Automatically");
     });
   }
-  
+
   const tokenContainer = document.getElementById('token-balance-container');
   if (acc.role === 'provider') {
     tokenContainer.classList.remove('hidden');
@@ -2183,7 +2185,7 @@ function executeLogin(acc) {
   }
   startTicker();
   const gwWidget = document.getElementById('green-wall-widget');
-  if(gwWidget) { gwWidget.style.display = 'flex'; startGreenWall(); }
+  if (gwWidget) { gwWidget.style.display = 'flex'; startGreenWall(); }
   updateNotificationBadge();
   updateOfflineQueueIndicator();
   buildSidebar();
@@ -2192,7 +2194,7 @@ function executeLogin(acc) {
 }
 
 
-window.doLogout = function() {
+window.doLogout = function () {
   clearInterval(autoRefreshTimer);
   clearInterval(tickerTimer);
   clearInterval(gwTimer);
@@ -2286,39 +2288,39 @@ function buildSidebar() {
   }
 }
 
-window.showView = function(viewId) {
+window.showView = function (viewId) {
   currentView = viewId;
   window.currentView = currentView;
   saveActiveSession(SESSION?.id, currentView);
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const btn = document.getElementById('nav-' + viewId);
-  if(btn) btn.classList.add('active');
-  
+  if (btn) btn.classList.add('active');
+
   // Set Title
-  const titleMap = { 
-    'v-iot-bins': 'IoT Sensory Bins', 
-    'v-compliance': 'Compliance Center', 
-    'v-reconciliation': 'Reconciliation', 
-    'v-sla': 'SLA Monitor', 
-    'v-energy': 'Energy Scorecard', 
-    'v-sensor': 'Sensor Reliability', 
-    'v-emissions': 'Emissions Tracker', 
+  const titleMap = {
+    'v-iot-bins': 'IoT Sensory Bins',
+    'v-compliance': 'Compliance Center',
+    'v-reconciliation': 'Reconciliation',
+    'v-sla': 'SLA Monitor',
+    'v-energy': 'Energy Scorecard',
+    'v-sensor': 'Sensor Reliability',
+    'v-emissions': 'Emissions Tracker',
     'v-quality': 'Quality Index',
     'v-esg-hub': 'Sustainability Report Hub',
     'v-automation': 'Automation Pipeline'
   };
-  if(btn) document.getElementById('tb-view-title').textContent = titleMap[viewId] || btn.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
-  
+  if (btn) document.getElementById('tb-view-title').textContent = titleMap[viewId] || btn.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
+
   if (window.innerWidth <= 768) toggleSidebar(false);
   refreshCurrentView(true);
 }
 
-window.toggleSidebar = function(force) {
+window.toggleSidebar = function (force) {
   const sb = document.getElementById('sidebar');
   const ov = document.getElementById('sidebar-overlay');
   const toggleBtn = document.getElementById('sidebar-toggle');
-  if(!sb || !ov) return;
-  
+  if (!sb || !ov) return;
+
   const isOpen = force !== undefined ? force : !sb.classList.contains('open');
   sb.classList.toggle('open', isOpen);
   ov.classList.toggle('open', isOpen);
@@ -2329,18 +2331,18 @@ window.toggleSidebar = function(force) {
 }
 
 // ── CORE DATA ENGINE ──
-function getAllOrders() { return DB.list('ord:').map(k => DB.get(k)).filter(Boolean).sort((a,b)=>b.ts-a.ts); }
-function getOrder(id) { return DB.get('ord:'+id); }
-function saveOrder(o) { 
+function getAllOrders() { return DB.list('ord:').map(k => DB.get(k)).filter(Boolean).sort((a, b) => b.ts - a.ts); }
+function getOrder(id) { return DB.get('ord:' + id); }
+function saveOrder(o) {
   // persist locally and publish to realtime and cloud sync when available
-  DB.set('ord:'+o.id, o, { rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'], eventType: 'KPI_UPDATED' });
+  DB.set('ord:' + o.id, o, { rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'], eventType: 'KPI_UPDATED' });
   if (window.CloudSync && window.CloudSync.isLive && navigator.onLine) {
     window.CloudSync.pushDocument('orders', o);
   } else {
     queueOfflineAction({ type: 'sync-order', payload: o });
   }
 }
-function getAllLogs() { return DB.list('log:').map(k => DB.get(k)).filter(Boolean).sort((a,b)=>b.ts-a.ts); }
+function getAllLogs() { return DB.list('log:').map(k => DB.get(k)).filter(Boolean).sort((a, b) => b.ts - a.ts); }
 
 function renderStatusBadge(label, tone = 'neutral') {
   return `<span class="status-badge status-badge-${tone}">${label}</span>`;
@@ -2465,10 +2467,10 @@ function buildStatusStepper(status) {
   if (status === 'rejected') return '';
   const steps = [
     { key: 'requested', label: 'Requested' },
-    { key: 'assigned',  label: 'Assigned'  },
-    { key: 'en_route',  label: 'En Route'  },
+    { key: 'assigned', label: 'Assigned' },
+    { key: 'en_route', label: 'En Route' },
     { key: 'picked_up', label: 'Picked Up' },
-    { key: 'at_plant',  label: 'At Plant'  },
+    { key: 'at_plant', label: 'At Plant' },
     { key: 'completed', label: 'Completed' },
   ];
   const idx = steps.findIndex(s => s.key === status);
@@ -2498,7 +2500,7 @@ function buildOrderCard(o, role) {
       : integrity.score >= 60
         ? '<span class="badge badge-amber">Watch</span>'
         : '<span class="badge badge-red">Risk</span>';
-  
+
   let acts = '';
   if (role === 'provider' && o.status === 'requested') {
     acts = `<button class="btn btn-ghost btn-sm" onclick="cancelOrder('${o.id}')">Cancel</button>`;
@@ -2540,7 +2542,7 @@ function buildOrderCard(o, role) {
       </div>
       ${buildStatusStepper(o.status)}
       ${o.actualKg ? `<div style="margin-bottom:8px;font-size:13px;color:var(--green);font-weight:600;">✓ Actual Collected: ${o.actualKg}kg (Quality: ${o.quality})</div>` : ''}
-      ${o.tokensMinted ? `<div style="margin-bottom:8px;font-size:13px;color:var(--amber);font-weight:600;">🪙 Minted ${o.tokensMinted} $RGX <span style="font-size:10px; color:var(--text-muted); font-family:monospace; margin-left:8px;">TX: ${o.txHash.slice(0,12)}...</span></div>` : ''}
+      ${o.tokensMinted ? `<div style="margin-bottom:8px;font-size:13px;color:var(--amber);font-weight:600;">🪙 Minted ${o.tokensMinted} $RGX <span style="font-size:10px; color:var(--text-muted); font-family:monospace; margin-left:8px;">TX: ${o.txHash.slice(0, 12)}...</span></div>` : ''}
       ${acts ? `<div class="oc-actions">${acts}</div>` : ''}
     </div>
   `;
@@ -2573,12 +2575,12 @@ async function refreshCurrentView(fullRender = false) {
           <div style="margin-top:8px; font-size:13px;">Organic: <strong>${s.organicPercentage}%</strong> · Role: ${s.role}</div>
         </div>
       `).join('') : renderDashboardListState({
-        icon: '🔬',
-        title: 'No scans yet',
-        description: 'Run the BioScan AI to see history here.',
-        statusLabel: 'Idle',
-        tone: 'inactive'
-      })}
+      icon: '🔬',
+      title: 'No scans yet',
+      description: 'Run the BioScan AI to see history here.',
+      statusLabel: 'Idle',
+      tone: 'inactive'
+    })}
     `;
     return;
   }
@@ -2633,7 +2635,7 @@ async function refreshCurrentView(fullRender = false) {
     const staked = SESSION.staked || 0;
     const totalStakedGlobal = 1250000 + staked;
 
-    if(fullRender) mc.innerHTML = `
+    if (fullRender) mc.innerHTML = `
       <div class="between" style="margin-bottom:24px;">
         <h3 class="heading">DeFi Carbon Exchange Hub</h3>
         <div class="badge badge-amber" style="font-size:14px; padding:6px 12px;">Wallet Balance: ${SESSION.tokens || 0} $RGX</div>
@@ -2673,7 +2675,7 @@ async function refreshCurrentView(fullRender = false) {
              <span>Goal: 100,000 $RGX</span>
            </div>
            <div style="width:100%; height:12px; background:var(--border); border-radius:6px; overflow:hidden; margin-bottom:24px;">
-             <div style="width:${Math.min((globalFunded/100000)*100, 100)}%; height:100%; background:var(--green); border-radius:6px; transition:width 1s;"></div>
+             <div style="width:${Math.min((globalFunded / 100000) * 100, 100)}%; height:100%; background:var(--green); border-radius:6px; transition:width 1s;"></div>
            </div>
            
            <button class="btn btn-primary btn-full" onclick="fundProject()">Fund with 500 $RGX</button>
@@ -2750,13 +2752,13 @@ function renderCompliance(mc, fullRender) {
               </div>
             </div>
       `).join('') : renderDashboardListState({
-        icon: '🛡️',
-        title: 'No active alerts',
-        description: 'All compliance checks are clear for now.',
-        subtext: 'New alerts will appear here when issues are detected.',
-        statusLabel: 'Idle',
-        tone: 'inactive'
-      })}
+    icon: '🛡️',
+    title: 'No active alerts',
+    description: 'All compliance checks are clear for now.',
+    subtext: 'New alerts will appear here when issues are detected.',
+    statusLabel: 'Idle',
+    tone: 'inactive'
+  })}
           <span class="badge badge-green">${resolvedAlerts.length} Done</span>
         </div>
         <div class="compliance-list">
@@ -2769,13 +2771,13 @@ function renderCompliance(mc, fullRender) {
               <span class="badge badge-green">RESOLVED</span>
             </div>
           `).join('') : renderDashboardListState({
-            icon: '✅',
-            title: 'No resolved alerts yet',
-            description: 'There are no resolved compliance alerts to display.',
-            subtext: 'Resolved alerts will appear here once issues are closed.',
-            statusLabel: 'Idle',
-            tone: 'inactive'
-          })}
+    icon: '✅',
+    title: 'No resolved alerts yet',
+    description: 'There are no resolved compliance alerts to display.',
+    subtext: 'Resolved alerts will appear here once issues are closed.',
+    statusLabel: 'Idle',
+    tone: 'inactive'
+  })}
         </div>
       </div>
     </div>
@@ -2823,13 +2825,13 @@ function renderReconciliation(mc, fullRender) {
             <span class="badge ${e.deltaPct >= 8 ? 'badge-red' : 'badge-green'}">${e.deltaPct >= 8 ? 'FLAG' : 'OK'}</span>
           </div>
         `).join('') : renderDashboardListState({
-          icon: '🧾',
-          title: 'No reconciliation entries',
-          description: 'There are no credit ledger entries to review yet.',
-          subtext: 'Recorded carbon credits will populate this list once available.',
-          statusLabel: 'Idle',
-          tone: 'inactive'
-        })}
+    icon: '🧾',
+    title: 'No reconciliation entries',
+    description: 'There are no credit ledger entries to review yet.',
+    subtext: 'Recorded carbon credits will populate this list once available.',
+    statusLabel: 'Idle',
+    tone: 'inactive'
+  })}
       </div>
     </div>
   `;
@@ -2866,15 +2868,15 @@ function renderSlaMonitor(mc, fullRender) {
       </div>
       <div class="sla-list">
         ${entries.length ? entries.slice(0, 12).map(e => {
-          const elapsed = Math.round(((e.completeTs || Date.now()) - e.createdTs) / 60000);
-          const liveBreach = !e.completeTs && elapsed > e.targetMins;
-          const badge = e.completeTs
-            ? (e.breach ? 'badge-red' : 'badge-green')
-            : liveBreach ? 'badge-amber' : 'badge-blue';
-          const status = e.completeTs
-            ? (e.breach ? 'BREACH' : 'ON TIME')
-            : liveBreach ? 'AT RISK' : 'IN PROGRESS';
-          return `
+    const elapsed = Math.round(((e.completeTs || Date.now()) - e.createdTs) / 60000);
+    const liveBreach = !e.completeTs && elapsed > e.targetMins;
+    const badge = e.completeTs
+      ? (e.breach ? 'badge-red' : 'badge-green')
+      : liveBreach ? 'badge-amber' : 'badge-blue';
+    const status = e.completeTs
+      ? (e.breach ? 'BREACH' : 'ON TIME')
+      : liveBreach ? 'AT RISK' : 'IN PROGRESS';
+    return `
             <div class="sla-item ${liveBreach ? 'risk' : ''}">
               <div>
                 <div class="sla-title">Order #${escapeHTML(e.orderId).slice(-6).toUpperCase()} · ${escapeHTML(e.org)}</div>
@@ -2884,14 +2886,14 @@ function renderSlaMonitor(mc, fullRender) {
               <span class="badge ${badge}">${status}</span>
             </div>
           `;
-        }).join('') : renderDashboardListState({
-          icon: '⏱️',
-          title: 'No SLA entries yet',
-          description: 'No dispatch SLA records are available right now.',
-          subtext: 'Active and completed dispatch SLAs will appear in this section.',
-          statusLabel: 'Idle',
-          tone: 'inactive'
-        })}
+  }).join('') : renderDashboardListState({
+    icon: '⏱️',
+    title: 'No SLA entries yet',
+    description: 'No dispatch SLA records are available right now.',
+    subtext: 'Active and completed dispatch SLAs will appear in this section.',
+    statusLabel: 'Idle',
+    tone: 'inactive'
+  })}
       </div>
     </div>
   `;
@@ -2937,12 +2939,12 @@ function renderEnergyScorecard(mc, fullRender) {
             <span class="badge ${e.score >= 85 ? 'badge-green' : e.score >= 70 ? 'badge-blue' : e.score >= 55 ? 'badge-amber' : 'badge-red'}">${e.score}</span>
           </div>
         `).join('') : renderDashboardListState({
-          icon: '⚡',
-          title: 'No energy records yet',
-          description: 'Energy yield data will appear once bio-waste batches are processed.',
-          statusLabel: 'Idle',
-          tone: 'inactive'
-        })}
+    icon: '⚡',
+    title: 'No energy records yet',
+    description: 'Energy yield data will appear once bio-waste batches are processed.',
+    statusLabel: 'Idle',
+    tone: 'inactive'
+  })}
       </div>
     </div>
   `;
@@ -2988,12 +2990,12 @@ function renderSensorReliability(mc, fullRender) {
             <span class="badge ${e.score >= 90 ? 'badge-green' : e.score >= 75 ? 'badge-blue' : e.score >= 60 ? 'badge-amber' : 'badge-red'}">${e.score}%</span>
           </div>
         `).join('') : renderDashboardListState({
-          icon: '📡',
-          title: 'No sensor snapshots yet',
-          description: 'Sensor health snapshots will appear as devices report data.',
-          statusLabel: 'Idle',
-          tone: 'inactive'
-        })}
+    icon: '📡',
+    title: 'No sensor snapshots yet',
+    description: 'Sensor health snapshots will appear as devices report data.',
+    statusLabel: 'Idle',
+    tone: 'inactive'
+  })}
       </div>
     </div>
   `;
@@ -3039,12 +3041,12 @@ function renderEmissionsTracker(mc, fullRender) {
             <span class="badge ${e.score >= 85 ? 'badge-green' : e.score >= 70 ? 'badge-blue' : e.score >= 55 ? 'badge-amber' : 'badge-red'}">${e.score}</span>
           </div>
         `).join('') : renderDashboardListState({
-          icon: '🌍',
-          title: 'No emissions records yet',
-          description: 'Tracked emissions routes will appear here after the first runs.',
-          statusLabel: 'Idle',
-          tone: 'inactive'
-        })}
+    icon: '🌍',
+    title: 'No emissions records yet',
+    description: 'Tracked emissions routes will appear here after the first runs.',
+    statusLabel: 'Idle',
+    tone: 'inactive'
+  })}
       </div>
     </div>
   `;
@@ -3148,11 +3150,11 @@ function renderAutomationPipeline(mc, fullRender) {
 // ════════ PROVIDER LOGIC ════════
 async function renderProvider(mc, fullRender) {
   const orders = getAllOrders().filter(o => o.providerId === SESSION.id);
-  const active = orders.filter(o => !['completed','rejected'].includes(o.status));
+  const active = orders.filter(o => !['completed', 'rejected'].includes(o.status));
   const completed = orders.filter(o => o.status === 'completed');
-  
+
   if (currentView === 'v-pv-dash') {
-    if(fullRender) mc.innerHTML = `
+    if (fullRender) mc.innerHTML = `
       <!-- Mobile Quick Access -->
       <div class="mobile-quick-actions">
         <button class="glass-card" style="flex:1; padding:12px; text-align:center; border-color:var(--green);" onclick="showView('v-pv-req')">
@@ -3253,8 +3255,8 @@ async function renderProvider(mc, fullRender) {
             </div>
             <button class="btn btn-full" id="btn-smart-alerts"
               style="${getAlertPreference()
-                ? 'background:transparent; border:2px solid var(--red); color:var(--red);'
-                : 'background:linear-gradient(135deg,#F59E0B,#D97706); color:#fff;'} font-weight:700;"
+        ? 'background:transparent; border:2px solid var(--red); color:var(--red);'
+        : 'background:linear-gradient(135deg,#F59E0B,#D97706); color:#fff;'} font-weight:700;"
               onclick="toggleSmartAlerts()">
               ${getAlertPreference() ? '🔕 Disable Smart Alerts' : '🔔 Enable Smart Alerts'}
             </button>
@@ -3262,22 +3264,22 @@ async function renderProvider(mc, fullRender) {
         </div>
       </div>
     `;
-    
+
     // Calculate Leaderboard
-    const allCompleted = getAllOrders().filter(o=>o.status==='completed');
+    const allCompleted = getAllOrders().filter(o => o.status === 'completed');
     const lbMap = {};
     allCompleted.forEach(o => {
-       lbMap[o.providerId] = (lbMap[o.providerId]||0) + parseInt(o.actualKg||o.kg||0);
+      lbMap[o.providerId] = (lbMap[o.providerId] || 0) + parseInt(o.actualKg || o.kg || 0);
     });
     // Ensure current user is in map even if 0
-    if(!lbMap[SESSION.id]) lbMap[SESSION.id] = 0;
-    
+    if (!lbMap[SESSION.id]) lbMap[SESSION.id] = 0;
+
     const lbSorted = Object.keys(lbMap).map(id => ({
-       id, org: (DB.get('acc:'+id)||{org:'Unknown'}).org, kg: lbMap[id]
-    })).sort((a,b)=>b.kg - a.kg).slice(0,3);
-    
+      id, org: (DB.get('acc:' + id) || { org: 'Unknown' }).org, kg: lbMap[id]
+    })).sort((a, b) => b.kg - a.kg).slice(0, 3);
+
     const lbDiv = document.getElementById('pv-leaderboard');
-    if(lbDiv) {
+    if (lbDiv) {
       if (!allCompleted.length) {
         lbDiv.innerHTML = renderDashboardListState({
           icon: '🏆',
@@ -3289,8 +3291,8 @@ async function renderProvider(mc, fullRender) {
         });
       } else {
         const lbHTML = lbSorted.map((item, i) => `
-          <div class="between" style="padding:8px 0; border-bottom:${i<2?'1px solid var(--border)':'none'};">
-             <div style="font-weight:600;"><span style="color:var(--amber);">${i+1}.</span> ${escapeHTML(item.org)} ${item.id===SESSION.id?'(You)':''}</div>
+          <div class="between" style="padding:8px 0; border-bottom:${i < 2 ? '1px solid var(--border)' : 'none'};">
+             <div style="font-weight:600;"><span style="color:var(--amber);">${i + 1}.</span> ${escapeHTML(item.org)} ${item.id === SESSION.id ? '(You)' : ''}</div>
              <div class="badge badge-green">${item.kg} kg</div>
           </div>
         `).join('');
@@ -3303,27 +3305,27 @@ async function renderProvider(mc, fullRender) {
     const rank = TrustProtocol.getRankDetails(trustScore);
     const scoreEl = document.getElementById('pv-trust-score');
     if (scoreEl) {
-        scoreEl.textContent = trustScore;
-        document.getElementById('pv-trust-bar').style.width = trustScore + '%';
-        document.getElementById('pv-trust-rank-icon').textContent = rank.icon;
-        document.getElementById('pv-trust-rank-name').textContent = rank.name + ' Level';
-        document.getElementById('pv-trust-multiplier').textContent = rank.multiplier + 'x Rewards';
+      scoreEl.textContent = trustScore;
+      document.getElementById('pv-trust-bar').style.width = trustScore + '%';
+      document.getElementById('pv-trust-rank-icon').textContent = rank.icon;
+      document.getElementById('pv-trust-rank-name').textContent = rank.name + ' Level';
+      document.getElementById('pv-trust-multiplier').textContent = rank.multiplier + 'x Rewards';
     }
-    
+
     // Predict next day = AI Intelligence Engine
     const myTotal = lbMap[SESSION.id] || 0;
     const myComps = completed.length;
     const avg = myComps > 0 ? Math.round(myTotal / myComps) : 0;
     const prediction = Intelligence.predictWasteVolume(completed);
     const aiPredict = document.getElementById('pv-ai-predict');
-    if(aiPredict) {
+    if (aiPredict) {
       aiPredict.textContent = `${prediction.expectedKg}kg ${prediction.trend === 'Upward' ? '📈' : '📉'}`;
       const trendEl = document.getElementById('pv-ai-trend');
-      if(trendEl) trendEl.textContent = `Trend: ${prediction.trend} | Confidence: ${prediction.confidence}`;
+      if (trendEl) trendEl.textContent = `Trend: ${prediction.trend} | Confidence: ${prediction.confidence}`;
     }
-    const totalKg = completed.reduce((s,o)=>s+(o.actualKg||o.kg),0);
+    const totalKg = completed.reduce((s, o) => s + (o.actualKg || o.kg), 0);
     const statsDiv = document.getElementById('pv-stats');
-    if(statsDiv) {
+    if (statsDiv) {
       const bins = getIoTBins();
       const critCount = bins.filter(b => b.fill >= 85).length;
       const requestState = orders.length ? 'active' : 'empty';
@@ -3376,9 +3378,9 @@ async function renderProvider(mc, fullRender) {
       ]);
     }
     const pvMyKg = document.getElementById('pv-my-kg');
-    if(pvMyKg) pvMyKg.textContent = totalKg + ' kg';
+    if (pvMyKg) pvMyKg.textContent = totalKg + ' kg';
     const pvActDiv = document.getElementById('pv-act');
-    if(pvActDiv) pvActDiv.innerHTML = active.length ? active.map(o=>buildOrderCard(o,'provider')).join('') : renderDashboardListState({
+    if (pvActDiv) pvActDiv.innerHTML = active.length ? active.map(o => buildOrderCard(o, 'provider')).join('') : renderDashboardListState({
       icon: '🚚',
       title: 'No active dispatches',
       description: 'There are no in-flight provider orders right now.',
@@ -3387,7 +3389,7 @@ async function renderProvider(mc, fullRender) {
       tone: 'inactive'
     });
 
-    if(fullRender) setTimeout(initPvChart, 100);
+    if (fullRender) setTimeout(initPvChart, 100);
 
     // Render IoT Bin mini-widget
     const iotWidget = document.getElementById('pv-iot-widget');
@@ -3400,7 +3402,7 @@ async function renderProvider(mc, fullRender) {
           const col = b.fill >= 85 ? 'var(--red)' : b.fill >= 60 ? 'var(--amber)' : 'var(--green)';
           const badge = b.fill >= 85 ? `<span class="badge badge-red" style="font-size:10px;">⚠ Critical</span>`
             : b.fill >= 60 ? `<span class="badge badge-amber" style="font-size:10px;">◑ Filling</span>`
-            : `<span class="badge badge-green" style="font-size:10px;">✓ OK</span>`;
+              : `<span class="badge badge-green" style="font-size:10px;">✓ OK</span>`;
           return `
             <div style="margin-bottom:14px;">
               <div class="between" style="margin-bottom:5px;">
@@ -3421,9 +3423,9 @@ async function renderProvider(mc, fullRender) {
       startIoTSim();
     }
   }
-  
+
   if (currentView === 'v-pv-req') {
-    if(fullRender) mc.innerHTML = `
+    if (fullRender) mc.innerHTML = `
       <div style="max-width:600px; margin:0 auto;">
         <div class="glass-card" style="margin-bottom:16px; border-color:var(--green); background:var(--green-light); padding:20px; display:flex; align-items:center; gap:16px;">
           <div style="font-size:32px;">🔬</div>
@@ -3439,7 +3441,7 @@ async function renderProvider(mc, fullRender) {
           <h3 class="heading" style="margin-bottom:24px;">New Dispatch Request</h3>
           <div class="form-group">
             <label class="form-label">Waste Category</label>
-            <select class="form-select" id="req-type">${WASTE_TYPES.map(t=>`<option>${t}</option>`).join('')}</select>
+            <select class="form-select" id="req-type">${WASTE_TYPES.map(t => `<option>${t}</option>`).join('')}</select>
           </div>
           <div class="form-group">
             <label class="form-label">Estimated Quantity (kg) <span style="color:var(--amber);">*Min 50kg Limit*</span></label>
@@ -3447,12 +3449,76 @@ async function renderProvider(mc, fullRender) {
           </div>
           <div class="form-group">
             <label class="form-label">Collection Shift</label>
-            <select class="form-select" id="req-shift">${SHIFTS.map(t=>`<option>${t}</option>`).join('')}</select>
+            <select class="form-select" id="req-shift">${SHIFTS.map(t => `<option>${t}</option>`).join('')}</select>
           </div>
           <button class="btn btn-primary btn-full" onclick="submitPvRequest()">Locate Plant & Dispatch 🚀</button>
         </div>
       </div>
     `;
+  }
+  // Pre-fill from IoT bin if dispatched via critical bin button
+  if (window._pendingBinDispatch) {
+    const bins = getIoTBins();
+    const bin = bins.find(b => b.id === window._pendingBinDispatch);
+    window._pendingBinDispatch = null;
+
+    if (bin) {
+      setTimeout(() => {
+        const kgEl = document.getElementById('req-kg');
+        const typeEl = document.getElementById('req-type');
+        const shiftEl = document.getElementById('req-shift');
+
+        // Estimate kg: 100L capacity × fill% × 0.6 kg/L density, min 50kg
+        if (kgEl) {
+          const estimatedKg = Math.max(50, Math.round((bin.fill / 100) * 100 * 0.6));
+          kgEl.value = estimatedKg;
+        }
+
+        // Heuristic waste type from bin name
+        if (typeEl) {
+          const name = bin.name.toLowerCase();
+          typeEl.value = name.includes('kitchen') || name.includes('food') || name.includes('organic')
+            ? 'Food waste (wet)'
+            : name.includes('veg') ? 'Vegetable scraps' : 'Mixed kitchen waste';
+        }
+
+        // Shift cannot be inferred — highlight it in amber
+        if (shiftEl) {
+          shiftEl.style.border = '2px solid var(--amber)';
+          shiftEl.style.boxShadow = '0 0 0 3px var(--amber-light)';
+          const hint = document.createElement('div');
+          hint.style.cssText = 'font-size:11px; color:var(--amber); margin-top:4px; font-weight:600;';
+          hint.textContent = '⚠ Please select a collection shift to complete dispatch.';
+          shiftEl.closest('.form-group').appendChild(hint);
+          if (window.gsap) {
+            gsap.fromTo(shiftEl,
+              { borderColor: 'var(--border)' },
+              { borderColor: 'var(--amber)', duration: 0.4, ease: 'power2.out' }
+            );
+          }
+        }
+
+        // Glassmorphic info banner
+        const wrapper = document.querySelector('#main-content > div');
+        if (wrapper) {
+          const banner = document.createElement('div');
+          banner.className = 'glass-card';
+          banner.style.cssText = 'margin-bottom:16px; border-color:var(--green); background:var(--green-light); padding:16px; display:flex; align-items:center; gap:12px;';
+          banner.innerHTML = `<span style="font-size:24px;">🗑️</span>
+          <div>
+            <div style="font-weight:700;font-size:14px;color:var(--green-hover);">Dispatching from ${bin.name}</div>
+            <div style="font-size:12px;color:var(--green-hover);opacity:0.8;">Fields pre-filled from IoT sensor data · ${bin.fill}% full</div>
+          </div>`;
+          wrapper.insertBefore(banner, wrapper.firstChild);
+          if (window.gsap) {
+            gsap.fromTo(banner,
+              { opacity: 0, y: -10 },
+              { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }
+            );
+          }
+        }
+      }, 100);
+    }
   }
 
   if (currentView === 'v-pv-hist-week' || currentView === 'v-pv-hist-month') {
@@ -3462,8 +3528,8 @@ async function renderProvider(mc, fullRender) {
     const now = Date.now();
     const completed = getAllOrders().filter(o => o.providerId === SESSION.id && o.status === 'completed');
     const filteredHistory = completed.filter(o => (now - o.ts) <= (limitDays * 24 * 60 * 60 * 1000));
-    
-    if(fullRender) mc.innerHTML = `
+
+    if (fullRender) mc.innerHTML = `
       <section class="records-shell" aria-label="${isMonth ? 'Monthly' : 'Weekly'} records">
         <div class="between records-header">
            <h3 class="heading" style="margin-bottom:0;">${isMonth ? 'Monthly' : 'Weekly'} Records</h3>
@@ -3472,7 +3538,7 @@ async function renderProvider(mc, fullRender) {
         <div id="pv-hist-list" class="record-stack"></div>
       </section>
     `;
-    document.getElementById('pv-hist-list').innerHTML = filteredHistory.length ? filteredHistory.map(o=>buildOrderCard(o,'provider')).join('') : renderDashboardListState({
+    document.getElementById('pv-hist-list').innerHTML = filteredHistory.length ? filteredHistory.map(o => buildOrderCard(o, 'provider')).join('') : renderDashboardListState({
       icon: '📦',
       title: `No completed history in the last ${limitDays} days`,
       description: 'No provider order history was recorded during this period.',
@@ -3483,13 +3549,13 @@ async function renderProvider(mc, fullRender) {
   }
 }
 
-window.openScanner = function() {
+window.openScanner = function () {
   const mb = document.getElementById('modal-box');
-  if(mb) {
+  if (mb) {
     mb.classList.add('modal-large');
     mb.innerHTML = ''; // Clear previous content
   }
-  
+
   BioScanner.open({
     containerId: 'modal-box',
     role: SESSION.role,
@@ -3500,8 +3566,8 @@ window.openScanner = function() {
     onApply: (score, organicPercent) => {
       showView('v-pv-req');
       setTimeout(() => {
-        const rKg = document.getElementById('req-kg'); if(rKg) rKg.value = Math.floor(Math.random() * 150 + 50); 
-        const rType = document.getElementById('req-type'); if(rType) rType.value = organicPercent > 70 ? "Food Waste" : "Dry Waste";
+        const rKg = document.getElementById('req-kg'); if (rKg) rKg.value = Math.floor(Math.random() * 150 + 50);
+        const rType = document.getElementById('req-type'); if (rType) rType.value = organicPercent > 70 ? "Food Waste" : "Dry Waste";
         showToast(`✓ Scanner Data Applied: ${score}% Segregation Score`);
         closeScanner();
       }, 200);
@@ -3524,21 +3590,21 @@ window.openScanner = function() {
   document.getElementById('modal').classList.add('open');
 }
 
-window.closeModal = function() {
+window.closeModal = function () {
   const m = document.getElementById('modal');
-  if(m) m.classList.remove('open');
+  if (m) m.classList.remove('open');
   const mb = document.getElementById('modal-box');
-  if(mb) {
+  if (mb) {
     mb.classList.remove('modal-large');
     mb.classList.remove('integrity-modal');
     mb.innerHTML = '';
   }
 }
 
-window.closeScanner = function() {
+window.closeScanner = function () {
   if (window.BioScanner) BioScanner.stop();
   const mb = document.getElementById('modal-box');
-  if(mb) mb.classList.remove('modal-large');
+  if (mb) mb.classList.remove('modal-large');
   closeModal();
 }
 
@@ -3546,16 +3612,16 @@ let pvChartInstance = null;
 
 function initPvChart() {
   const ctx = document.getElementById('pvChart');
-  if(!ctx || window.Chart === undefined) return;
-  if(pvChartInstance) pvChartInstance.destroy();
-  
+  if (!ctx || window.Chart === undefined) return;
+  if (pvChartInstance) pvChartInstance.destroy();
+
   // Calculate dynamic weekly data from real history
   const orders = getAllOrders().filter(o => o.providerId === SESSION.id && o.status === 'completed');
-  let kgData = [0,0,0,0,0,0,0];
-  let co2Data = [0,0,0,0,0,0,0];
-  
+  let kgData = [0, 0, 0, 0, 0, 0, 0];
+  let co2Data = [0, 0, 0, 0, 0, 0, 0];
+
   // Dump all into current day for simplicity in local demo without real dates over weeks
-  const totKg = orders.reduce((s,o)=>s+parseInt(o.actualKg||o.kg), 0);
+  const totKg = orders.reduce((s, o) => s + parseInt(o.actualKg || o.kg), 0);
   kgData[6] = totKg;
   co2Data[6] = Math.round(orders.reduce((sum, o) => {
     const kg = parseInt(o.actualKg || o.kg) || 0;
@@ -3585,12 +3651,12 @@ function initPvChart() {
   });
 }
 
-window.updatePvChart = function(period) {
-  if(!pvChartInstance) return;
+window.updatePvChart = function (period) {
+  if (!pvChartInstance) return;
   const d = window._pvDynamicData;
-  if(!d) return;
-  
-  if(period === 'monthly') {
+  if (!d) return;
+
+  if (period === 'monthly') {
     pvChartInstance.data.labels = ['Week 1', 'Week 2', 'Week 3', 'This Week'];
     pvChartInstance.data.datasets[0].data = [0, 0, 0, d.totKg];
     pvChartInstance.data.datasets[1].data = [0, 0, 0, d.totCO2];
@@ -3602,11 +3668,11 @@ window.updatePvChart = function(period) {
   pvChartInstance.update();
 }
 
-window.clearAllHistory = function(role) {
-  if(!confirm("Are you sure you want to clear all completed history? This cannot be undone.")) return;
+window.clearAllHistory = function (role) {
+  if (!confirm("Are you sure you want to clear all completed history? This cannot be undone.")) return;
   const orders = getAllOrders().filter(o => {
-    if(role === 'provider') return o.providerId === SESSION.id && o.status === 'completed';
-    if(role === 'rider') return o.riderId === SESSION.id && o.status === 'completed';
+    if (role === 'provider') return o.providerId === SESSION.id && o.status === 'completed';
+    if (role === 'rider') return o.riderId === SESSION.id && o.status === 'completed';
     return false;
   });
   orders.forEach(o => ReGenXRealtime?.removeOrderKey(o.id, { rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'], eventType: 'KPI_UPDATED' }));
@@ -3614,32 +3680,32 @@ window.clearAllHistory = function(role) {
   refreshCurrentView(true);
 }
 
-window.submitPvRequest = async function() {
+window.submitPvRequest = async function () {
   const type = document.getElementById('req-type').value;
   const kg = parseInt(document.getElementById('req-kg').value);
   const shift = document.getElementById('req-shift').value;
-  
+
   if (!kg || kg < 50) return showToast("⚠ Minimum 50 kg requirement not met to ensure net-positive energy yield.");
-  
+
   // Find nearest plant (50km limit)
-  const plants = DB.list('acc:').map(k=>DB.get(k)).filter(a=>a.role==='plant');
+  const plants = DB.list('acc:').map(k => DB.get(k)).filter(a => a.role === 'plant');
   let nearest = null; let minDist = 9999;
-  for(let p of plants) {
+  for (let p of plants) {
     const d = distanceKm(SESSION.lat, SESSION.lng, p.lat, p.lng);
-    if(d < minDist) { minDist = d; nearest = p; }
+    if (d < minDist) { minDist = d; nearest = p; }
   }
-  
+
   if (!nearest || minDist > 50) return showToast(`⚠ Out of Range! Nearest plant is >50km away.`);
-  
+
   const o = {
     id: uid(), ts: ts(), providerId: SESSION.id, providerOrg: SESSION.org, providerLat: SESSION.lat, providerLng: SESSION.lng,
     wasteType: type, kg, shift, plantId: nearest.id, plantName: nearest.org, status: 'requested'
   };
   saveOrder(o);
   addSlaEntry(o);
- // INSIDE submitPvRequest
+  // INSIDE submitPvRequest
   await recordTrustEvent(o, 'requested', 'provider', { lat: SESSION.lat, lng: SESSION.lng });
-  
+
   // Notify local roles and publish an operational realtime event
   addWorkflowNotification({
     title: 'Dispatch Created',
@@ -3676,8 +3742,8 @@ window.submitPvRequest = async function() {
   showView('v-pv-dash');
 }
 
-window.cancelOrder = function(id) {
-  const o = getOrder(id); if(!o) return;
+window.cancelOrder = function (id) {
+  const o = getOrder(id); if (!o) return;
   o.status = 'rejected'; saveOrder(o);
   publishOperationalEvent('KPI_UPDATED', [], {
     toast: `Dispatch #${o.id.slice(-6).toUpperCase()} was cancelled.`,
@@ -3686,7 +3752,7 @@ window.cancelOrder = function(id) {
   showToast("Cancelled."); refreshCurrentView();
 }
 
-window.deleteOrder = function(id) {
+window.deleteOrder = function (id) {
   ReGenXRealtime?.removeOrderKey(id, { rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'], eventType: 'KPI_UPDATED', meta: { statusLabel: 'Order removed' } });
   showToast("✓ Record Deleted");
   refreshCurrentView(true);
@@ -3708,7 +3774,7 @@ async function fetchOSRMRoute(waypoints) {
       geojson: r.geometry,
       distance_km: (r.distance / 1000).toFixed(1),
       duration_min: Math.round(r.duration / 60),
-      legs: r.legs.map(l => ({ distance_km: (l.distance/1000).toFixed(1), duration_min: Math.round(l.duration/60) }))
+      legs: r.legs.map(l => ({ distance_km: (l.distance / 1000).toFixed(1), duration_min: Math.round(l.duration / 60) }))
     };
   } catch { return null; }
 }
@@ -3745,8 +3811,8 @@ function haversineTSP(riderLat, riderLng, jobs) {
   if (jobs.length <= 1) return { jobs, savings_km: 0 };
   const n = jobs.length;
   // Build NxN distance matrix between pickups
-  const mat = Array.from({length: n}, (_, i) =>
-    Array.from({length: n}, (_, j) =>
+  const mat = Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (_, j) =>
       distanceKm(jobs[i].providerLat, jobs[i].providerLng, jobs[j].providerLat, jobs[j].providerLng)
     )
   );
@@ -3755,11 +3821,11 @@ function haversineTSP(riderLat, riderLng, jobs) {
   const firstPick = rDist.reduce((bi, d, i) => d < rDist[bi] ? i : bi, 0);
 
   // Naive total (visit in original order)
-  const naiveDist = jobs.reduce((s, _, i) => s + (i > 0 ? mat[i-1][i] : rDist[0]), 0);
+  const naiveDist = jobs.reduce((s, _, i) => s + (i > 0 ? mat[i - 1][i] : rDist[0]), 0);
 
   // Greedy TSP from nearest first pickup
   const orderIdx = greedyTSP(mat, firstPick);
-  const optDist   = orderIdx.reduce((s, idx, step) => s + (step === 0 ? rDist[idx] : mat[orderIdx[step-1]][idx]), 0);
+  const optDist = orderIdx.reduce((s, idx, step) => s + (step === 0 ? rDist[idx] : mat[orderIdx[step - 1]][idx]), 0);
 
   return {
     jobs: orderIdx.map(i => jobs[i]),
@@ -3778,12 +3844,12 @@ async function aiOptimizeJobs(riderLat, riderLng, jobs) {
     const matrix = await fetchOSRMDurationMatrix(pts);
     if (matrix) {
       const n = jobs.length;
-      const sub = Array.from({length: n}, (_, i) => Array.from({length: n}, (_, j) => matrix[i+1][j+1]));
+      const sub = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => matrix[i + 1][j + 1]));
       const riderRow = matrix[0].slice(1);
       const firstPick = riderRow.reduce((bi, t, i) => t < riderRow[bi] ? i : bi, 0);
-      const naiveTime = jobs.reduce((s, _, i) => s + (i > 0 ? sub[i-1][i] : (riderRow[0]||0)), 0);
-      const orderIdx  = greedyTSP(sub, firstPick);
-      const optTime   = orderIdx.reduce((s, idx, step) => s + (step === 0 ? (matrix[0][idx+1]||0) : (sub[orderIdx[step-1]][idx]||0)), 0);
+      const naiveTime = jobs.reduce((s, _, i) => s + (i > 0 ? sub[i - 1][i] : (riderRow[0] || 0)), 0);
+      const orderIdx = greedyTSP(sub, firstPick);
+      const optTime = orderIdx.reduce((s, idx, step) => s + (step === 0 ? (matrix[0][idx + 1] || 0) : (sub[orderIdx[step - 1]][idx] || 0)), 0);
       return { jobs: orderIdx.map(i => jobs[i]), savings_min: Math.max(0, Math.round((naiveTime - optTime) / 60)), source: 'osrm' };
     }
   } catch { /* OSRM unavailable, fall through */ }
@@ -3796,19 +3862,19 @@ async function aiOptimizeJobs(riderLat, riderLng, jobs) {
 async function renderRider(mc, fullRender) {
   const orders = getAllOrders();
   const myOrders = orders.filter(o => o.riderId === SESSION.id);
-  const activeJobs = myOrders.filter(o => !['completed','rejected'].includes(o.status));
+  const activeJobs = myOrders.filter(o => !['completed', 'rejected'].includes(o.status));
   const pending = orders.filter(o => o.status === 'requested');
   const hist = myOrders.filter(o => o.status === 'completed');
-  
+
   const b = document.getElementById('rd-badge');
-  if(b) { b.style.display = pending.length ? 'inline-block' : 'none'; b.innerText = pending.length; }
+  if (b) { b.style.display = pending.length ? 'inline-block' : 'none'; b.innerText = pending.length; }
 
   if (currentView === 'v-rd-dash') {
     const tab = window._rdTab || 'route';
-    if(fullRender) mc.innerHTML = `
+    if (fullRender) mc.innerHTML = `
       <div class="mobile-tabs">
-        <button class="mobile-tab-btn ${tab==='route'?'active':''}" onclick="switchRdTab('route')">Route HUD</button>
-        <button class="mobile-tab-btn ${tab==='analytics'?'active':''}" onclick="switchRdTab('analytics')">AI Telemetry</button>
+        <button class="mobile-tab-btn ${tab === 'route' ? 'active' : ''}" onclick="switchRdTab('route')">Route HUD</button>
+        <button class="mobile-tab-btn ${tab === 'analytics' ? 'active' : ''}" onclick="switchRdTab('analytics')">AI Telemetry</button>
       </div>
 
       ${renderTrustIndexCard()}
@@ -3847,17 +3913,17 @@ async function renderRider(mc, fullRender) {
              <div class="between" style="margin-bottom:8px;"><div>⛽ Fuel Saved</div><div style="font-weight:700; color:var(--green);" id="rt-fuel-saved">—</div></div>
              <div class="between"><div>🔋 Battery</div><div style="font-weight:700;" id="rt-batt">--</div></div>
           </div>` : renderDashboardListState({
-            icon: '📡',
-            title: 'No active telemetry',
-            description: 'Accept a job to start live route telemetry.',
-            subtext: 'Weather, ETA, fuel, and battery values will appear after a route is active.',
-            statusLabel: 'Idle',
-            tone: 'inactive'
-          })}
+      icon: '📡',
+      title: 'No active telemetry',
+      description: 'Accept a job to start live route telemetry.',
+      subtext: 'Weather, ETA, fuel, and battery values will appear after a route is active.',
+      statusLabel: 'Idle',
+      tone: 'inactive'
+    })}
         </div>
       </div>
     `;
-    
+
     document.getElementById('rd-act').innerHTML = activeJobs.length ? activeJobs.map(o => buildOrderCard(o, 'rider')).join('') : renderDashboardListState({
       icon: '📍',
       title: 'No active task',
@@ -3866,23 +3932,23 @@ async function renderRider(mc, fullRender) {
       statusLabel: 'Idle',
       tone: 'inactive'
     });
-    
+
     if (activeJobs.length) {
       const active = activeJobs[0]; // Primary task for timeline
       const steps = [
-        {k:'assigned', l:'Batch Assigned', d:true},
-        {k:'en_route', l:'Driving to Provider', d:['en_route','picked_up','at_plant'].includes(active.status)},
-        {k:'picked_up', l:'Waste Collected', d:['picked_up','at_plant'].includes(active.status)},
-        {k:'at_plant', l:'Arrived at Plant', d:active.status==='at_plant'}
+        { k: 'assigned', l: 'Batch Assigned', d: true },
+        { k: 'en_route', l: 'Driving to Provider', d: ['en_route', 'picked_up', 'at_plant'].includes(active.status) },
+        { k: 'picked_up', l: 'Waste Collected', d: ['picked_up', 'at_plant'].includes(active.status) },
+        { k: 'at_plant', l: 'Arrived at Plant', d: active.status === 'at_plant' }
       ];
-      document.getElementById('rd-tl').innerHTML = steps.map((s,i) => `
-        <div class="tl-item ${s.d ? 'done':''}">
-          <div class="tl-col"><div class="tl-dot"></div>${i<steps.length-1?'<div class="tl-line"></div>':''}</div>
+      document.getElementById('rd-tl').innerHTML = steps.map((s, i) => `
+        <div class="tl-item ${s.d ? 'done' : ''}">
+          <div class="tl-col"><div class="tl-dot"></div>${i < steps.length - 1 ? '<div class="tl-line"></div>' : ''}</div>
           <div class="tl-content"><div class="tl-title">${s.l}</div></div>
         </div>
       `).join('');
     }
-    
+
     // ── Real OSRM Road Routing (with Haversine TSP fallback) ──
     setTimeout(async () => {
       if (!document.getElementById('rider-map')) return;
@@ -3916,11 +3982,11 @@ async function renderRider(mc, fullRender) {
         // Draw numbered pickup markers in TSP order immediately
         optimizedJobs.forEach((job, i) => {
           const ico = L.divIcon({
-            html: `<div style="width:28px;height:28px;background:#F59E0B;border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.4);">${i+1}</div>`,
+            html: `<div style="width:28px;height:28px;background:#F59E0B;border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.4);">${i + 1}</div>`,
             className: '', iconAnchor: [14, 14]
           });
           L.marker([job.providerLat, job.providerLng], { icon: ico }).addTo(rMap)
-            .bindPopup(`<b>Stop ${i+1}: ${escapeHTML(job.providerOrg)}</b><br>${escapeHTML(job.kg)}kg ${escapeHTML(job.wasteType)}`);
+            .bindPopup(`<b>Stop ${i + 1}: ${escapeHTML(job.providerOrg)}</b><br>${escapeHTML(job.kg)}kg ${escapeHTML(job.wasteType)}`);
         });
         if (plant) {
           const pltIco = L.divIcon({
@@ -3940,27 +4006,27 @@ async function renderRider(mc, fullRender) {
         const allAccs = DB.list('acc:').map(k => DB.get(k));
         const providers = allAccs.filter(a => a.role === 'provider');
         const demandZones = Intelligence.getHighDemandZones(providers, orders);
-        
+
         demandZones.forEach(zone => {
-           L.circle([zone.lat, zone.lng], {
-              color: 'transparent',
-              fillColor: '#EF4444',
-              fillOpacity: zone.intensity * 0.4,
-              radius: 800
-           }).addTo(rMap).bindPopup(`<b>High Demand Area</b><br>${zone.reason}`);
+          L.circle([zone.lat, zone.lng], {
+            color: 'transparent',
+            fillColor: '#EF4444',
+            fillOpacity: zone.intensity * 0.4,
+            radius: 800
+          }).addTo(rMap).bindPopup(`<b>High Demand Area</b><br>${zone.reason}`);
         });
 
         // Haversine total distance estimate
-        const hvDist = waypoints.reduce((sum, wp, i) => i === 0 ? 0 : sum + RouteOptimizer.calculateDistance(waypoints[i-1].lat, waypoints[i-1].lng, wp.lat, wp.lng), 0);
-        const hvETA  = Math.round(hvDist / 0.25); // ~15 km/h avg speed
+        const hvDist = waypoints.reduce((sum, wp, i) => i === 0 ? 0 : sum + RouteOptimizer.calculateDistance(waypoints[i - 1].lat, waypoints[i - 1].lng, wp.lat, wp.lng), 0);
+        const hvETA = Math.round(hvDist / 0.25); // ~15 km/h avg speed
 
-        const distEl    = document.getElementById('rt-total-dist');
-        const etaEl     = document.getElementById('rt-eta');
-        const fuelEl    = document.getElementById('rt-fuel-saved');
+        const distEl = document.getElementById('rt-total-dist');
+        const etaEl = document.getElementById('rt-eta');
+        const fuelEl = document.getElementById('rt-fuel-saved');
         const summaryEl = document.getElementById('rd-route-summary');
 
         if (distEl) { distEl.textContent = hvDist.toFixed(1) + ' km'; distEl.style.color = 'var(--text)'; }
-        if (etaEl)  { etaEl.textContent  = hvETA + ' min (est.)'; etaEl.style.color = 'var(--blue)'; }
+        if (etaEl) { etaEl.textContent = hvETA + ' min (est.)'; etaEl.style.color = 'var(--blue)'; }
         if (fuelEl) { fuelEl.textContent = (result.savingsKm * 0.08).toFixed(2) + ' L'; fuelEl.style.color = 'var(--green)'; }
 
         const savingsLabel = result.savingsKm > 0 ? ` · Saved ${result.savingsKm} km via 2-Opt AI` : '';
@@ -3972,9 +4038,9 @@ async function renderRider(mc, fullRender) {
             </div>
             ${optimizedJobs.map((j, i) => `
               <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border);">
-                <div style="width:22px;height:22px;background:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0;">${i+1}</div>
+                <div style="width:22px;height:22px;background:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0;">${i + 1}</div>
                 <div style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(j.providerOrg)}</div>
-                <div style="font-size:11px;color:var(--text-muted);">${RouteOptimizer.calculateDistance(i===0?SESSION.lat:optimizedJobs[i-1].providerLat, i===0?SESSION.lng:optimizedJobs[i-1].providerLng, j.providerLat, j.providerLng).toFixed(1)}km</div>
+                <div style="font-size:11px;color:var(--text-muted);">${RouteOptimizer.calculateDistance(i === 0 ? SESSION.lat : optimizedJobs[i - 1].providerLat, i === 0 ? SESSION.lng : optimizedJobs[i - 1].providerLng, j.providerLat, j.providerLng).toFixed(1)}km</div>
               </div>`).join('')}
             <div style="display:flex;align-items:center;gap:10px;padding:8px 0;">
               <div style="width:22px;height:22px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;">🏭</div>
@@ -3994,7 +4060,7 @@ async function renderRider(mc, fullRender) {
 
           // Upgrade telemetry with real OSRM values
           if (distEl) { distEl.textContent = route.distance_km + ' km'; distEl.style.color = 'var(--green)'; }
-          if (etaEl)  { etaEl.textContent  = route.duration_min + ' min'; etaEl.style.color = 'var(--blue)'; }
+          if (etaEl) { etaEl.textContent = route.duration_min + ' min'; etaEl.style.color = 'var(--blue)'; }
           if (fuelEl) { fuelEl.textContent = (parseFloat(route.distance_km) * 0.08).toFixed(2) + ' L'; }
 
           // Upgrade stop list with real per-leg times from OSRM
@@ -4004,13 +4070,13 @@ async function renderRider(mc, fullRender) {
                 🤖 TSP Optimized · Real Road Route${savingsLabel}
               </div>
               ${optimizedJobs.map((j, i) => {
-                const leg = route.legs[i];
-                return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border);">
-                  <div style="width:22px;height:22px;background:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0;">${i+1}</div>
+              const leg = route.legs[i];
+              return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border);">
+                  <div style="width:22px;height:22px;background:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;flex-shrink:0;">${i + 1}</div>
                   <div style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(j.providerOrg)}</div>
                   ${leg ? `<div style="font-size:11px;color:var(--text-muted);">${leg.duration_min}min · ${leg.distance_km}km</div>` : ''}
                 </div>`;
-              }).join('')}
+            }).join('')}
               <div style="display:flex;align-items:center;gap:10px;padding:8px 0;">
                 <div style="width:22px;height:22px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;">🏭</div>
                 <div style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(plant ? plant.org : 'Plant')}</div>
@@ -4022,47 +4088,47 @@ async function renderRider(mc, fullRender) {
         }
       }
     }, 100);
-    
+
     // API Call for Rider Dashboard
-    if(active && fullRender) {
-       fetchWeather(SESSION.lat, SESSION.lng).then(w => {
-          if(!w || currentView !== 'v-rd-dash') return;
-          const wt = document.getElementById('rt-weather');
-          const ct = document.getElementById('rt-temp');
-          const trafficEl = document.getElementById('rt-traffic');
-          const aiAdjEl = document.getElementById('rt-ai-adj');
-          const battEl = document.getElementById('rt-batt');
-          const confEl = document.getElementById('rt-conf');
-          if(wt) {
-            let cond = "Clear";
-            if(w.weathercode > 50) cond = "Raining";
-            if(w.weathercode > 70) cond = "Snowing";
-            wt.textContent = cond + ` (${Math.round(w.temperature)}°C)`;
-            wt.style.color = w.weathercode > 50 ? "var(--amber)" : "var(--green)";
-            if(w.weathercode > 50) { 
-               if (trafficEl) trafficEl.textContent = "Congested"; 
-               if (aiAdjEl) {
-                 aiAdjEl.textContent = "+12 Mins"; 
-                 aiAdjEl.style.color = "var(--amber)";
-               }
+    if (active && fullRender) {
+      fetchWeather(SESSION.lat, SESSION.lng).then(w => {
+        if (!w || currentView !== 'v-rd-dash') return;
+        const wt = document.getElementById('rt-weather');
+        const ct = document.getElementById('rt-temp');
+        const trafficEl = document.getElementById('rt-traffic');
+        const aiAdjEl = document.getElementById('rt-ai-adj');
+        const battEl = document.getElementById('rt-batt');
+        const confEl = document.getElementById('rt-conf');
+        if (wt) {
+          let cond = "Clear";
+          if (w.weathercode > 50) cond = "Raining";
+          if (w.weathercode > 70) cond = "Snowing";
+          wt.textContent = cond + ` (${Math.round(w.temperature)}°C)`;
+          wt.style.color = w.weathercode > 50 ? "var(--amber)" : "var(--green)";
+          if (w.weathercode > 50) {
+            if (trafficEl) trafficEl.textContent = "Congested";
+            if (aiAdjEl) {
+              aiAdjEl.textContent = "+12 Mins";
+              aiAdjEl.style.color = "var(--amber)";
             }
           }
-          if(ct) ct.textContent = Math.round(w.temperature - 2) + "°C";
-          if (battEl) {
-            battEl.textContent = Math.floor(Math.random() * 30 + 60) + "%";
-            battEl.style.color = "var(--green)";
-          }
-          if (confEl) {
-            confEl.textContent = "98.2%";
-            confEl.style.color = "var(--blue)";
-          }
-       });
+        }
+        if (ct) ct.textContent = Math.round(w.temperature - 2) + "°C";
+        if (battEl) {
+          battEl.textContent = Math.floor(Math.random() * 30 + 60) + "%";
+          battEl.style.color = "var(--green)";
+        }
+        if (confEl) {
+          confEl.textContent = "98.2%";
+          confEl.style.color = "var(--blue)";
+        }
+      });
     }
   }
 
   if (currentView === 'v-rd-jobs') {
-    if(fullRender) mc.innerHTML = `<h3 class="heading" style="margin-bottom:24px;">Available Jobs</h3><div id="rd-jobs-list"></div>`;
-    document.getElementById('rd-jobs-list').innerHTML = pending.length ? pending.map(o=>buildOrderCard(o,'rider')).join('') : renderDashboardListState({
+    if (fullRender) mc.innerHTML = `<h3 class="heading" style="margin-bottom:24px;">Available Jobs</h3><div id="rd-jobs-list"></div>`;
+    document.getElementById('rd-jobs-list').innerHTML = pending.length ? pending.map(o => buildOrderCard(o, 'rider')).join('') : renderDashboardListState({
       icon: '📋',
       title: 'No pending requests',
       description: 'There are no unassigned requests right now.',
@@ -4073,8 +4139,8 @@ async function renderRider(mc, fullRender) {
   }
 
   if (currentView === 'v-rd-hist') {
-    if(fullRender) mc.innerHTML = `<h3 class="heading" style="margin-bottom:24px;">Completions</h3><div id="rd-hist-list"></div>`;
-    document.getElementById('rd-hist-list').innerHTML = hist.length ? hist.map(o=>buildOrderCard(o,'rider')).join('') : renderDashboardListState({
+    if (fullRender) mc.innerHTML = `<h3 class="heading" style="margin-bottom:24px;">Completions</h3><div id="rd-hist-list"></div>`;
+    document.getElementById('rd-hist-list').innerHTML = hist.length ? hist.map(o => buildOrderCard(o, 'rider')).join('') : renderDashboardListState({
       icon: '✓',
       title: 'No completions yet',
       description: 'Completed jobs will appear here after route closure.',
@@ -4084,16 +4150,16 @@ async function renderRider(mc, fullRender) {
   }
 }
 
-window.switchRdTab = function(t) { window._rdTab = t; refreshCurrentView(true); }
+window.switchRdTab = function (t) { window._rdTab = t; refreshCurrentView(true); }
 
-window.riderAccept = async function(id) {
-  const o = getOrder(id); if(!o) return;
+window.riderAccept = async function (id) {
+  const o = getOrder(id); if (!o) return;
   o.status = 'assigned'; o.riderId = SESSION.id; o.riderName = SESSION.name;
   saveOrder(o);
   updateSlaEntry(o.id, { status: 'assigned' });
-// INSIDE riderAccept
+  // INSIDE riderAccept
   await recordTrustEvent(o, 'assigned', 'rider', { lat: SESSION.lat, lng: SESSION.lng });
-  
+
   addWorkflowNotification({
     title: 'Pickup Accepted',
     body: `${SESSION.name} accepted the pickup for ${o.providerOrg}.`,
@@ -4128,11 +4194,11 @@ window.riderAccept = async function(id) {
   showToast("✓ Route Added to Batch!");
   showView('v-rd-dash');
 }
-window.riderUpdate = async function(id, st) {
-  const o = getOrder(id); if(!o) return;
+window.riderUpdate = async function (id, st) {
+  const o = getOrder(id); if (!o) return;
   o.status = st; saveOrder(o);
   updateSlaEntry(o.id, { status: st });
-await recordTrustEvent(o, st, 'rider', { lat: SESSION.lat, lng: SESSION.lng });
+  await recordTrustEvent(o, st, 'rider', { lat: SESSION.lat, lng: SESSION.lng });
   if (st === 'en_route') {
     addWorkflowNotification({
       title: 'Rider En Route',
@@ -4161,7 +4227,7 @@ await recordTrustEvent(o, st, 'rider', { lat: SESSION.lat, lng: SESSION.lng });
   }, ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room']);
   refreshCurrentView();
 }
-window.openPickupConfirm = function(id) {
+window.openPickupConfirm = function (id) {
   const html = `
     <h3 class="modal-title">Confirm Collection</h3>
     <p class="modal-sub">Verify the load before continuing to plant.</p>
@@ -4172,13 +4238,13 @@ window.openPickupConfirm = function(id) {
   document.getElementById('modal-box').innerHTML = html;
   document.getElementById('modal').classList.add('open');
 }
-window.confirmPickup = async function(id) {
+window.confirmPickup = async function (id) {
   const kg = document.getElementById('m-kg').value;
-  if(!kg) return showToast("⚠ Enter weight.");
+  if (!kg) return showToast("⚠ Enter weight.");
   const o = getOrder(id); o.status = 'picked_up'; o.actualKg = kg; o.quality = document.getElementById('m-qual').value;
   saveOrder(o);
   updateSlaEntry(o.id, { pickupTs: ts(), status: 'picked_up' });
-await recordTrustEvent(o, 'picked_up', 'rider', { lat: SESSION.lat, lng: SESSION.lng });
+  await recordTrustEvent(o, 'picked_up', 'rider', { lat: SESSION.lat, lng: SESSION.lng });
   addWorkflowNotification({
     title: 'Pickup Confirmed',
     body: `${SESSION.name} collected ${kg}kg from ${o.providerOrg}.`,
@@ -4227,7 +4293,7 @@ function getIntegrityEventMeta(event) {
  * Open integrity scan modal for an order.
  * @param {string} orderId - Order id.
  */
-window.openIntegrityScan = function(orderId) {
+window.openIntegrityScan = function (orderId) {
   const order = getOrder(orderId);
   if (!order) return;
 
@@ -4327,7 +4393,7 @@ window.openIntegrityScan = function(orderId) {
   }, 900);
 }
 
-window.openSettings = function() {
+window.openSettings = function () {
   const html = `
     <h3 class="modal-title">Account Settings</h3>
     <p class="modal-sub">Manage your ReGenX Profile</p>
@@ -4351,8 +4417,8 @@ window.openSettings = function() {
   document.getElementById('modal').classList.add('open');
 }
 
-window.deleteAccount = function() {
-  if(confirm("Are you sure you want to permanently delete your account? This action cannot be undone.")) {
+window.deleteAccount = function () {
+  if (confirm("Are you sure you want to permanently delete your account? This action cannot be undone.")) {
     ReGenXRealtime?.syncStorageMutation({
       updates: [{ key: STORAGE_KEY_PREFIX + 'acc:' + SESSION.id, action: 'remove' }],
       rooms: ['network_room', 'admin_room'],
@@ -4366,12 +4432,12 @@ window.deleteAccount = function() {
   }
 }
 
-window.openDigitalPassport = function() {
-    const orders = getAllOrders().filter(o => o.providerId === SESSION.id && o.status === 'completed');
-    const score = TrustProtocol.calculateScore(SESSION, orders);
-    const rank = TrustProtocol.getRankDetails(score);
-    
-    const html = `
+window.openDigitalPassport = function () {
+  const orders = getAllOrders().filter(o => o.providerId === SESSION.id && o.status === 'completed');
+  const score = TrustProtocol.calculateScore(SESSION, orders);
+  const rank = TrustProtocol.getRankDetails(score);
+
+  const html = `
         <div style="text-align:center; padding:20px;">
             <div style="font-size:64px; margin-bottom:16px;">${rank.icon}</div>
             <h3 class="modal-title">${escapeHTML(SESSION.org)}</h3>
@@ -4380,7 +4446,7 @@ window.openDigitalPassport = function() {
             <div class="glass-card" style="background:var(--bg); border:2px solid ${rank.color}; margin-bottom:24px; padding:20px;">
                 <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Trust Protocol Identity</div>
                 <div style="font-size:24px; font-weight:800; color:${rank.color};">${rank.name} Class</div>
-                <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Account ID: <span style="font-family:monospace;">${SESSION.id.slice(0,12)}...</span></div>
+                <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">Account ID: <span style="font-family:monospace;">${SESSION.id.slice(0, 12)}...</span></div>
             </div>
             
             <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); gap:12px; margin-bottom:24px;">
@@ -4406,8 +4472,8 @@ window.openDigitalPassport = function() {
             </div>
         </div>
     `;
-    document.getElementById('modal-box').innerHTML = html;
-    document.getElementById('modal').classList.add('open');
+  document.getElementById('modal-box').innerHTML = html;
+  document.getElementById('modal').classList.add('open');
 }
 
 // ════════ PLANT LOGIC ════════
@@ -4416,9 +4482,9 @@ async function renderPlant(mc, fullRender) {
   const incoming = orders.filter(o => o.status === 'at_plant');
   const completed = orders.filter(o => o.status === 'completed');
   const logs = getAllLogs().filter(l => l.plantId === SESSION.id);
-  
+
   if (currentView === 'v-pl-dash') {
-    if(fullRender) mc.innerHTML = `
+    if (fullRender) mc.innerHTML = `
       <div class="stats-grid" id="pl-stats"></div>
 
       ${renderTrustIndexCard()}
@@ -4462,8 +4528,8 @@ async function renderPlant(mc, fullRender) {
         <div><h3 class="heading" style="margin-bottom:16px;">Recent Output</h3><div id="pl-out-logs"></div></div>
       </div>
     `;
-    const totKg = completed.reduce((s,o)=>s+parseFloat(o.actualKg||0),0);
-    const totBio = logs.reduce((s,l)=>s+parseFloat(l.bio||0),0);
+    const totKg = completed.reduce((s, o) => s + parseFloat(o.actualKg || 0), 0);
+    const totBio = logs.reduce((s, l) => s + parseFloat(l.bio || 0), 0);
     const recentKgSeries = completed.slice(0, 6).reverse().map(o => Number(o.actualKg || o.kg || 0));
     const recentBioSeries = logs.slice(0, 6).reverse().map(l => Number(l.bio || 0));
     const bioTrendDirection = recentBioSeries.length > 1
@@ -4473,7 +4539,7 @@ async function renderPlant(mc, fullRender) {
       ? (recentKgSeries[recentKgSeries.length - 1] > recentKgSeries[0] ? 'up' : recentKgSeries[recentKgSeries.length - 1] < recentKgSeries[0] ? 'down' : 'flat')
       : 'flat';
     const loadsSeries = completed.slice(0, 6).reverse().map((_, index) => index + 1);
-    
+
     document.getElementById('pl-stats').innerHTML = renderMetricGrid([
       renderMetricCard({
         title: 'Processed Loads',
@@ -4515,7 +4581,7 @@ async function renderPlant(mc, fullRender) {
     const yieldPrediction = YieldOptimizer.predictYield(completed.slice(0, 10)); // Use recent history
     const aiWidgetEl = document.getElementById('pl-ai-widget');
     if (aiWidgetEl) {
-        aiWidgetEl.innerHTML = `
+      aiWidgetEl.innerHTML = `
           <h3 class="heading" style="margin-bottom:16px; margin-top:24px;">AI Yield Optimization</h3>
           <div class="glass-card" style="margin-bottom:32px; border:2px solid var(--blue); background:linear-gradient(135deg, var(--surface) 0%, var(--blue-light) 100%);">
             <div class="between" style="margin-bottom:16px;">
@@ -4538,7 +4604,7 @@ async function renderPlant(mc, fullRender) {
           </div>
         `;
     }
-    document.getElementById('pl-inc').innerHTML = incoming.length ? incoming.map(o=>buildOrderCard(o,'plant')).join('') : renderDashboardListState({
+    document.getElementById('pl-inc').innerHTML = incoming.length ? incoming.map(o => buildOrderCard(o, 'plant')).join('') : renderDashboardListState({
       icon: '🚚',
       title: 'No trucks waiting at gate',
       description: 'Incoming flow is currently idle.',
@@ -4546,8 +4612,8 @@ async function renderPlant(mc, fullRender) {
       statusLabel: 'Idle',
       tone: 'inactive'
     });
-    
-    document.getElementById('pl-out-logs').innerHTML = logs.length ? logs.slice(0,4).map(l => `
+
+    document.getElementById('pl-out-logs').innerHTML = logs.length ? logs.slice(0, 4).map(l => `
       <div class="glass-card" style="padding:16px; margin-bottom:12px;">
          <div class="between" style="margin-bottom:8px;"><span class="badge badge-blue">Log</span> <span class="muted" style="font-size:12px">${fmtDate(l.ts)}</span></div>
          <div style="font-size:14px;"><strong>Biogas:</strong> ${l.bio} m³ &nbsp;·&nbsp; <strong>Compost:</strong> ${l.comp} kg</div>
@@ -4559,37 +4625,37 @@ async function renderPlant(mc, fullRender) {
       statusLabel: 'Idle',
       tone: 'inactive'
     });
-    
-    if(fullRender) {
+
+    if (fullRender) {
       setTimeout(initPlChart, 100);
       fetchWeather(SESSION.lat, SESSION.lng).then(w => {
-         if(!w || currentView !== 'v-pl-dash') return;
-         const coreTemp = Math.round(w.temperature + 15);
-         const gt = document.getElementById('pl-gauge-temp');
-         if(gt) {
-            gt.style.borderTopColor = "var(--red)"; gt.style.animation = "spin-slow 10s linear infinite";
-            gt.querySelector('span').textContent = coreTemp + "°C";
-            document.getElementById('pl-stat-temp').textContent = "Optimal"; document.getElementById('pl-stat-temp').style.color = "var(--green)";
-         }
-         const gp = document.getElementById('pl-gauge-pres');
-         if(gp) {
-            gp.style.borderTopColor = "var(--blue)"; gp.style.animation = "spin-slow 10s linear infinite";
-            gp.querySelector('span').textContent = "1.2";
-            document.getElementById('pl-stat-pres').textContent = "Stable"; document.getElementById('pl-stat-pres').style.color = "var(--green)";
-         }
-         const gf = document.getElementById('pl-gauge-flow');
-         if(gf) {
-            gf.style.borderTopColor = "var(--amber)"; gf.style.animation = "spin-slow 10s linear infinite";
-            gf.querySelector('span').textContent = "45";
-            document.getElementById('pl-stat-flow').textContent = "Surging"; document.getElementById('pl-stat-flow').style.color = "var(--amber)";
-         }
+        if (!w || currentView !== 'v-pl-dash') return;
+        const coreTemp = Math.round(w.temperature + 15);
+        const gt = document.getElementById('pl-gauge-temp');
+        if (gt) {
+          gt.style.borderTopColor = "var(--red)"; gt.style.animation = "spin-slow 10s linear infinite";
+          gt.querySelector('span').textContent = coreTemp + "°C";
+          document.getElementById('pl-stat-temp').textContent = "Optimal"; document.getElementById('pl-stat-temp').style.color = "var(--green)";
+        }
+        const gp = document.getElementById('pl-gauge-pres');
+        if (gp) {
+          gp.style.borderTopColor = "var(--blue)"; gp.style.animation = "spin-slow 10s linear infinite";
+          gp.querySelector('span').textContent = "1.2";
+          document.getElementById('pl-stat-pres').textContent = "Stable"; document.getElementById('pl-stat-pres').style.color = "var(--green)";
+        }
+        const gf = document.getElementById('pl-gauge-flow');
+        if (gf) {
+          gf.style.borderTopColor = "var(--amber)"; gf.style.animation = "spin-slow 10s linear infinite";
+          gf.querySelector('span').textContent = "45";
+          document.getElementById('pl-stat-flow').textContent = "Surging"; document.getElementById('pl-stat-flow').style.color = "var(--amber)";
+        }
       });
     }
   }
 
   if (currentView === 'v-pl-in') {
-    if(fullRender) mc.innerHTML = `<div class="incoming-shell"><h3 class="heading">Incoming Flow</h3><div id="pl-in-list"></div></div>`;
-    document.getElementById('pl-in-list').innerHTML = incoming.length ? incoming.map(o=>buildOrderCard(o,'plant')).join('') : renderDashboardListState({
+    if (fullRender) mc.innerHTML = `<div class="incoming-shell"><h3 class="heading">Incoming Flow</h3><div id="pl-in-list"></div></div>`;
+    document.getElementById('pl-in-list').innerHTML = incoming.length ? incoming.map(o => buildOrderCard(o, 'plant')).join('') : renderDashboardListState({
       icon: '🚛',
       title: 'No incoming flow',
       description: 'There are no inbound loads queued for the plant.',
@@ -4600,7 +4666,7 @@ async function renderPlant(mc, fullRender) {
   }
 
   if (currentView === 'v-pl-out') {
-    if(fullRender) mc.innerHTML = `
+    if (fullRender) mc.innerHTML = `
       <div style="max-width:600px; margin:0 auto;">
         <div class="glass-card">
           <h3 class="heading" style="margin-bottom:24px;">Log Daily Output</h3>
@@ -4619,11 +4685,11 @@ async function renderPlant(mc, fullRender) {
         </div>
       </div>
     `;
-    if(fullRender) {
+    if (fullRender) {
       fetchWeather(SESSION.lat, SESSION.lng).then(w => {
-         if(w && document.getElementById('out-temp')) {
-            document.getElementById('out-temp').value = Math.round(w.temperature + 15);
-         }
+        if (w && document.getElementById('out-temp')) {
+          document.getElementById('out-temp').value = Math.round(w.temperature + 15);
+        }
       });
       // Pre-select the plant's saved processing method
       const methodEl = document.getElementById('out-method');
@@ -4634,7 +4700,7 @@ async function renderPlant(mc, fullRender) {
   }
 }
 
-window.openPlantConfirm = function(id) {
+window.openPlantConfirm = function (id) {
   const html = `
     <h3 class="modal-title">Intake Assessment</h3>
     <p class="modal-sub">Final confirmation before processing.</p>
@@ -4651,55 +4717,55 @@ window.openPlantConfirm = function(id) {
   document.getElementById('modal').classList.add('open');
 }
 
-window.confirmPlantReceipt = async function(id) {
-  const o = getOrder(id); if(!o) return;
+window.confirmPlantReceipt = async function (id) {
+  const o = getOrder(id); if (!o) return;
   if (o.status === 'completed') return showToast('Order already processed.');
   const score = document.getElementById('p-score').value || 0;
   o.status = 'completed'; o.segScore = score;
-  
+
   const providerAcc = DB.get('acc:' + o.providerId);
   if (providerAcc) {
-     const providerHistory = getAllOrders().filter(ord => ord.providerId === o.providerId && ord.status === 'completed');
-     const trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
-      const baseTokens = Math.round((o.actualKg || o.kg) * 2);
-      const earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
-     
-     providerAcc.tokens = (providerAcc.tokens || 0) + earnedTokens;
-     o.tokensMinted = earnedTokens;
-     o.txHash = '0x' + uid() + uid() + uid();
+    const providerHistory = getAllOrders().filter(ord => ord.providerId === o.providerId && ord.status === 'completed');
+    const trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
+    const baseTokens = Math.round((o.actualKg || o.kg) * 2);
+    const earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
 
-     DB.set('acc:' + o.providerId, providerAcc);
-     if (SESSION.role === 'provider' && SESSION.id === o.providerId) {
-         SESSION.tokens = providerAcc.tokens;
-         document.getElementById('token-balance').textContent = SESSION.tokens;
-     }
+    providerAcc.tokens = (providerAcc.tokens || 0) + earnedTokens;
+    o.tokensMinted = earnedTokens;
+    o.txHash = '0x' + uid() + uid() + uid();
 
-      // Expected tokens represent the base (non-trust-multiplied) reward.
-      // Minted tokens include the TrustProtocol multiplier, so deltaPct reflects
-      // the trust bonus/penalty percentage (and enables mismatch flagging).
-      const expectedTokens = baseTokens;
-      const deltaPct = expectedTokens > 0 ? Math.abs(earnedTokens - expectedTokens) / expectedTokens * 100 : 0;
-     addCreditEntry({
-       id: 'credit-' + uid(),
-       orderId: o.id,
-       org: o.providerOrg,
-       expectedTokens,
-       mintedTokens: earnedTokens,
-       deltaPct,
-       trustScore,
-       ts: ts()
-     });
+    DB.set('acc:' + o.providerId, providerAcc);
+    if (SESSION.role === 'provider' && SESSION.id === o.providerId) {
+      SESSION.tokens = providerAcc.tokens;
+      document.getElementById('token-balance').textContent = SESSION.tokens;
+    }
+
+    // Expected tokens represent the base (non-trust-multiplied) reward.
+    // Minted tokens include the TrustProtocol multiplier, so deltaPct reflects
+    // the trust bonus/penalty percentage (and enables mismatch flagging).
+    const expectedTokens = baseTokens;
+    const deltaPct = expectedTokens > 0 ? Math.abs(earnedTokens - expectedTokens) / expectedTokens * 100 : 0;
+    addCreditEntry({
+      id: 'credit-' + uid(),
+      orderId: o.id,
+      org: o.providerOrg,
+      expectedTokens,
+      mintedTokens: earnedTokens,
+      deltaPct,
+      trustScore,
+      ts: ts()
+    });
   }
 
   const confirmed = confirm(
-  "Are you sure you want to mark this dispatch as completed?"
+    "Are you sure you want to mark this dispatch as completed?"
   );
 
   if (!confirmed) return;
 
   saveOrder(o);
   updateSlaEntry(o.id, { completeTs: ts(), status: 'completed' });
-await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION.lng });
+  await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION.lng });
   await recordTrustEvent(o, 'sealed', 'plant', { lat: SESSION.lat, lng: SESSION.lng });
   addWorkflowNotification({
     title: 'Plant Confirmation Received',
@@ -4750,7 +4816,7 @@ await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION
       ts: ts()
     });
   }
-  
+
   publishOperationalEvent('DELIVERY_COMPLETED', [], {
     toast: `Plant confirmed receipt for dispatch #${o.id.slice(-6).toUpperCase()}.`,
     statusLabel: 'Delivery complete'
@@ -4791,11 +4857,11 @@ await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION
   showToast(`✓ Intake Confirmed. Minted ${earnedTokens} $RGX for provider!`);
 }
 
-window.savePlantLog = function() {
+window.savePlantLog = function () {
   const bio = document.getElementById('out-bio').value;
   const comp = document.getElementById('out-comp').value;
 
-  if(!bio && !comp)
+  if (!bio && !comp)
     return window.showToast("⚠ Enter output values.");
 
   // Persist processing method to plant account so CO₂ factor is applied consistently
@@ -4833,20 +4899,20 @@ window.savePlantLog = function() {
 let plChartInstance = null;
 function initPlChart() {
   const ctx = document.getElementById('plChart');
-  if(!ctx || window.Chart === undefined) return;
-  if(plChartInstance) plChartInstance.destroy();
-  
+  if (!ctx || window.Chart === undefined) return;
+  if (plChartInstance) plChartInstance.destroy();
+
   const logs = getAllLogs().filter(l => l.plantId === SESSION.id);
-  let bioData = [0,0,0,0,0,0];
-  let predData = [0,0,0,0,0,0];
-  
-  if(logs.length > 0) {
-      // Just map the last 6 logs
-      const recent = logs.slice(0,6).reverse();
-      for(let i=0; i<recent.length; i++){
-          bioData[5 - recent.length + 1 + i] = parseFloat(recent[i].bio||0);
-          predData[5 - recent.length + 1 + i] = parseFloat(recent[i].bio||0) * (1 + (Math.random()*0.05)); // AI Prediction slightly above actual
-      }
+  let bioData = [0, 0, 0, 0, 0, 0];
+  let predData = [0, 0, 0, 0, 0, 0];
+
+  if (logs.length > 0) {
+    // Just map the last 6 logs
+    const recent = logs.slice(0, 6).reverse();
+    for (let i = 0; i < recent.length; i++) {
+      bioData[5 - recent.length + 1 + i] = parseFloat(recent[i].bio || 0);
+      predData[5 - recent.length + 1 + i] = parseFloat(recent[i].bio || 0) * (1 + (Math.random() * 0.05)); // AI Prediction slightly above actual
+    }
   }
 
   plChartInstance = new Chart(ctx, {
@@ -4949,17 +5015,17 @@ function stopIoTSim() {
 function iotLiveUpdate(bins) {
   bins.forEach(b => {
     const fillEl = document.getElementById(`iot-fill-${b.id}`);
-    const pctEl  = document.getElementById(`iot-pct-${b.id}`);
+    const pctEl = document.getElementById(`iot-pct-${b.id}`);
     const badgeEl = document.getElementById(`iot-badge-${b.id}`);
     const tempEl = document.getElementById(`iot-temp-${b.id}`);
-    const humEl  = document.getElementById(`iot-hum-${b.id}`);
-    const ch4El  = document.getElementById(`iot-ch4-${b.id}`);
+    const humEl = document.getElementById(`iot-hum-${b.id}`);
+    const ch4El = document.getElementById(`iot-ch4-${b.id}`);
     if (fillEl) { fillEl.style.width = b.fill + '%'; fillEl.style.background = iotFillColor(b.fill); }
-    if (pctEl)  pctEl.textContent = b.fill + '%';
+    if (pctEl) pctEl.textContent = b.fill + '%';
     if (badgeEl) badgeEl.outerHTML = `<span id="iot-badge-${b.id}">${iotStatusBadge(b)}</span>`;
-    if (tempEl)  tempEl.textContent = (b.temp || '--') + '°C';
-    if (humEl)   humEl.textContent  = (b.humidity || '--') + '%';
-    if (ch4El)   ch4El.textContent  = (b.methane || '--') + ' ppm';
+    if (tempEl) tempEl.textContent = (b.temp || '--') + '°C';
+    if (humEl) humEl.textContent = (b.humidity || '--') + '%';
+    if (ch4El) ch4El.textContent = (b.methane || '--') + ' ppm';
   });
 }
 
@@ -5059,7 +5125,7 @@ function renderIoT(mc, fullRender) {
         <div class="stat-lbl">Filling (60–84%)</div>
       </div>
       <div class="stat-card">
-        <div class="stat-val">${Math.round(bins.reduce((s,b) => s + b.fill, 0) / Math.max(bins.length, 1))}%</div>
+        <div class="stat-val">${Math.round(bins.reduce((s, b) => s + b.fill, 0) / Math.max(bins.length, 1))}%</div>
         <div class="stat-lbl">Avg Fill Level</div>
       </div>
     </div>
@@ -5074,13 +5140,13 @@ function renderIoT(mc, fullRender) {
     <!-- Bin Cards Grid -->
     <div class="iot-bins-grid" id="iot-bins-grid">
       ${bins.length ? bins.map(buildBinCard).join('') : renderDashboardListState({
-        icon: '🗑️',
-        title: 'No bins connected',
-        description: 'Register your first IoT bin to begin monitoring waste fill levels.',
-        actionHtml: '<button class="btn btn-ghost btn-sm" onclick="showView(\'v-iot-bins\')">Add Bin</button>',
-        statusLabel: 'Idle',
-        tone: 'inactive'
-      })}
+    icon: '🗑️',
+    title: 'No bins connected',
+    description: 'Register your first IoT bin to begin monitoring waste fill levels.',
+    actionHtml: '<button class="btn btn-ghost btn-sm" onclick="showView(\'v-iot-bins\')">Add Bin</button>',
+    statusLabel: 'Idle',
+    tone: 'inactive'
+  })}
     </div>
 
 
@@ -5098,7 +5164,7 @@ function renderIoT(mc, fullRender) {
 }
 
 // ── IoT CRUD Actions ──
-window.iotAddBin = function() {
+window.iotAddBin = function () {
   const html = `
     <h3 class="modal-title">Add IoT Sensory Bin</h3>
     <p class="modal-sub">Register a new bin to the network.</p>
@@ -5113,7 +5179,7 @@ window.iotAddBin = function() {
   document.getElementById('modal').classList.add('open');
 };
 
-window.iotSaveNewBin = function() {
+window.iotSaveNewBin = function () {
   const name = document.getElementById('iot-m-name').value.trim();
   const fill = parseFloat(document.getElementById('iot-m-fill').value) || 0;
   const rate = parseFloat(document.getElementById('iot-m-rate').value) || 0.8;
@@ -5126,7 +5192,7 @@ window.iotSaveNewBin = function() {
   refreshCurrentView(true);
 };
 
-window.iotEditBin = function(id) {
+window.iotEditBin = function (id) {
   const bins = getIoTBins();
   const b = bins.find(x => x.id === id);
   if (!b) return;
@@ -5136,8 +5202,8 @@ window.iotEditBin = function(id) {
     <div class="form-group"><label class="form-label">Fill Rate (kg/h)</label><input class="form-input" type="number" id="iot-m-rate" value="${b.rate}" step="0.1" min="0.1"></div>
     <div class="form-group"><label class="form-label">Status</label>
       <select class="form-select" id="iot-m-status">
-        <option value="active" ${b.status==='active'?'selected':''}>Active</option>
-        <option value="offline" ${b.status==='offline'?'selected':''}>Offline</option>
+        <option value="active" ${b.status === 'active' ? 'selected' : ''}>Active</option>
+        <option value="offline" ${b.status === 'offline' ? 'selected' : ''}>Offline</option>
       </select>
     </div>
     <div class="form-group"><label class="form-label">Mark as Emptied (Reset Fill to 0%)</label>
@@ -5151,12 +5217,12 @@ window.iotEditBin = function(id) {
   document.getElementById('modal').classList.add('open');
 };
 
-window.iotSaveEditBin = function(id) {
+window.iotSaveEditBin = function (id) {
   const bins = getIoTBins();
   const b = bins.find(x => x.id === id);
   if (!b) return;
-  b.name   = document.getElementById('iot-m-name').value.trim() || b.name;
-  b.rate   = parseFloat(document.getElementById('iot-m-rate').value) || b.rate;
+  b.name = document.getElementById('iot-m-name').value.trim() || b.name;
+  b.rate = parseFloat(document.getElementById('iot-m-rate').value) || b.rate;
   b.status = document.getElementById('iot-m-status').value;
   if (document.getElementById('iot-m-reset').checked) { b.fill = 0; b.lastReading = Date.now(); }
   saveIoTBins(bins);
@@ -5165,7 +5231,7 @@ window.iotSaveEditBin = function(id) {
   refreshCurrentView(true);
 };
 
-window.iotDeleteBin = function(id) {
+window.iotDeleteBin = function (id) {
   if (!confirm('Remove this bin from the network?')) return;
   const bins = getIoTBins().filter(b => b.id !== id);
   saveIoTBins(bins);
@@ -5173,10 +5239,19 @@ window.iotDeleteBin = function(id) {
   refreshCurrentView(true);
 };
 
-window.iotDispatchFromBin = function(id) {
-  // Pre-fill a dispatch request for this bin
+/**
+ * @function iotDispatchFromBin
+ * @description Navigates to the dispatch request view and pre-fills form
+ * fields from the bin's sensor data. Uses window._pendingBinDispatch as
+ * a transient flag to pass the bin ID across the view render cycle.
+ * Collection shift cannot be inferred from sensor data and is highlighted
+ * in amber to prompt manual selection.
+ * @param {string} id - The IoT bin ID to dispatch from.
+ * @returns {void}
+ */
+window.iotDispatchFromBin = function (id) {
+  window._pendingBinDispatch = id;
   showView('v-pv-req');
-  showToast('⚠ Fill in quantity and submit to dispatch a collection for this bin.');
 };
 
 window.refreshCurrentView = refreshCurrentView;
@@ -5189,10 +5264,10 @@ window.syncIoTAlertBadge = syncIoTAlertBadge;
   if (!DB.get('iot-bins')) {
     const now = Date.now();
     const bins = [
-      { id: 'bin-1', name: 'West Wing Organic Hub',   fill: 24,  rate: 0.8, status: 'active',  lastReading: now - 30000, temp: 23.1, humidity: 61, methane: 0.12 },
-      { id: 'bin-2', name: 'Kitchen Processing Unit', fill: 68,  rate: 1.2, status: 'active',  lastReading: now - 15000, temp: 27.4, humidity: 74, methane: 1.85 },
-      { id: 'bin-3', name: 'Main Disposal Pit',       fill: 91,  rate: 0.4, status: 'active',  lastReading: now - 8000,  temp: 25.0, humidity: 58, methane: 3.20 },
-      { id: 'bin-4', name: 'Rooftop Compost Bay',     fill: 12,  rate: 0.6, status: 'active',  lastReading: now - 60000, temp: 21.8, humidity: 52, methane: 0.04 }
+      { id: 'bin-1', name: 'West Wing Organic Hub', fill: 24, rate: 0.8, status: 'active', lastReading: now - 30000, temp: 23.1, humidity: 61, methane: 0.12 },
+      { id: 'bin-2', name: 'Kitchen Processing Unit', fill: 68, rate: 1.2, status: 'active', lastReading: now - 15000, temp: 27.4, humidity: 74, methane: 1.85 },
+      { id: 'bin-3', name: 'Main Disposal Pit', fill: 91, rate: 0.4, status: 'active', lastReading: now - 8000, temp: 25.0, humidity: 58, methane: 3.20 },
+      { id: 'bin-4', name: 'Rooftop Compost Bay', fill: 12, rate: 0.6, status: 'active', lastReading: now - 60000, temp: 21.8, humidity: 52, methane: 0.04 }
     ];
     DB.set('iot-bins', bins);
   }
@@ -5265,7 +5340,7 @@ function detectDeviceClass() {
 
 detectDeviceClass();
 window.detectDeviceClass = detectDeviceClass;
-window.exportScanHistory = function() {
+window.exportScanHistory = function () {
   const history = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
   if (!history.length) return showToast('No scan history to export.');
   const csv = ['scanId,timestamp,role,organicPercentage,contaminationLevel,wasteCategory,linkedDispatchId',
@@ -5308,33 +5383,33 @@ function exportTagsAsTxt(tags) {
 // DARK MODE TOGGLE LOGIC (ISSUE #79)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    const navToggleBtn = document.getElementById('navbar-theme-toggle');
-    const rootHtml = document.documentElement;
+  const navToggleBtn = document.getElementById('navbar-theme-toggle');
+  const rootHtml = document.documentElement;
 
-    const savedTheme = localStorage.getItem('regenx-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+  const savedTheme = localStorage.getItem('regenx-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
 
-    if (isDark) {
-        rootHtml.classList.add('dark');
-        rootHtml.setAttribute('data-theme', 'dark');
-        if (navToggleBtn) navToggleBtn.innerText = '☀️';
-    } else {
-        rootHtml.classList.remove('dark');
-        rootHtml.setAttribute('data-theme', 'light');
-        if (navToggleBtn) navToggleBtn.innerText = '🌙';
-    }
+  if (isDark) {
+    rootHtml.classList.add('dark');
+    rootHtml.setAttribute('data-theme', 'dark');
+    if (navToggleBtn) navToggleBtn.innerText = '☀️';
+  } else {
+    rootHtml.classList.remove('dark');
+    rootHtml.setAttribute('data-theme', 'light');
+    if (navToggleBtn) navToggleBtn.innerText = '🌙';
+  }
 
-    if (navToggleBtn) {
-        navToggleBtn.addEventListener('click', () => {
-            window.toggleTheme();
-        });
-    }
+  if (navToggleBtn) {
+    navToggleBtn.addEventListener('click', () => {
+      window.toggleTheme();
+    });
+  }
 
-    // Initialize Accessibility Manager (Floating panel & options)
-    if (window.AccessibilityManager) {
-        window.AccessibilityManager.init();
-    }
+  // Initialize Accessibility Manager (Floating panel & options)
+  if (window.AccessibilityManager) {
+    window.AccessibilityManager.init();
+  }
 });
 
 if ('serviceWorker' in navigator) {
