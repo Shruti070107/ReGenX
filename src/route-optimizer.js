@@ -131,6 +131,11 @@ export const RouteOptimizer = {
 
     /**
      * Standard Haversine distance calculator.
+     * @param {number} lat1 - Latitude of the first coordinate.
+     * @param {number} lon1 - Longitude of the first coordinate.
+     * @param {number} lat2 - Latitude of the second coordinate.
+     * @param {number} lon2 - Longitude of the second coordinate.
+     * @returns {number} The distance in kilometers between the two coordinates.
      */
     calculateDistance: (lat1, lon1, lat2, lon2) => {
         const R = 6371; // Earth radius in km
