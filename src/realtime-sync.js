@@ -89,20 +89,30 @@ function joinCurrentSession() {
   });
 }
 
-function connectSocket() {
+async function fetchRealtimeTicket() {
+  try {
+    const res = await fetch('/api/realtime-ticket');
+    if (!res.ok) return '';
+    const data = await res.json();
+    return data.ticket || '';
+  } catch {
+    return '';
+  }
+}
+
+async function connectSocket() {
   if (socket || typeof window.io !== 'function') return;
 
-  const config = window.__REALTIME_CONFIG__ || {};
   const opts = {
     path: '/socket.io',
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,
-    timeout: 8000
+    timeout: 8000,
+    auth: (cb) => {
+      fetchRealtimeTicket().then((ticket) => cb({ token: ticket }));
+    }
   };
-  if (config.token) {
-    opts.auth = { token: config.token };
-  }
 
   socket = window.io(window.location.origin, opts);
 
@@ -182,9 +192,11 @@ export const ReGenXRealtime = {
   init() {
     if (typeof window === 'undefined') return;
     this.renderBadge();
-    connectSocket();
+    connectSocket().then(() => {
+      updateConnectionBadge(socket?.connected ? 'connected' : 'offline');
+    });
     setupFallbackChannel();
-    updateConnectionBadge(socket?.connected ? 'connected' : 'offline');
+    updateConnectionBadge('offline');
   },
 
   renderBadge() {

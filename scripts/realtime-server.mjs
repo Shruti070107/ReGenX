@@ -19,14 +19,44 @@ const ALLOWED_ORIGINS = new Set(
     .map((origin) => origin.trim())
     .filter(Boolean)
 );
-let REALTIME_AUTH_TOKEN = String(process.env.REALTIME_AUTH_TOKEN || '');
 
+// REALTIME_AUTH_TOKEN is kept server-side only and never sent to clients.
+let REALTIME_AUTH_TOKEN = String(process.env.REALTIME_AUTH_TOKEN || '');
 if (!REALTIME_AUTH_TOKEN) {
-  const buf = new Uint8Array(24);
+  const buf = new Uint8Array(32);
   crypto.getRandomValues(buf);
   REALTIME_AUTH_TOKEN = Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
-  console.warn('[realtime] No REALTIME_AUTH_TOKEN set. Generated a temporary token for this session.');
-  console.warn('[realtime] Set REALTIME_AUTH_TOKEN in .env for a persistent token.');
+  console.warn('[realtime] No REALTIME_AUTH_TOKEN set. Generated a temporary server-side secret.');
+  console.warn('[realtime] Set REALTIME_AUTH_TOKEN in .env for a persistent value.');
+}
+
+// Per-connection ticket store — each ticket is single-use and expires after 60 s.
+const TICKET_TTL_MS = 60_000;
+const ticketStore = new Map();
+
+function pruneTickets() {
+  const now = Date.now();
+  for (const [t, info] of ticketStore.entries()) {
+    if (now - info.createdAt > TICKET_TTL_MS) ticketStore.delete(t);
+  }
+}
+
+function issueTicket() {
+  pruneTickets();
+  const buf = new Uint8Array(32);
+  crypto.getRandomValues(buf);
+  const ticket = Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
+  ticketStore.set(ticket, { createdAt: Date.now(), used: false });
+  return ticket;
+}
+
+function consumeTicket(ticket) {
+  if (!ticket) return false;
+  pruneTickets();
+  const info = ticketStore.get(ticket);
+  if (!info || info.used || Date.now() - info.createdAt > TICKET_TTL_MS) return false;
+  info.used = true;
+  return true;
 }
 
 function isAllowedOrigin(origin) {
@@ -50,16 +80,11 @@ const io = new Server(httpServer, {
 });
 
 io.use((socket, next) => {
-  if (!REALTIME_AUTH_TOKEN) {
-    next(new Error('Realtime authentication is not configured'));
-    return;
-  }
-
-  const authToken =
+  const ticket =
     socket.handshake?.auth?.token ||
     socket.handshake?.headers?.['x-realtime-token'];
 
-  if (authToken !== REALTIME_AUTH_TOKEN) {
+  if (!consumeTicket(ticket)) {
     next(new Error('Unauthorized realtime connection'));
     return;
   }
@@ -115,9 +140,15 @@ function applyUpdates(updates = []) {
 
 app.use(express.static(rootDir, { extensions: ['html'] }));
 
+// Issues a single-use, short-lived connection ticket.
+// The server-side REALTIME_AUTH_TOKEN is never sent to clients.
+app.get('/api/realtime-ticket', (_req, res) => {
+  res.json({ ticket: issueTicket() });
+});
+
 app.get('/config.js', (_req, res) => {
   res.type('application/javascript');
-  res.send(`window.__REALTIME_CONFIG__ = ${JSON.stringify({ token: REALTIME_AUTH_TOKEN })};`);
+  res.send(`window.__REALTIME_CONFIG__ = ${JSON.stringify({ url: '/' })};`);
 });
 
 app.get('/healthz', (_req, res) => {

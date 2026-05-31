@@ -12,7 +12,8 @@
     "test:modules": "node scripts/validate-modules.mjs",
     "test:health": "node scripts/validate-health.mjs",
     "test:pin": "node scripts/test-pin-auth.mjs",
-    "test": "npm run test:pwa && npm run test:modules && npm run test:health && npm run test:pin"
+    "test:realtime-auth": "node scripts/test-realtime-auth.mjs",
+    "test": "npm run test:pwa && npm run test:modules && npm run test:health && npm run test:pin && npm run test:realtime-auth"
   },
   "dependencies": {
     "express": "^4.22.2",
