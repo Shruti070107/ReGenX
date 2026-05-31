@@ -118,6 +118,14 @@
           </div>
           <div id="reg-map"></div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Account PIN <span style="color:var(--text-muted);font-weight:400;">(min. 4 characters)</span></label>
+          <input class="form-input" id="reg-pin" type="password" placeholder="Choose a secure PIN" maxlength="32" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm PIN</label>
+          <input class="form-input" id="reg-pin-confirm" type="password" placeholder="Re-enter your PIN" maxlength="32" autocomplete="new-password">
+        </div>
         <button class="btn btn-primary btn-full" id="btn-submit-reg" onclick="doRegister()"
           style="margin-top:10px;">Create Account</button>
       </div>
@@ -130,6 +138,10 @@
             <option value="">-- No accounts registered yet --</option>
           </select>
        </div>
+        <div class="form-group">
+          <label class="form-label">Account PIN</label>
+          <input class="form-input" id="login-pin" type="password" placeholder="Enter your account PIN" maxlength="32" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
 
 <button class="btn btn-primary btn-full" onclick="doLogin()" style="margin-top:10px;">
     Enter Dashboard →

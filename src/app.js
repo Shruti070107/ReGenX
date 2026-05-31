@@ -1716,6 +1716,53 @@ function renderAutomationWidget() {
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function ts() { return Date.now(); }
+
+// ── PIN AUTHENTICATION HELPERS ────────────────────────────────────────────────
+// Account PINs are hashed with SHA-256 using a random per-account salt.
+// The hash and salt are stored in device-local localStorage only — they are
+// never broadcast through realtime sync and never written to Appwrite.
+
+/**
+ * Generate a random 16-byte hex salt.
+ * @returns {string} 32-character hex string.
+ */
+function generateSalt() {
+  const buf = new Uint8Array(16);
+  crypto.getRandomValues(buf);
+  return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Hash a PIN with SHA-256 using the given hex salt.
+ * @param {string} pin
+ * @param {string} saltHex
+ * @returns {Promise<string>} Hex-encoded digest.
+ */
+async function hashPin(pin, saltHex) {
+  const data = saltHex + ':' + String(pin);
+  const encoded = new TextEncoder().encode(data);
+  const hashBuf = await crypto.subtle.digest('SHA-256', encoded);
+  return Array.from(new Uint8Array(hashBuf), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Verify a PIN against a stored hash and salt.
+ * @param {string} pin
+ * @param {string} storedHash
+ * @param {string} storedSalt
+ * @returns {Promise<boolean>}
+ */
+async function verifyPin(pin, storedHash, storedSalt) {
+  if (!storedHash || !storedSalt) return false;
+  const candidate = await hashPin(pin, storedSalt);
+  return candidate === storedHash;
+}
+
+// Exposed for testing without importing the full browser module.
+window._generateSalt = generateSalt;
+window._hashPin      = hashPin;
+window._verifyPin    = verifyPin;
+// ─────────────────────────────────────────────────────────────────────────────
 function fmtDate(ms) { return new Date(ms).toLocaleDateString('en-IN', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
 function distanceKm(lat1, lon1, lat2, lon2) {
   const R = 6371; const dLat = (lat2-lat1)*Math.PI/180; const dLon = (lon2-lon1)*Math.PI/180;
@@ -2007,12 +2054,29 @@ window.searchLocation = async function() {
 window.doRegister = async function() {
   const name = document.getElementById('reg-name').value.trim();
   const org = document.getElementById('reg-org').value.trim();
+  const pin = document.getElementById('reg-pin')?.value ?? '';
+  const pinConfirm = document.getElementById('reg-pin-confirm')?.value ?? '';
+
   if(!name || !org) return showToast("⚠ Please enter Name and Organisation.");
   if(!detectedPos) return showToast("⚠ Please detect GPS Location first.");
-  
+  if(pin.length < 4) return showToast("⚠ PIN must be at least 4 characters.");
+  if(pin !== pinConfirm) return showToast("⚠ PINs do not match. Please re-enter.");
+
+  // Hash the PIN.  The hash and salt are kept device-local and are written
+  // directly to localStorage — not through DB.set — to ensure they are never
+  // broadcast via realtime sync or pushed to Appwrite.
+  const salt = generateSalt();
+  const hash = await hashPin(pin, salt);
+
   const acc = { id: uid(), role: selectedRole, name, org, lat: detectedPos.lat, lng: detectedPos.lng, tokens: 0 };
+
+  // Persist the credential fields locally only
+  const fullAcc = { ...acc, passwordHash: hash, passwordSalt: salt };
+  window.localStorage.setItem(STORAGE_KEY_PREFIX + 'acc:' + acc.id, JSON.stringify(fullAcc));
+
+  // Sync public-safe account fields through the normal path (realtime + Appwrite)
   DB.set('acc:' + acc.id, acc);
-  
+
   // If no plants exist, establish a mock plant nearby to ensure routing works
   const plants = DB.list('acc:').map(k => DB.get(k)).filter(a => a.role === 'plant');
   if (plants.length === 0 && selectedRole !== 'plant') {
@@ -2022,10 +2086,10 @@ window.doRegister = async function() {
   // Show Splash Screen
   const splash = document.getElementById('success-splash');
   if(splash) splash.classList.add('show');
-  
+
   setTimeout(() => {
     if(splash) splash.classList.remove('show');
-    executeLogin(acc);
+    executeLogin(fullAcc);
   }, 2500);
 }
 
@@ -2042,8 +2106,47 @@ async function refreshLoginDropdown() {
 window.doLogin = async function() {
   const id = document.getElementById('login-account').value;
   if(!id) return showToast("⚠ Please select an account or register first.");
-  const acc = DB.get('acc:' + id);
-  if(!acc) return;
+
+  // Read directly from localStorage so the full account (including the
+  // device-local credential fields) is available for verification.
+  let acc;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY_PREFIX + 'acc:' + id);
+    acc = raw ? JSON.parse(raw) : null;
+  } catch { acc = null; }
+  if(!acc) return showToast("⚠ Account not found.");
+
+  // Google-authenticated accounts use their own verified login path; skip PIN.
+  if (acc.authProvider === 'google') {
+    return showToast("⚠ This account uses Google Sign-In. Please use the Google button below.");
+  }
+
+  const pin = (document.getElementById('login-pin')?.value ?? '').trim();
+  if(!pin) return showToast("⚠ Please enter your account PIN.");
+
+  if (!acc.passwordHash) {
+    // Migration path: account was created before PIN authentication was introduced.
+    // The first person to supply a valid PIN on this device claims the account.
+    if (pin.length < 4) return showToast("⚠ PIN must be at least 4 characters.");
+    const salt = generateSalt();
+    const hash = await hashPin(pin, salt);
+    acc.passwordHash = hash;
+    acc.passwordSalt = salt;
+    // Write credential fields back to localStorage only (not synced or pushed)
+    window.localStorage.setItem(STORAGE_KEY_PREFIX + 'acc:' + acc.id, JSON.stringify(acc));
+    showToast("✓ Account PIN set. You can now use this PIN to log in.");
+    executeLogin(acc);
+    return;
+  }
+
+  const match = await verifyPin(pin, acc.passwordHash, acc.passwordSalt);
+  if (!match) {
+    showToast("⚠ Incorrect PIN. Please try again.");
+    const pinEl = document.getElementById('login-pin');
+    if (pinEl) { pinEl.value = ''; pinEl.focus(); }
+    return;
+  }
+
   executeLogin(acc);
 }
 
