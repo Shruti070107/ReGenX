@@ -6,10 +6,6 @@
 
 ### *Smart Circular Bio-Waste Logistics Platform with AI scanning, real-time GPS tracking, and role-based dashboards for Providers, Riders & Processing Plants.*
 
-<br>
-<br>
-
-
 ![HTML](https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black)
@@ -22,13 +18,10 @@
 
 > ReGenX is a premium Progressive Web App (PWA) that digitizes the entire bio-waste supply chain — from hotel waste generation, through GPS-tracked rider pickup, to verified delivery at processing plants.
 
-The platform combines AI-powered waste scanning, live GPS tracking, analytics dashboards, blockchain reward systems, and sustainability impact monitoring into one modern ecosystem.Built using modern frontend technologies and optimized for scalability, ReGenX focuses on sustainability, logistics automation, and environmental transparency.
-
-
+The platform combines AI-powered waste scanning, live GPS tracking, analytics dashboards, blockchain reward systems, and sustainability impact monitoring into one modern ecosystem. Built using modern frontend technologies and optimized for scalability, ReGenX focuses on sustainability, logistics automation, and environmental transparency.
 
 ---
 
- 
 ## ✨ Core Features
 
 ### 🤖 AI-Powered Bio Scanner
@@ -36,16 +29,12 @@ The platform combines AI-powered waste scanning, live GPS tracking, analytics da
 - Contamination detection and organic percentage scoring
 - Auto-fills dispatch form fields based on scan results
 - Supports live camera capture and file upload
-  
-<br>
 
 ### 📍 Real-Time GPS & Mapping
 - High-accuracy GPS detection with draggable pin refinement
 - Address-based geocoding via **Nominatim / OpenStreetMap**
 - 50km service radius enforcement for route eligibility
 - Live rider tracking with **Leaflet.js** interactive maps
-
-<br>
 
 ### 👥 Role-Based Dashboards
 | Role | Capabilities |
@@ -54,15 +43,11 @@ The platform combines AI-powered waste scanning, live GPS tracking, analytics da
 | 🚛 **Rider** | Accept routes, navigate to pickup, confirm collection with AI scan |
 | ⚗️ **Plant** | Monitor incoming waste flow, confirm receipt, log processed output |
 
-<br>
-
 ### 🪙 $RGX Token Economy
 - Providers earn **$RGX tokens** on every verified pickup
 - Trade tokens on the **ReGen DeFi Exchange** (CSR NFTs, Smart Bin Hardware, Energy Vouchers)
 - Stake tokens in the **Carbon Credit Fund** (12.5% APY)
 - Contribute to the **Amazon Reforestation Initiative** crowdfund
-
-<br>
 
 ### 🌍 Impact & Analytics
 - CO₂ offset calculator (per completed dispatch)
@@ -71,8 +56,6 @@ The platform combines AI-powered waste scanning, live GPS tracking, analytics da
 - AI-predicted waste volume for next day
 - **The Green Wall** — live community sustainability activity feed
 
-<br>
-
 ### 🎨 Premium UI/UX
 - Glassmorphism design with dark/light theme toggle
 - Live ticker bar with real-time platform activity
@@ -80,20 +63,16 @@ The platform combines AI-powered waste scanning, live GPS tracking, analytics da
 - Fully responsive — mobile-first PWA with offline support
 - Space Grotesk + Inter typography
 
-  <br>
-
 ### 💎 Quality Standards
 
 To maintain the quality:exceptional label, the implementation MUST:
-Use Glassmorphism and premium UI aesthetics
-Include smooth micro-animations and transitions
-Be fully responsive and PWA-ready
-Maintain zero console errors
-Follow clean and modular code practices
-Include proper documentation/comments
-Ensure accessibility and mobile optimization
-
-
+- Use Glassmorphism and premium UI aesthetics
+- Include smooth micro-animations and transitions
+- Be fully responsive and PWA-ready
+- Maintain zero console errors
+- Follow clean and modular code practices
+- Include proper documentation/comments
+- Ensure accessibility and mobile optimization
 
 ---
 
@@ -116,12 +95,12 @@ Ensure accessibility and mobile optimization
 </div>
 
 ---
+
 <div align="center">
 
 ## 📁 Project Structure
 
 ```
-
 ├── ReGenX/
 ├── .github/                  
 │   ├── ISSUE_TEMPLATE/
@@ -156,18 +135,18 @@ Ensure accessibility and mobile optimization
 ```
 
 </div>
----
- 
-## 🚀 Getting Started
 
+---
+
+## 🚀 Getting Started
 
 ### 📋 Prerequisites
 > Before running the project, ensure you have:
 
-Node.js installed
-npm installed
-Modern browser (Chrome recommended)
-Camera permissions enabled (for AI scanning)
+- Node.js installed
+- npm installed
+- Modern browser (Chrome recommended)
+- Camera permissions enabled (for AI scanning)
 
 ### ⚙️ Installation
 
@@ -175,37 +154,39 @@ Camera permissions enabled (for AI scanning)
 # 1. Clone the repository
 git clone https://github.com/your-username/ReGenX.git
 
-#2.Move Into Project Directory
+# 2. Move into the project directory
 cd ReGenX
 
-#3. Install dependencies
+# 3. Install dependencies
 npm install
 
-#4. Start development server
+# 4. Start development server
 npm run serve
 ```
+
 Then open `http://localhost:4173` in your browser.
 
 The realtime server keeps Provider, Rider, and Plant dashboards synchronized across open tabs and devices.
 
-###👤 First-Time Setup
-1. **Register** your account
-2. Select your role
-      Provider
-      Rider
-      Plant)
-4. Enable location access
-5. Login and explore your role-specific dashboard
+### 👤 First-Time Setup
 
-> **Tip:**Create both Provider and Rider accounts for testing full logistics flow!
+1. **Register** your account
+2. Select your role:
+   - Provider
+   - Rider
+   - Plant
+3. Enable location access
+4. Login and explore your role-specific dashboard
+
+> **Tip:** Create both Provider and Rider accounts for testing full logistics flow!
 
 ---
 
-
- 
 ## 🔐 Environment Setup
+
 1. Copy `.env.example` to `.env`
 2. Fill in your Appwrite credentials:
+
 ```env
 APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
 APPWRITE_PROJECT_ID=your-project-id
@@ -215,21 +196,22 @@ APPWRITE_API_KEY=your-private-api-key
 > ⚠️ **Never expose your Appwrite API key in frontend code.**
 
 ## 📦 Deployment
-Appwrite Deployment
+
+Appwrite Deployment:
 
 ```bash
 npm run deploy:appwrite
 ```
-Deployment script automatically::
+
+Deployment script automatically:
 - Create the Appwrite Site if it doesn't exist
 - Upload the static project as a new deployment
 - Wait for build completion and auto-activate
 
 ---
 
-
 <div align="center">
- 
+
 ## 🔄 Pickup Workflow
 
 <pre>        ↓
@@ -252,8 +234,6 @@ Deployment script automatically::
 
 ---
 
-
-
 ## 🌱 Environmental Impact
 
 Every completed dispatch through ReGenX:
@@ -271,30 +251,46 @@ Every completed dispatch through ReGenX:
 ---
 
 ## 🤝 Contributing
+
 We welcome open-source contributions.
->Contribution Steps
-1. Fork Repository
-2. Create Branch
+
+### Contribution Steps
+
+1. Fork the repository
+2. Create a branch:
+
+```bash
 git checkout -b feature-name
-3. Commit Changes
+```
+
+3. Commit changes:
+
+```bash
 git commit -m "Added new feature"
-4. Push Changes
+```
+
+4. Push changes:
+
+```bash
 git push origin feature-name
-5. Open Pull Request
+```
+
+5. Open a pull request
+
 ---
 
 ## 📄 License
 
 This project is open source. See [LICENSE](LICENSE) for details.
 
-### 💚 Support the Project
+## 💚 Support the Project
 
 If you like ReGenX:
 
-⭐ Star the repository
-🍴 Fork the project
-🚀 Contribute to development
-🌍 Promote sustainability initiatives
+- ⭐ Star the repository
+- 🍴 Fork the project
+- 🚀 Contribute to development
+- 🌍 Promote sustainability initiatives
 
 ---
 
