@@ -15,6 +15,7 @@ const RAW_KEYS = new Set([
   'audit-registry',
   'global-fund'
 ]);
+const SNAPSHOT_INDEX_KEY = 'regenx-realtime-snapshot-keys';
 const ROOM_NAMES = {
   provider: 'providers_room',
   rider: 'riders_room',
@@ -45,6 +46,53 @@ function inferRoomsFromKey(key) {
 function parsePayload(value) {
   if (value === null || typeof value === 'undefined') return null;
   return value;
+}
+
+function loadSnapshotKeys() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(SNAPSHOT_INDEX_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.filter((key) => typeof key === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSnapshotKeys(keys) {
+  try {
+    window.localStorage.setItem(SNAPSHOT_INDEX_KEY, JSON.stringify(Array.from(keys)));
+  } catch {
+    // Ignore storage failures. Snapshot application still succeeds.
+  }
+}
+
+function isSynchronizedKey(key) {
+  return RAW_KEYS.has(key) ||
+    key.startsWith(`${STORAGE_PREFIX}ord:`) ||
+    key.startsWith(`${STORAGE_PREFIX}acc:`) ||
+    key.startsWith(`${STORAGE_PREFIX}log:`) ||
+    key === `${STORAGE_PREFIX}iot-bins` ||
+    key === `${STORAGE_PREFIX}global-fund` ||
+    key.endsWith('-ledger') ||
+    key === `${STORAGE_PREFIX}esg-alerts` ||
+    key === `${STORAGE_PREFIX}automation-pipeline`;
+}
+
+function buildSnapshotUpdates(records = {}) {
+  const snapshotKeys = new Set(Object.keys(records));
+  const updates = Object.entries(records).map(([key, value]) => ({
+    key,
+    value,
+    action: value === null ? 'remove' : 'set'
+  }));
+
+  loadSnapshotKeys().forEach((key) => {
+    if (isSynchronizedKey(key) && !snapshotKeys.has(key)) {
+      updates.push({ key, action: 'remove' });
+    }
+  });
+
+  saveSnapshotKeys(snapshotKeys);
+  return updates;
 }
 
 function applyUpdates(updates = [], options = {}) {
@@ -126,8 +174,7 @@ function connectSocket() {
 
   socket.on('sync:snapshot', (payload) => {
     if (!payload?.records) return;
-    const updates = Object.entries(payload.records).map(([key, value]) => ({ key, value, action: value === null ? 'remove' : 'set' }));
-    applyUpdates(updates, { quiet: false });
+    applyUpdates(buildSnapshotUpdates(payload.records), { quiet: false });
     updateConnectionBadge('connected', 'Synced');
   });
 
@@ -148,7 +195,7 @@ function setupFallbackChannel() {
     const payload = event.data;
     if (!payload || payload.sourceId === clientId) return;
     if (payload.kind === 'snapshot' && payload.records) {
-      applyUpdates(Object.entries(payload.records).map(([key, value]) => ({ key, value, action: value === null ? 'remove' : 'set' })), { quiet: false });
+      applyUpdates(buildSnapshotUpdates(payload.records), { quiet: false });
       return;
     }
     if (payload.kind === 'patch' && payload.updates) {
@@ -241,8 +288,7 @@ export const ReGenXRealtime = {
   },
 
   applySnapshot(records = {}, options = {}) {
-    const updates = Object.entries(records).map(([key, value]) => ({ key, value, action: value === null ? 'remove' : 'set' }));
-    applyUpdates(updates, options);
+    applyUpdates(buildSnapshotUpdates(records), options);
   },
 
   requestSnapshot() {
