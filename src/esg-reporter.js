@@ -92,7 +92,7 @@ export const ESGReporter = {
             : 0;
 
         const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        const reportHash = ESGReporter.generateAuditHash();
+        const reportHash = '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 
         let qualityBadgeColor = 'badge-red';
         let qualityText = 'Needs Improvement';
