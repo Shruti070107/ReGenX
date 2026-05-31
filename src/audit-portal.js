@@ -193,7 +193,7 @@ export const AuditPortal = {
                         ${registry.map(rec => `
                             <div class="audit-registry-item">
                                 <div class="between" style="margin-bottom: 6px;">
-                                    <span style="font-weight: 700; color: var(--text);">${escapeHTML(rec.org)}</span>
+                                    <span style="font-weight: 700; color: var(--text);">${rec.org}</span>
                                     <span style="font-size: 11px; font-family: monospace; color: var(--green); font-weight: 700;">${rec.totalKg} Kg Offset</span>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -469,7 +469,7 @@ export const AuditPortal = {
 
                                 <div style="margin-bottom: 20px;">
                                     <div style="font-size: 10px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px;">Account Entity</div>
-                                    <div style="font-weight: 700; font-size: 18px; color: var(--text);">${escapeHTML(auditData.org)}</div>
+                                    <div style="font-weight: 700; font-size: 18px; color: var(--text);">${auditData.org}</div>
                                     <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px;">Role: ${auditData.role.toUpperCase()} · ID: ${auditData.userId}</div>
                                 </div>
 
@@ -529,10 +529,8 @@ export const AuditPortal = {
                                     </div>
                                     <p style="font-size: 12px; color: ${step.icon === '⚠️' ? '#EF4444' : 'var(--text-muted)'}; line-height: 1.4; margin: 0;">${step.desc}</p>
                                 </div>
-                            </div>
-                            </div>
+                            `).join('')}
                         </div>
-
                     </div>
                 </div>
 `;

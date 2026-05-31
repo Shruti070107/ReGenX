@@ -231,18 +231,15 @@ h1, h2, h3, .heading { font-family: 'Space Grotesk', sans-serif; font-weight: 70
 .nav-item:hover, .nav-item:focus-visible { background: var(--surface-hover); color: var(--text); outline: none; }
 .nav-item:focus-visible { box-shadow: inset 0 0 0 2px var(--border-focus); }
 .nav-item.active { background: var(--green-light); color: var(--green); font-weight: 600; border-left: 4px solid var(--green); border-radius: 4px 10px 10px 4px; }
-.nav-item:focus { outline: none !important; }
-.nav-item:focus-visible { outline: 2px solid var(--green) !important; outline-offset: -2px; }
 .nav-badge { margin-left: auto; background: var(--red); color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
 
 .main-area { flex: 1; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; width: 100%; max-width: 100%; height: 100vh; position: relative; }
 .topbar { min-height: 72px; display: flex; justify-content: space-between; align-items: center; padding: 0 32px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 40; flex-wrap: wrap; gap: 8px; overflow-x: hidden; width: 100%; max-width: 100%; }
 .glass-nav { background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.topbar-title { font-size: 20px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; background: -webkit-linear-gradient(45deg, var(--green), var(--blue)); -webkit-background-clip: text;
-  background-clip: text;
+.topbar-title { font-size: 20px; font-family: 'Space Grotesk', sans-serif; font-weight: 800; margin-left: 42px;background: -webkit-linear-gradient(45deg, var(--green), var(--blue)); -webkit-background-clip: text;
+  background-clip: text;                /* standard property — fixes Firefox warning */
   -webkit-text-fill-color: transparent;
-  color: transparent;
-  white-space: nowrap; }
+  color: transparent; }
 .topbar-user { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;min-width: 0; }
 .topbar-name { font-weight: 600; font-size: 10px; }
 .topbar-role { font-size: 7px; color: var(--text-muted); text-transform: capitalize; }
@@ -2149,8 +2146,7 @@ tr:hover td { background: var(--bg); }
   animation: fadeIn 0.4s ease both;
   width: 100%;
   box-sizing: border-box;
-  overflow: visible;
-  min-width: 0;
+  overflow: hidden;
 }
 
 .iot-card-header {
@@ -2232,7 +2228,6 @@ tr:hover td { background: var(--bg); }
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   margin-bottom: 12px;
-  min-width: 0;
 }
 
 .iot-sensor-item {
@@ -2242,8 +2237,6 @@ tr:hover td { background: var(--bg); }
   padding: 10px 8px;
   text-align: center;
   transition: transform 0.2s, border-color 0.2s;
-  min-width: 0;
-  overflow: hidden;
 }
 
 .iot-sensor-item:hover {
@@ -2300,55 +2293,159 @@ tr:hover td { background: var(--bg); }
         rgba(255,255,255,0.18) 50%,
         rgba(255,255,255,0.08) 75%
     );
-    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-}
-.modal-overlay {
-    position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); padding: 20px;
-}
-.modal-box {
-    max-height: 90vh; 
+      transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); padding: 20px;
+    }
+      max-height: 90vh; 
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 20px 60px -8px rgba(0,0,0,0.25);
+    }
+    .modal-box.modal-large { max-width: 800px; }
+    .modal-overlay.open .modal-box { transform: scale(1); }
+    .modal-title { 
+      font-size: 24px; 
+      font-weight: 700; 
+      font-family: 'Space Grotesk'; 
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .modal-sub { 
+      color: var(--text-muted); 
+      font-size: 15px; 
+      margin-bottom: 22px;
+      line-height: 1.5;
+      letter-spacing: 0.12px;
+    }
+    .modal-actions { 
+      display: flex; 
+      gap: 12px; 
+      margin-top: 28px; 
+      justify-content: flex-end;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .trust-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      position: relative;
+      padding-left: 14px;
+      margin-bottom: 4px;
+    }
+    .trust-tl-item { 
+      position: relative; 
+      display: flex; 
+      gap: 14px; 
+      align-items: flex-start;
+    }
+    .trust-tl-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: var(--surface-hover);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+    }
+    .trust-tl-line {
+      position: absolute;
+      left: 17px;
+      top: 40px;
+      width: 2px;
+      height: calc(100% + 6px);
+      background: var(--border);
+    }
+    .trust-tl-title { 
+      font-weight: 700; 
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .trust-tl-sub { 
+      font-size: 12px; 
+      color: var(--text-muted);
+    }
+    .compliance-item.resolved { opacity: 0.75; }
+
+    .compliance-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: var(--bg-soft);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 10px;
+    }
+
+    /* Modal variants */
+    .modal-box.modal-large { max-width: 880px; }
+    .modal-overlay.open .modal-box { transform: scale(1); }
+
+    .modal-title {
+      font-size: 22px;
+      font-weight: 700;
+      font-family: 'Space Grotesk';
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .modal-sub {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 20px;
+      line-height: 1.45;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      justify-content: flex-end;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+  /* Login screen: allow scroll on tall content */
+  #login-screen {
+    height: auto;
+    min-height: 100vh;
     overflow-y: auto;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 28px;
-    box-shadow: 0 20px 60px -8px rgba(0,0,0,0.25);
-}
-/* Login screen: allow scroll on tall content */
-#login-screen {
-  height: auto;
-  min-height: 100vh;
-  overflow-y: auto;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 40px 20px;
-}
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+  }
 
-/* Login box: constrain width, allow natural height */
-.login-box {
-  width: 480px;
-  max-width: 100%;
-  height: auto !important;
-  max-height: none !important;
-  overflow: visible !important;
-  margin: 0 auto;
-}
+  /* Login box: constrain width, allow natural height */
+  .login-box {
+    width: 480px;
+    max-width: 100%;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 auto;
+  }
 
-/* Registration map: reasonable height on desktop */
-#reg-map {
-  height: 220px !important;
-  margin-top: 10px;
-  border-radius: 12px;
-}
+  /* Registration map: reasonable height on desktop */
+  #reg-map {
+    height: 220px !important;
+    margin-top: 10px;
+    border-radius: 12px;
+  }
 
-/* Auth views: no overflow clipping */
-.auth-view {
-  overflow: visible !important;
-  max-height: none !important;
-}
+  /* Auth views: no overflow clipping */
+  .auth-view {
+    overflow: visible !important;
+    max-height: none !important;
+  }
 /* ════════════════════════════════════════════════════════════
    DARK THEME — FINAL VISUAL POLISH LAYER
    Luminous buttons · IoT typography · Glassmorphic borders
@@ -2703,15 +2800,11 @@ tr:hover td { background: var(--bg); }
 
 .topbar-content {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   padding: 12px 32px;
   width: 100%;
   position: relative;
-  gap: 12px;
-}
-
-.topbar-user {
-  margin-left: auto;
 }
 
 /* Responsive topbar styling */

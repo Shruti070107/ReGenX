@@ -74,7 +74,7 @@ export const CloudSync = {
                     }
                 }
             } else {
-                console.warn("[CloudSync] Standard configuration could not load /.env file, status:", response.status);
+                console.warn("Could not load /.env file, status:", response.status);
             }
         } catch (e) {
             console.warn("Failed to fetch or parse .env file. Falling back to defaults.", e);
@@ -215,11 +215,11 @@ export const CloudSync = {
         if (!CloudSync.client || !CloudSync.config) return;
 
         const channel = `databases.${CloudSync.config.databaseId}.collections.${CloudSync.config.ordersCollectionId}.documents`;
-        console.log(`📡 Subscribed to Appwrite Realtime: ${channel}`);
+        console.debug(`📡 Subscribed to Appwrite Realtime: ${channel}`);
         
         try {
             CloudSync.unsubscribe = CloudSync.client.subscribe(channel, response => {
-                console.log("⚡ Appwrite Realtime Event Received:", response);
+                console.debug("⚡ Appwrite Realtime Event Received:", response);
                 
                 const syncedOrder = response.payload;
                 if (!syncedOrder || !syncedOrder.id) return;
@@ -262,9 +262,9 @@ export const CloudSync = {
 
     /**
      * Sanitizes an order object to match database attribute schemas.
-     * Ensures all values match correct types and fallbacks default to empty strings.
+     * Ensures all values match correct types.
      * @param {Object} doc - Raw order document.
-     * @returns {Object} Sanitized object mapped exactly to Appwrite attributes.
+     * @returns {Object} Sanitized object ready for Appwrite.
      */
     sanitizeDoc: (doc) => {
         const sanitized = {};
@@ -441,7 +441,7 @@ export const CloudSync = {
             const filtered = queue.filter(item => item.key !== key);
             filtered.push({ key, data, ts: Date.now() });
             localStorage.setItem('regenx-offline-queue', JSON.stringify(filtered));
-            console.log(`[CloudSync] Queued offline write for key: ${key}`);
+            console.debug(`[CloudSync] Queued offline write for key: ${key}`);
         } catch (e) {
             console.warn('[CloudSync] Failed to queue offline write:', e);
         }

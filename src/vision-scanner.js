@@ -117,12 +117,6 @@ export const VisionScanner = {
      * @param {string} targetInputId - ID of the input field to populate with the score.
      */
     openScanner: async (targetInputId) => {
-        // CRITICAL FIX: Prevent DOM duplication and hardware leaks from rapid rapid clicks
-        const existingModal = document.getElementById('vision-scanner-modal');
-        if (existingModal) {
-            VisionScanner.closeScanner(); // Forcefully release existing camera tracks and DOM elements
-        }
-
         // Reset state
         VisionScanner.isLowLight = false;
         VisionScanner.luminanceQueue = [];

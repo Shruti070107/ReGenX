@@ -36,7 +36,17 @@ export const AccessibilityManager = {
             const saved = window.localStorage.getItem('regenx-accessibility');
             if (saved) {
                 const parsed = JSON.parse(saved);
-                AccessibilityManager.state = { ...AccessibilityManager.state, ...parsed };
+                const validated = {};
+                if (parsed && typeof parsed === 'object') {
+                    if (typeof parsed.ttsEnabled === 'boolean') validated.ttsEnabled = parsed.ttsEnabled;
+                    if (typeof parsed.highContrast === 'boolean') validated.highContrast = parsed.highContrast;
+                    if (typeof parsed.dyslexicFont === 'boolean') validated.dyslexicFont = parsed.dyslexicFont;
+                    if (typeof parsed.reduceMotion === 'boolean') validated.reduceMotion = parsed.reduceMotion;
+                    if (typeof parsed.fontScale === 'number' && !isNaN(parsed.fontScale)) {
+                        validated.fontScale = Math.max(0.8, Math.min(1.5, parsed.fontScale));
+                    }
+                }
+                AccessibilityManager.state = { ...AccessibilityManager.state, ...validated };
             }
         } catch (e) {
             console.error('Failed to load accessibility settings:', e);
