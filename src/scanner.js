@@ -582,8 +582,22 @@ window.BioScanner = (function () {
     animateScanProgress();
 
     const img = new Image();
-    img.onload = () => performScan(img);
-    img.src = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = async () => {
+      try {
+        await performScan(img);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      renderError('Unable to load selected image.');
+    };
+
+    img.src = objectUrl;
   };
 
   // ── PROGRESS ANIMATION ────────────────────────────────────────────────────────
