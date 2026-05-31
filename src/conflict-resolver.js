@@ -13,7 +13,7 @@
 export function resolveConflict(localAction, serverData) {
   // If no server data exists, local action wins
   if (!serverData) {
-    console.log(`[ConflictResolver] No server data — local action applied: ${localAction.id}`);
+    console.debug(`[ConflictResolver] No server data — local action applied: ${localAction.id}`);
     return localAction;
   }
 
@@ -29,7 +29,7 @@ export function resolveConflict(localAction, serverData) {
     return null;
   }
 
-  console.log(`[ConflictResolver] Local action is newer — applying: ${localAction.id}`);
+  console.debug(`[ConflictResolver] Local action is newer — applying: ${localAction.id}`);
   return localAction;
 }
 
@@ -64,7 +64,7 @@ export function mergeGPSUpdates(actions) {
     current.timestamp > latest.timestamp ? current : latest
   );
 
-  console.log(`[ConflictResolver] Merged ${gpsActions.length} GPS actions → 1 kept`);
+  console.debug(`[ConflictResolver] Merged ${gpsActions.length} GPS actions → 1 kept`);
   return [...otherActions, latestGPS];
 }
 

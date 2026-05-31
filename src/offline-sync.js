@@ -28,7 +28,7 @@ export function initOfflineDB() {
 
     request.onsuccess = (event) => {
       db = event.target.result;
-      console.log('[OfflineSync] IndexedDB initialized');
+      console.info('[OfflineSync] IndexedDB initialized');
       resolve(db);
     };
 

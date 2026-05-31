@@ -8,7 +8,7 @@
 /**
  * @typedef {Object} PredictionResult
  * @property {number} expectedKg - Predicted weight in KG.
- * @property {('Low'|'Medium'|'High')} confidence - The statistical confidence scale.
+ * @property {string} confidence - Confidence level (Low/Med/High).
  * @property {string} trend - Upward/Downward trend.
  */
 
@@ -66,8 +66,8 @@ export const Intelligence = {
     },
 
     /**
-     * Generates a unique pseudo-random transaction hash for blockchain interactions.
-     * @returns {string} A 40-character hex string prefixed with '0x' (e.g. `0xabcd1234...`).
+     * Generates a unique transaction hash for "blockchain" interactions.
+     * @returns {string}
      */
     generateTxHash: () => {
         return '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');

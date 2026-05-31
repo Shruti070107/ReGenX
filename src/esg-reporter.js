@@ -58,8 +58,7 @@ export const ESGReporter = {
 
     /**
      * Persists the public audit registry in localStorage.
-     * @param {Array<Object>} records - Registry records to store.
-     * @returns {void}
+     * @param {Array<Object>} records - Registry records.
      */
     saveAuditRegistry: (records) => {
         try {
@@ -335,8 +334,7 @@ export const ESGReporter = {
 
     /**
      * Helper to return the currently tracked history for PDF export.
-     * Falls back to an empty array when no history has been rendered yet.
-     * @returns {Array<Object>} Currently loaded history array, or `[]` if none is set.
+     * @returns {Array<Object>} Currently loaded history array.
      */
     getCurrentHistory: () => {
         return ESGReporter._lastHistory || [];
@@ -357,12 +355,6 @@ export const ESGReporter = {
         // Calculate Metrics
         const totalKg = history.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
         const totalTokens = account.tokens || 0;
-        // Load BioScan history from localStorage
-        const scanHistory = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
-        const avgOrganicPct = scanHistory.length
-            ? Math.round(scanHistory.reduce((s, r) => s + (r.organicPercentage || 0), 0) / scanHistory.length)
-            : 0;
-        const totalScans = scanHistory.length;
 
         // Per-order CO₂ calculation using waste-type-specific IPCC 2006 / GHG Protocol factors
         const co2Details = history.map(o => {
@@ -387,6 +379,7 @@ export const ESGReporter = {
               }, 0) / activeSegScores.length)
             : 0;
         
+        // Mock a cryptographic hash for "verifiability"
         
         const timestamp = Date.now();
         const reportPayload = {
@@ -472,13 +465,9 @@ export const ESGReporter = {
                     <div style="font-size:32px; font-weight:800; color:#2563EB; line-height:1.2;">${totalCO2.toLocaleString()}</div>
                     <div style="font-size:10px; color:#1D4ED8; font-weight:700; text-transform:uppercase; margin-top:4px;">Kg CO₂ Avoided</div>
                 </div>
-               <div style="flex:1; text-align:center; padding:20px; background:#FEFCE8; border-radius:12px; border:1px solid #FEF9C3;">
+                <div style="flex:1; text-align:center; padding:20px; background:#FEFCE8; border-radius:12px; border:1px solid #FEF9C3;">
                     <div style="font-size:32px; font-weight:800; color:#CA8A04; line-height:1.2;">${avgSegScore}%</div>
                     <div style="font-size:10px; color:#A16207; font-weight:700; text-transform:uppercase; margin-top:4px;">Segregation Index</div>
-                </div>
-                <div style="flex:1; text-align:center; padding:20px; background:#F5F3FF; border-radius:12px; border:1px solid #EDE9FE;">
-                    <div style="font-size:32px; font-weight:800; color:#7C3AED; line-height:1.2;">${totalScans}</div>
-                    <div style="font-size:10px; color:#6D28D9; font-weight:700; text-transform:uppercase; margin-top:4px;">BioScans (${avgOrganicPct}% Avg Organic)</div>
                 </div>
             </div>
 

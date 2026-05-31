@@ -15,18 +15,14 @@ export const YieldOptimizer = {
         if (!recentIntakes || recentIntakes.length === 0) {
             return {
                 predictedMethane: 0,
-                optimalTemp: 35, // Fallback mesophilic digestion temperature.
+                optimalTemp: 35, // Set to default mesophilic temperature.
                 healthStatus: 'Idle',
                 recommendation: 'Awaiting incoming waste for analysis.'
             };
         }
 
         // Calculate average segregation score (quality of organic matter)
-        const totalScore = recentIntakes.reduce((sum, o) => {
-            const rawScore = parseInt(o.segScore) || 50;
-            const cappedScore = Math.max(0, Math.min(100, rawScore));
-            return sum + cappedScore;
-        }, 0);
+        const totalScore = recentIntakes.reduce((sum, o) => sum + (parseInt(o.segScore) || 50), 0);
         const avgScore = totalScore / recentIntakes.length;
 
         // Calculate total mass

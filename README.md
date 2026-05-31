@@ -9,15 +9,6 @@
 <br>
 <br>
 
-<h3>
- 👨‍🏫 Project Mentor
-</h3>
-<h3>
- SATYAM PANDEY
-</h3>
-
- LinkedIn: https://www.linkedin.com/in/satyam-pandey-0b246432a/
- Phone: 9820866720
 
 ![HTML](https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)
