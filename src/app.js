@@ -23,6 +23,7 @@ const EMISSIONS_LEDGER_KEY = STORAGE_KEY_PREFIX + "emissions-ledger";
 const QUALITY_LEDGER_KEY = STORAGE_KEY_PREFIX + "quality-ledger";
 const AUTOMATION_PIPELINE_KEY = STORAGE_KEY_PREFIX + "automation-pipeline";
 const SESSION_STATE_KEY = STORAGE_KEY_PREFIX + 'active-session';
+const SPEND_LOG_KEY_PREFIX = STORAGE_KEY_PREFIX + 'spend-log:';
 
 console.debug('APP JS loaded');
 
@@ -1723,6 +1724,90 @@ function distanceKm(lat1, lon1, lat2, lon2) {
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
+// ── TOKEN INTEGRITY ──────────────────────────────────────────────────────────
+// Token balances are derived from two sources of truth stored in localStorage:
+//   Credits  — the `tokensMinted` field on every completed order attributed
+//              to a provider.  Set once by confirmPlantReceipt; never mutated.
+//   Debits   — a per-account spending log (SPEND_LOG_KEY_PREFIX + accountId)
+//              that records every buyMarketItem / stakeTokens / fundProject
+//              call with a type, amount, and timestamp.
+//
+// computeProvenBalance(id) = Σ(credits) − Σ(debits)  ≥ 0
+//
+// All balance checks and mutations use this derived value instead of the
+// raw SESSION.tokens field, so setting SESSION.tokens = 999999 in DevTools
+// has no effect on what can actually be spent or synced to the cloud.
+
+/**
+ * Load the spending log for an account from localStorage.
+ * @param {string} accountId
+ * @returns {Array<{id:string,type:string,amount:number,ts:number}>}
+ */
+function loadSpendLog(accountId) {
+  try {
+    const raw = window.localStorage.getItem(SPEND_LOG_KEY_PREFIX + accountId);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
+/**
+ * Persist the spending log for an account (capped at 1000 most-recent entries).
+ * @param {string} accountId
+ * @param {Array} entries
+ */
+function saveSpendLog(accountId, entries) {
+  try {
+    const capped = Array.isArray(entries) ? entries.slice(-1000) : [];
+    window.localStorage.setItem(SPEND_LOG_KEY_PREFIX + accountId, JSON.stringify(capped));
+  } catch { /* ignore quota errors */ }
+}
+
+/**
+ * Append one debit entry to the spending log.
+ * @param {string} accountId
+ * @param {number} amount   - Positive token amount deducted.
+ * @param {string} type     - 'market' | 'stake' | 'fund'
+ */
+function recordTokenSpend(accountId, amount, type) {
+  if (!accountId || !(Number(amount) > 0)) return;
+  const log = loadSpendLog(accountId);
+  log.push({ id: uid(), type: String(type), amount: Math.floor(Number(amount)), ts: ts() });
+  saveSpendLog(accountId, log);
+}
+
+/**
+ * Sum all token rewards from completed orders attributed to a provider.
+ * Only orders with a positive tokensMinted value are counted.
+ * @param {string} accountId
+ * @returns {number}
+ */
+function computeProvenEarnings(accountId) {
+  if (!accountId) return 0;
+  return getAllOrders()
+    .filter(o => o.providerId === accountId &&
+                 o.status === 'completed' &&
+                 Number(o.tokensMinted) > 0)
+    .reduce((sum, o) => sum + Math.floor(Number(o.tokensMinted)), 0);
+}
+
+/**
+ * Derive the current provable token balance for an account.
+ * Balance = total earned from completed orders − total spent (spending log).
+ * Result is always ≥ 0.
+ * @param {string} accountId
+ * @returns {number}
+ */
+function computeProvenBalance(accountId) {
+  if (!accountId) return 0;
+  const earned = computeProvenEarnings(accountId);
+  const spent = loadSpendLog(accountId)
+    .reduce((sum, e) => sum + (Number.isFinite(e.amount) ? Math.floor(e.amount) : 0), 0);
+  return Math.max(0, earned - spent);
+}
+window.computeProvenBalance = computeProvenBalance;
+// ─────────────────────────────────────────────────────────────────────────────
+
 window.showToast = function(msg) {
   const t = document.getElementById('toast');
   if(!t) return;
@@ -2085,8 +2170,11 @@ function startGreenWall() {
 }
 
 window.buyMarketItem = function(price, name) {
-  if((SESSION.tokens || 0) < price) return showToast("⚠ Insufficient $RGX balance.");
-  
+  // Use the provably-derived balance instead of the raw SESSION.tokens so that
+  // directly setting SESSION.tokens in DevTools cannot bypass the check.
+  const currentBalance = computeProvenBalance(SESSION.id);
+  if(currentBalance < price) return showToast("⚠ Insufficient $RGX balance.");
+
   const hash = '0x' + Array.from({length:40}, () => Math.floor(Math.random()*16).toString(16)).join('');
   const html = `
     <h3 class="modal-title">Web3 Smart Contract Interaction</h3>
@@ -2104,9 +2192,11 @@ window.buyMarketItem = function(price, name) {
   `;
   document.getElementById('modal-box').innerHTML = html;
   document.getElementById('modal').classList.add('open');
-  
+
   setTimeout(() => {
-    SESSION.tokens -= price;
+    // Record the debit in the spending log, then derive the new balance.
+    recordTokenSpend(SESSION.id, price, 'market');
+    SESSION.tokens = computeProvenBalance(SESSION.id);
     DB.set('acc:' + SESSION.id, SESSION);
     document.getElementById('token-balance').textContent = SESSION.tokens;
     const b = document.getElementById('btn-close-mint');
@@ -2118,8 +2208,9 @@ window.buyMarketItem = function(price, name) {
 window.stakeTokens = function() {
   const amt = parseInt(prompt("How many $RGX tokens would you like to stake in the Community Digester Fund?"));
   if(!amt || isNaN(amt) || amt <= 0) return;
-  if((SESSION.tokens || 0) < amt) return showToast("⚠ Insufficient balance to stake.");
-  SESSION.tokens -= amt;
+  if(computeProvenBalance(SESSION.id) < amt) return showToast("⚠ Insufficient balance to stake.");
+  recordTokenSpend(SESSION.id, amt, 'stake');
+  SESSION.tokens = computeProvenBalance(SESSION.id);
   SESSION.staked = (SESSION.staked || 0) + amt;
   DB.set('acc:' + SESSION.id, SESSION);
   document.getElementById('token-balance').textContent = SESSION.tokens;
@@ -2128,8 +2219,9 @@ window.stakeTokens = function() {
 }
 
 window.fundProject = function() {
-  if((SESSION.tokens || 0) < 500) return showToast("⚠ Insufficient balance. Need 500 $RGX.");
-  SESSION.tokens -= 500;
+  if(computeProvenBalance(SESSION.id) < 500) return showToast("⚠ Insufficient balance. Need 500 $RGX.");
+  recordTokenSpend(SESSION.id, 500, 'fund');
+  SESSION.tokens = computeProvenBalance(SESSION.id);
   DB.set('acc:' + SESSION.id, SESSION);
   const cur = DB.get('global-fund') || 45200;
   DB.set('global-fund', cur + 500);
@@ -4660,39 +4752,22 @@ window.confirmPlantReceipt = async function(id) {
   if (o.status === 'completed') return showToast('Order already processed.');
   const score = document.getElementById('p-score').value || 0;
   o.status = 'completed'; o.segScore = score;
-  
+
+  // Calculate reward amounts and stamp the order before confirmation so the
+  // plant operator sees the preview.  The account balance is NOT updated here;
+  // it is derived from completed orders AFTER saveOrder() so the mint event
+  // is included in the provable-earnings sum.
+  let earnedTokens = 0;
+  let baseTokens = 0;
+  let trustScore = 0;
   const providerAcc = DB.get('acc:' + o.providerId);
   if (providerAcc) {
-     const providerHistory = getAllOrders().filter(ord => ord.providerId === o.providerId && ord.status === 'completed');
-     const trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
-      const baseTokens = Math.round((o.actualKg || o.kg) * 2);
-      const earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
-     
-     providerAcc.tokens = (providerAcc.tokens || 0) + earnedTokens;
-     o.tokensMinted = earnedTokens;
-     o.txHash = '0x' + uid() + uid() + uid();
-
-     DB.set('acc:' + o.providerId, providerAcc);
-     if (SESSION.role === 'provider' && SESSION.id === o.providerId) {
-         SESSION.tokens = providerAcc.tokens;
-         document.getElementById('token-balance').textContent = SESSION.tokens;
-     }
-
-      // Expected tokens represent the base (non-trust-multiplied) reward.
-      // Minted tokens include the TrustProtocol multiplier, so deltaPct reflects
-      // the trust bonus/penalty percentage (and enables mismatch flagging).
-      const expectedTokens = baseTokens;
-      const deltaPct = expectedTokens > 0 ? Math.abs(earnedTokens - expectedTokens) / expectedTokens * 100 : 0;
-     addCreditEntry({
-       id: 'credit-' + uid(),
-       orderId: o.id,
-       org: o.providerOrg,
-       expectedTokens,
-       mintedTokens: earnedTokens,
-       deltaPct,
-       trustScore,
-       ts: ts()
-     });
+    const providerHistory = getAllOrders().filter(ord => ord.providerId === o.providerId && ord.status === 'completed');
+    trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
+    baseTokens = Math.round((o.actualKg || o.kg) * 2);
+    earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
+    o.tokensMinted = earnedTokens;
+    o.txHash = '0x' + uid() + uid() + uid();
   }
 
   const confirmed = confirm(
@@ -4701,7 +4776,36 @@ window.confirmPlantReceipt = async function(id) {
 
   if (!confirmed) return;
 
+  // Persist the order first so this tokensMinted value is available to
+  // computeProvenBalance when we re-derive the provider's balance below.
   saveOrder(o);
+
+  if (providerAcc) {
+    // Derive the new balance from order history rather than accumulating the
+    // raw stored value.  This ensures an arbitrarily-set SESSION.tokens or
+    // Appwrite value cannot permanently inflate the balance.
+    providerAcc.tokens = computeProvenBalance(o.providerId);
+    DB.set('acc:' + o.providerId, providerAcc);
+    if (SESSION.role === 'provider' && SESSION.id === o.providerId) {
+      SESSION.tokens = providerAcc.tokens;
+      document.getElementById('token-balance').textContent = SESSION.tokens;
+    }
+    // Expected tokens represent the base (non-trust-multiplied) reward.
+    // Minted tokens include the TrustProtocol multiplier, so deltaPct reflects
+    // the trust bonus/penalty percentage (and enables mismatch flagging).
+    const expectedTokens = baseTokens;
+    const deltaPct = expectedTokens > 0 ? Math.abs(earnedTokens - expectedTokens) / expectedTokens * 100 : 0;
+    addCreditEntry({
+      id: 'credit-' + uid(),
+      orderId: o.id,
+      org: o.providerOrg,
+      expectedTokens,
+      mintedTokens: earnedTokens,
+      deltaPct,
+      trustScore,
+      ts: ts()
+    });
+  }
   updateSlaEntry(o.id, { completeTs: ts(), status: 'completed' });
 await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION.lng });
   await recordTrustEvent(o, 'sealed', 'plant', { lat: SESSION.lat, lng: SESSION.lng });

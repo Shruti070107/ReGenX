@@ -335,18 +335,70 @@ export const CloudSync = {
     },
 
     /**
+     * Reads completed-order earnings for a provider account directly from
+     * localStorage.  Used by sanitizeAccount to cap the pushed token balance.
+     * Returns -1 if earnings cannot be determined (localStorage unavailable),
+     * which signals sanitizeAccount to pass the claimed value through unchanged.
+     *
+     * @param {string} accountId - Provider account ID.
+     * @returns {number} Total tokensMinted across completed orders, or -1 on error.
+     */
+    _getProvenEarnings: (accountId) => {
+        if (!accountId) return 0;
+        try {
+            let earned = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || !k.startsWith('regenx-v3:ord:')) continue;
+                try {
+                    const order = JSON.parse(localStorage.getItem(k));
+                    if (order?.providerId === accountId &&
+                        order.status === 'completed' &&
+                        Number(order.tokensMinted) > 0) {
+                        earned += Math.floor(Number(order.tokensMinted));
+                    }
+                } catch { /* skip malformed entry */ }
+            }
+            return earned;
+        } catch {
+            return -1; // Cannot read storage — allow claimed value through
+        }
+    },
+
+    /**
      * Sanitizes an account object for Appwrite storage.
+     * For provider accounts the token balance is capped at the provably-earned
+     * ceiling derived from completed orders in localStorage.  This prevents an
+     * arbitrary in-memory or DevTools modification from being persisted to the
+     * cloud and later hydrated as authoritative on another device.
+     *
      * @param {Object} account - Raw account object.
-     * @returns {Object} Sanitized object.
+     * @returns {Object} Sanitized object safe to write to Appwrite.
      */
     sanitizeAccount: (account) => {
         const sanitized = {};
         ['id', 'role', 'name', 'org'].forEach(f => {
             sanitized[f] = account[f] != null ? String(account[f]) : '';
         });
-        ['lat', 'lng', 'tokens', 'staked'].forEach(f => {
+        ['lat', 'lng'].forEach(f => {
             sanitized[f] = account[f] != null ? Number(account[f]) : 0;
         });
+
+        // Only provider accounts receive token rewards.  For them, the pushed
+        // balance must not exceed what is provably earned from completed orders.
+        const claimedTokens = Math.max(0, Number(account.tokens) || 0);
+        if (account.role === 'provider' && account.id) {
+            const provenEarnings = CloudSync._getProvenEarnings(account.id);
+            // provenEarnings === -1 means we could not read localStorage; fall
+            // back to the claimed value so legitimate offline writes still work.
+            sanitized.tokens = provenEarnings >= 0
+                ? Math.min(claimedTokens, provenEarnings)
+                : claimedTokens;
+        } else {
+            sanitized.tokens = claimedTokens;
+        }
+
+        sanitized.staked = Math.max(0, Number(account.staked) || 0);
         return sanitized;
     },
 
