@@ -266,6 +266,11 @@ window.translateDOM = function(root = document.body) {
 // MUTATION OBSERVER FOR DYNAMIC DATA INJECTIONS
 let i18nObserver = null;
 
+/**
+ * Initializes and starts the i18n MutationObserver to dynamically translate 
+ * elements appended or altered in the DOM tree.
+ * @returns {void}
+ */
 window.startI18nObserver = function() {
   if (i18nObserver) i18nObserver.disconnect();
 
