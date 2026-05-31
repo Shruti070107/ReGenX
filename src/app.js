@@ -4761,8 +4761,8 @@ await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION
   }, ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room']);
   const route = getOrderRouteEndpoints(o);
   if (route.start && route.end) {
-    const distanceKm = parseFloat(distanceKm(route.start.lat, route.start.lng, route.end.lat, route.end.lng).toFixed(1));
-    const emissionKg = parseFloat((distanceKm * 0.21).toFixed(2));
+    const routeDistKm = parseFloat(distanceKm(route.start.lat, route.start.lng, route.end.lat, route.end.lng).toFixed(1));
+    const emissionKg = parseFloat((routeDistKm * 0.21).toFixed(2));
     const plantAcc = DB.get('acc:' + o.plantId);
     const offsetKg = parseFloat((kgProcessed * getCO2Factor(o.wasteType, plantAcc?.processingMethod)).toFixed(2));
     const score = Math.max(10, Math.min(100, Math.round((offsetKg / Math.max(emissionKg, 1)) * 100)));
@@ -4770,7 +4770,7 @@ await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION
       id: 'ems-' + uid(),
       orderId: o.id,
       org: o.providerOrg,
-      distanceKm,
+      distanceKm: routeDistKm,
       emissionKg,
       offsetKg,
       score,
