@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
+import { VALID_ROLES, isWriteAuthorized } from './realtime-writes-auth.mjs';
 
 dotenv.config();
 
@@ -33,6 +34,11 @@ function isAllowedOrigin(origin) {
   if (!origin) return true;
   return ALLOWED_ORIGINS.has(origin);
 }
+
+// Server-side session registry.  Populated by session:join events and
+// consulted by the write-authorization check in the operational:event handler.
+// Never derived from the payload of the event being authorized.
+const socketSessions = new Map();
 
 const app = express();
 const httpServer = createServer(app);
@@ -101,16 +107,50 @@ function broadcastToRooms(payload) {
   });
 }
 
-function applyUpdates(updates = []) {
+/**
+ * Apply a list of state updates, enforcing write-authorization for each key.
+ * Updates that do not pass the ownership check are silently dropped and
+ * logged.  The version counter is incremented only when at least one update
+ * was accepted.
+ *
+ * @param {Array}  updates   - Array of { key, value, action } objects.
+ * @param {string} socketId  - ID of the socket that submitted the payload.
+ * @returns {number} Count of accepted updates.
+ */
+function applyUpdates(updates = [], socketId = null) {
+  const session = socketId ? socketSessions.get(socketId) : null;
+  let accepted = 0;
+  const rejected = [];
+
   updates.forEach((update) => {
     if (!update || !update.key) return;
-    if (update.action === 'remove' || typeof update.value === 'undefined') {
-      delete state.records[update.key];
+
+    if (!isWriteAuthorized(session, update.key)) {
+      rejected.push(update.key);
       return;
     }
-    state.records[update.key] = update.value;
+
+    if (update.action === 'remove' || typeof update.value === 'undefined') {
+      delete state.records[update.key];
+    } else {
+      state.records[update.key] = update.value;
+    }
+    accepted++;
   });
-  state.version += 1;
+
+  if (accepted > 0) state.version += 1;
+
+  if (rejected.length > 0) {
+    const sessionDesc = session
+      ? `role=${session.role} id=${session.sessionId}`
+      : 'no-session';
+    console.warn(
+      `[realtime] Rejected ${rejected.length} unauthorized write(s) ` +
+      `from socket ${socketId} (${sessionDesc}): ${rejected.join(', ')}`
+    );
+  }
+
+  return accepted;
 }
 
 app.use(express.static(rootDir, { extensions: ['html'] }));
@@ -128,6 +168,14 @@ io.on('connection', (socket) => {
   socket.emit('sync:snapshot', { version: state.version, records: state.records });
 
   socket.on('session:join', ({ session, rooms = [] } = {}) => {
+    // Store a server-side copy of the session so the write-authorization
+    // check can use it without trusting later payloads.
+    const role      = VALID_ROLES.has(session?.role) ? session.role : null;
+    const sessionId = typeof session?.id === 'string' && session.id
+      ? session.id
+      : null;
+    socketSessions.set(socket.id, { role, sessionId });
+
     const joinedRooms = new Set(['network_room', ...(rooms || [])]);
     if (session?.role) joinedRooms.add(`${session.role}s_room`);
     if (session?.role) joinedRooms.add(`${session.role}_room`);
@@ -136,6 +184,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('session:leave', () => {
+    socketSessions.delete(socket.id);
     socket.rooms.forEach((room) => {
       if (room !== socket.id) socket.leave(room);
     });
@@ -147,6 +196,8 @@ io.on('connection', (socket) => {
 
   socket.on('operational:event', async (payload = {}) => {
     const updates = Array.isArray(payload.updates) ? payload.updates : [];
+
+    // No-update broadcasts (notifications, toasts) pass through as before.
     if (!updates.length) {
       broadcastToRooms({
         ...payload,
@@ -157,7 +208,13 @@ io.on('connection', (socket) => {
       return;
     }
 
-    applyUpdates(updates);
+    // Apply only the updates that pass ownership validation.
+    const accepted = applyUpdates(updates, socket.id);
+
+    // If every update in the payload was rejected, skip persistence and
+    // broadcast — there is nothing to propagate.
+    if (accepted === 0) return;
+
     await persistState();
 
     const response = {
@@ -170,6 +227,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    socketSessions.delete(socket.id);
     socket.removeAllListeners();
   });
 });
