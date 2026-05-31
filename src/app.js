@@ -756,7 +756,20 @@ async function prepareTrustLedgerEntry(entry, previousHash = 'GENESIS') {
 }
 
 /**
- * Prepare a ledger for persistence by sealing every entry with a fresh hash chain.
+ * Prepare a ledger for persistence, sealing any unsealed entries with a
+ * fresh hash while preserving the stored hashes of already-sealed entries.
+ *
+ * Critical invariant: once an entry has been sealed (has a non-empty `hash`
+ * field on a `_v:2` record) its hash must never be recomputed from the
+ * current field values.  Recomputing from mutable data would allow anyone
+ * to modify historical fields — actorId, GPS coordinates, event type,
+ * timestamp — and then trigger a normal save to silently rebuild a
+ * cryptographically valid-looking chain that passes all integrity checks.
+ * Preserving the original stored hash means that any field modification is
+ * detectable by the async cryptographic verification in openIntegrityScan,
+ * which recomputes hashes from canonical fields and compares them to the
+ * immutable stored fingerprints.
+ *
  * @param {Array<Object>} events - Raw or partially normalized ledger entries.
  * @returns {Promise<Array<Object>>} Prepared ledger entries.
  */
@@ -764,9 +777,17 @@ async function prepareTrustLedgerForWrite(events) {
   const prepared = [];
   let previousHash = 'GENESIS';
   for (const entry of Array.isArray(events) ? events : []) {
-    const normalized = await prepareTrustLedgerEntry(entry, previousHash);
-    prepared.push(normalized);
-    previousHash = normalized.hash;
+    if (entry && entry._v === 2 && typeof entry.hash === 'string' && entry.hash !== '') {
+      // Entry is already sealed — preserve the stored hash exactly.
+      // Do NOT recompute; the stored hash is the immutable historical fingerprint.
+      prepared.push(entry);
+      previousHash = entry.hash;
+    } else {
+      // Unsealed or legacy entry — normalise and compute a fresh hash now.
+      const normalized = await prepareTrustLedgerEntry(entry, previousHash);
+      prepared.push(normalized);
+      previousHash = normalized.hash;
+    }
   }
   return prepared;
 }
@@ -4255,19 +4276,25 @@ window.openIntegrityScan = function(orderId) {
     const events = getOrderLedgerEvents(orderId);
     let isTampered = false;
 
+    // Walk the chain in order, passing the accumulated previousHash to each
+    // recomputation so the digest covers the full chain context — not just the
+    // entry's own fields.  normalizeHash was previously referenced but never
+    // defined; the comparison is now a direct string equality check on the
+    // '0x'-prefixed hex values that generateLedgerHash always returns.
+    let prevHash = 'GENESIS';
     for (const e of events) {
       if (!e.hash) {
         isTampered = true;
         break;
       }
 
-      const { hash: storedHash, ...payload } = e;
       try {
-        const expectedHash = await generateLedgerHash(payload);
-        if (normalizeHash(storedHash) !== normalizeHash(expectedHash)) {
+        const expectedHash = await generateLedgerHash(e, prevHash);
+        if (e.hash !== expectedHash) {
           isTampered = true;
           break;
         }
+        prevHash = e.hash;
       } catch (error) {
         console.error('Failed to verify ledger hash:', error);
         isTampered = true;
