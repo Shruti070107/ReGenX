@@ -113,11 +113,65 @@ function applyUpdates(updates = []) {
   state.version += 1;
 }
 
-app.use(express.static(rootDir, { extensions: ['html'] }));
+// Block access to sensitive server-side files and directories.
+// This guard runs before the static-file middleware and returns HTTP 403
+// for two categories of request:
+//
+//   1. Dotfiles — any path segment that begins with a dot (e.g. /.env,
+//      /.gitignore).  The serve-static 'dotfiles: deny' option also sets
+//      this intent, but its implementation emits an ENOENT-coded error that
+//      the default fallthrough handler quietly swallows.  An explicit 403
+//      here is the reliable layer.
+//
+//   2. Known sensitive non-dotfile paths — server scripts, package manifests,
+//      lock files, and the Node modules tree.
+app.use((req, res, next) => {
+  const p = req.path;
 
+  // Reject any path segment that begins with a dot.
+  const segments = p.split('/');
+  if (segments.some((seg) => seg.length > 1 && seg.startsWith('.'))) {
+    return res.status(403).end();
+  }
+
+  // Reject known sensitive server-side paths.
+  const BLOCKED = [
+    '/scripts/',
+    '/node_modules/',
+    '/package.json',
+    '/package-lock.json',
+    '/data/',
+  ];
+  if (BLOCKED.some((prefix) => p === prefix || p.startsWith(prefix))) {
+    return res.status(403).end();
+  }
+
+  next();
+});
+
+// Serve the repository-root static assets (HTML, CSS, JS, images, manifests).
+// dotfiles: 'deny' is set as defense-in-depth even though the explicit guard
+// above is the primary dotfile blocker.
+app.use(express.static(rootDir, { extensions: ['html'], dotfiles: 'deny' }));
+
+// Public configuration endpoint.
+// Only safe, non-secret values are included.  REALTIME_AUTH_TOKEN and
+// APPWRITE_API_KEY are intentionally omitted.  The Appwrite connection
+// fields are public-safe (the API key that grants elevated access is
+// never sent to the browser).
 app.get('/config.js', (_req, res) => {
   res.type('application/javascript');
-  res.send(`window.__REALTIME_CONFIG__ = ${JSON.stringify({ token: REALTIME_AUTH_TOKEN })};`);
+  const safeConfig = {
+    url: '/',
+    appwrite: {
+      endpoint:             process.env.VITE_APPWRITE_ENDPOINT             || process.env.APPWRITE_ENDPOINT             || 'https://cloud.appwrite.io/v1',
+      projectId:            process.env.VITE_APPWRITE_PROJECT_ID           || process.env.APPWRITE_PROJECT_ID           || '',
+      databaseId:           process.env.VITE_APPWRITE_DATABASE_ID          || process.env.APPWRITE_DATABASE_ID          || '',
+      ordersCollectionId:   process.env.VITE_APPWRITE_COLLECTION_ID_ORDERS || process.env.APPWRITE_COLLECTION_ID_ORDERS || '',
+      accountsCollectionId: process.env.APPWRITE_COLLECTION_ID_ACCOUNTS    || '',
+    },
+  };
+  res.send(`window.__REALTIME_CONFIG__ = ${JSON.stringify(safeConfig)};`);
 });
 
 app.get('/healthz', (_req, res) => {
