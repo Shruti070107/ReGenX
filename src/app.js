@@ -1794,68 +1794,89 @@ if (savedTheme === 'dark') {
 // GOOGLE AUTH
 // ══════════════════════════════════════
 
-window.initGoogleAuth = function () {
+const GOOGLE_CLIENT_ID = '661991506161-rb6j5n5klovjupfal1ip2qstcu0k366a.apps.googleusercontent.com';
 
-  if (!window.google) {
-    console.error("Google SDK not loaded");
+/**
+ * Validates the claims returned by Google's tokeninfo endpoint.
+ * Checks audience, issuer, and expiration independently of the
+ * network call so the logic can be exercised in isolation.
+ *
+ * @param {Object} payload - JSON body returned by the tokeninfo endpoint.
+ * @param {string} clientId - Expected OAuth client ID (audience).
+ * @returns {{ valid: boolean, reason?: string }}
+ */
+function validateGoogleClaims(payload, clientId) {
+  if (!payload || typeof payload !== 'object') {
+    return { valid: false, reason: 'invalid payload' };
+  }
+  // tokeninfo returns { error: '...' } for rejected tokens
+  if (payload.error) {
+    return { valid: false, reason: String(payload.error) };
+  }
+  if (payload.aud !== clientId) {
+    return { valid: false, reason: 'audience mismatch' };
+  }
+  const validIssuers = ['accounts.google.com', 'https://accounts.google.com'];
+  if (!validIssuers.includes(payload.iss)) {
+    return { valid: false, reason: 'invalid issuer' };
+  }
+  // exp is a Unix timestamp (string from tokeninfo). tokeninfo already
+  // rejects expired tokens server-side, but we double-check locally.
+  if (payload.exp && Number(payload.exp) < Math.floor(Date.now() / 1000)) {
+    return { valid: false, reason: 'token expired' };
+  }
+  return { valid: true };
+}
+// Exposed for testing; not part of the public API surface.
+window._validateGoogleClaims = validateGoogleClaims;
+
+/**
+ * Handles the Google Identity Services credential callback.
+ * Sends the raw ID token to Google's tokeninfo endpoint so that
+ * the signature, issuer, audience, and expiration are validated
+ * server-side before any identity decision is made.
+ *
+ * @param {{ credential: string }} response - GIS credential response.
+ */
+async function handleGoogleLogin(response) {
+  const token = response.credential;
+  if (!token) {
+    showToast('⚠ Sign-in failed. No credential received.');
     return;
   }
 
-  google.accounts.id.initialize({
-
-    client_id:
-      "661991506161-rb6j5n5klovjupfal1ip2qstcu0k366a.apps.googleusercontent.com",
-
-    callback:
-      handleGoogleLogin
-  });
-
-  // RENDER GOOGLE BUTTON
-  google.accounts.id.renderButton(
-
-    document.getElementById(
-      "google-login-btn"
-    ),
-
-    {
-      theme: "outline",
-      size: "large",
-      width: 280
-    }
-  );
-};
-
-function handleGoogleLogin(response) {
-
-  const token =
-    response.credential;
-
-  const payload =
-    JSON.parse(
-      atob(token.split('.')[1])
+  // Ask Google to verify the token.  Any token that was not issued and
+  // signed by Google — including crafted payloads — is rejected here.
+  let payload;
+  try {
+    const verifyRes = await fetch(
+      'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token)
     );
+    payload = await verifyRes.json();
+  } catch (e) {
+    console.error('[Auth] Google token verification network error:', e);
+    showToast('⚠ Sign-in failed. Please check your connection and try again.');
+    return;
+  }
+
+  const check = validateGoogleClaims(payload, GOOGLE_CLIENT_ID);
+  if (!check.valid) {
+    console.error('[Auth] Google token validation failed:', check.reason);
+    showToast('⚠ Sign-in failed. Token validation error.');
+    return;
+  }
 
   const acc = {
-
     id: uid(),
-
-    role: "provider",
-
+    role: 'provider',
     name: payload.name,
-
     org: payload.email,
-
     email: payload.email,
-
-    avatar: payload.picture,
-
+    avatar: payload.picture || '',
     lat: 28.5355,
-
     lng: 77.3910,
-
     tokens: 0,
-
-    authProvider: "google"
+    authProvider: 'google'
   };
 
   const existing = DB
@@ -1864,10 +1885,9 @@ function handleGoogleLogin(response) {
     .find(u => u.email === acc.email);
 
   let loginAcc;
-
   if (existing) {
     existing.name = payload.name;
-    existing.avatar = payload.picture;
+    existing.avatar = payload.picture || '';
     DB.set('acc:' + existing.id, existing);
     loginAcc = existing;
   } else {
@@ -1876,11 +1896,25 @@ function handleGoogleLogin(response) {
   }
 
   executeLogin(loginAcc);
-
-  showToast(
-    `✓ Welcome ${loginAcc.name}`
-  );
+  showToast(`✓ Welcome ${loginAcc.name}`);
 }
+
+window.initGoogleAuth = function () {
+  if (!window.google) {
+    console.error('Google SDK not loaded');
+    return;
+  }
+
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleLogin
+  });
+
+  google.accounts.id.renderButton(
+    document.getElementById('google-login-btn'),
+    { theme: 'outline', size: 'large', width: 280 }
+  );
+};
 
 // AUTO LOGIN CHECK
 window.addEventListener("DOMContentLoaded", () => {
