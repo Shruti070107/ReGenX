@@ -2271,13 +2271,14 @@ window.confirmPlantReceipt = function(id) {
   const o = getOrder(id); if(!o) return;
   const score = document.getElementById('p-score').value || 0;
   o.status = 'completed'; o.segScore = score;
-  
+
+  let earnedTokens = 0;
   const providerAcc = DB.get('acc:' + o.providerId);
   if (providerAcc) {
      const providerHistory = getAllOrders().filter(ord => ord.providerId === o.providerId && ord.status === 'completed');
      const trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
       const baseTokens = Math.round((o.actualKg || o.kg) * 2);
-      const earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
+      earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
      
      providerAcc.tokens = (providerAcc.tokens || 0) + earnedTokens;
      o.tokensMinted = earnedTokens;
