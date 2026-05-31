@@ -150,7 +150,8 @@ io.on('connection', (socket) => {
     if (!updates.length) {
       broadcastToRooms({
         ...payload,
-        sourceId: socket.id,
+        sourceId: payload.clientId || socket.id,
+        socketId: socket.id,
         version: state.version,
         ts: Date.now()
       });
@@ -162,7 +163,8 @@ io.on('connection', (socket) => {
 
     const response = {
       ...payload,
-      sourceId: socket.id,
+      sourceId: payload.clientId || socket.id,
+      socketId: socket.id,
       version: state.version,
       ts: Date.now()
     };
