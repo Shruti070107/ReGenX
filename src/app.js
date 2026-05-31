@@ -12,6 +12,7 @@ import { ReGenXRealtime } from './realtime-sync.js';
 import { CloudSync } from './cloud-sync.js';
 import { ESGReporter } from './esg-reporter.js';
 import { AccessibilityManager } from './accessibility.js';
+import { escapeHTML } from './html-utils.js';
 const STORAGE_KEY_PREFIX = "regenx-v3:";
 const TRUST_LEDGER_KEY = STORAGE_KEY_PREFIX + "trust-ledger";
 const ESG_ALERTS_KEY = STORAGE_KEY_PREFIX + "esg-alerts";
