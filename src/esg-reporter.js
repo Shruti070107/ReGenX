@@ -75,7 +75,7 @@ export const ESGReporter = {
      * @param {Object} account - Current user SESSION object.
      * @param {Array<Object>} history - Array of completed order objects.
      */
-    renderHub: (mc, fullRender, account, history) => {
+    renderHub: async (mc, fullRender, account, history) => {
         if (!fullRender) return;
 
         const totalKg = history.reduce((sum, o) => sum + (parseFloat(o.actualKg || o.kg) || 0), 0);
@@ -92,7 +92,18 @@ export const ESGReporter = {
             : 0;
 
         const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        const reportHash = ESGReporter.generateAuditHash();
+        let reportHash;
+        try {
+            reportHash = await ESGReporter.generateAuditHash({
+                totalKg,
+                totalCO2,
+                avgSegScore,
+                timestamp: Date.now()
+            });
+        } catch (e) {
+            console.error('Failed to generate audit hash:', e);
+            reportHash = 'HASH_UNAVAILABLE';
+        }
 
         let qualityBadgeColor = 'badge-red';
         let qualityText = 'Needs Improvement';

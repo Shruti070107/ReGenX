@@ -5,3 +5,4 @@ dist
 .env.local
 .env.production
 coverage
+.bug-hunter/
