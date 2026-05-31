@@ -154,28 +154,7 @@ justify-content:center;
 align-items:center;
 margin-top:18px;
 ">
-    <button onclick="resetAppData()" style="
-        background: rgba(255,255,255,0.08);
-        border: 1px solid rgba(255,255,255,0.12);
-        color: rgba(100,116,139,0.85);
-        font-size: 13px;
-        cursor: pointer;
-        padding: 8px 16px;
-        border-radius: 10px;
-        transition: all 0.25s ease;
-        font-family: 'Inter', sans-serif;
-        backdrop-filter: blur(6px);
-    "
-    onmouseover="
-        this.style.color='#ef4444';
-        this.style.borderColor='#ef4444';
-        this.style.transform='translateY(-1px)';
-    "
-    onmouseout="
-        this.style.color='rgba(100,116,139,0.85)';
-        this.style.borderColor='rgba(255,255,255,0.12)';
-        this.style.transform='translateY(0)';
-    ">
+    <button type="button" onclick="resetAppData()" class="reset-btn reset-btn-danger">
         🗑 Reset All App Data
     </button>
 </div>
@@ -193,7 +172,7 @@ margin-top:18px;
 
     <!-- RESET BUTTON -->
    <div class="reset-wrapper">
-    <button onclick="resetAppData()" class="reset-btn">
+    <button type="button" onclick="resetAppData()" class="reset-btn reset-btn-danger">
         🗑 Reset All App Data
     </button>
 </div>

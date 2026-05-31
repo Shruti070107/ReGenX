@@ -191,6 +191,39 @@ h1, h2, h3, .heading { font-family: 'Space Grotesk', sans-serif; font-weight: 70
 .role-btn-icon { font-size: 24px; margin-bottom: 8px; }
 .role-btn-name { font-size: 12px; font-weight: 600; }
 
+.reset-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.reset-btn {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  color: rgba(100,116,139,0.85);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  padding: 8px 16px;
+  transition: color 0.25s ease, border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.reset-btn-danger:hover,
+.reset-btn-danger:focus-visible {
+  border-color: #ef4444;
+  color: #ef4444;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(239,68,68,0.12);
+  outline: none;
+}
+
+.reset-btn-danger:active {
+  transform: translateY(0);
+}
+
 /* SUCCESS SPLASH */
 .success-splash {
   position: absolute; inset: 0; background: var(--glass-bg); backdrop-filter: blur(20px);
