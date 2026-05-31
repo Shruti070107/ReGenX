@@ -18,7 +18,44 @@
  * @property {number} lng - Longitude.
  * @property {number} intensity - Heat intensity (0 to 1).
  * @property {string} reason - Why this zone is predicted to be high demand.
+ * @property {string} equityTag - Bias/fairness signal applied to the zone.
  */
+
+const FULL_INTENSITY_ORDER_COUNT = 10;
+const RURAL_ISOLATION_RADIUS_KM = 8;
+const RURAL_FAIRNESS_FLOOR = 0.34;
+const DEMAND_ZONE_THRESHOLD = 0.3;
+
+function toRadians(degrees) {
+    return degrees * Math.PI / 180;
+}
+
+function distanceKm(a, b) {
+    if (!Number.isFinite(a?.lat) || !Number.isFinite(a?.lng) || !Number.isFinite(b?.lat) || !Number.isFinite(b?.lng)) {
+        return Infinity;
+    }
+
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(b.lat - a.lat);
+    const dLng = toRadians(b.lng - a.lng);
+    const lat1 = toRadians(a.lat);
+    const lat2 = toRadians(b.lat);
+    const h =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+
+    return 2 * earthRadiusKm * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function isIsolatedProvider(provider, providers) {
+    if (!Number.isFinite(provider?.lat) || !Number.isFinite(provider?.lng)) return false;
+
+    const nearestDistance = providers
+        .filter(candidate => candidate && candidate.id !== provider.id)
+        .reduce((nearest, candidate) => Math.min(nearest, distanceKm(provider, candidate)), Infinity);
+
+    return nearestDistance >= RURAL_ISOLATION_RADIUS_KM;
+}
 
 export const Intelligence = {
     /**
@@ -47,7 +84,8 @@ export const Intelligence = {
     },
 
     /**
-     * Calculates high demand zones for riders based on provider density and historical frequency.
+     * Calculates high demand zones for riders based on provider density, historical frequency,
+     * and a fairness floor for isolated rural providers that would otherwise be hidden.
      * @param {Array} providers - Array of provider account objects.
      * @param {Array} allOrders - Array of all orders.
      * @returns {HighDemandZone[]}
@@ -55,14 +93,21 @@ export const Intelligence = {
     getHighDemandZones: (providers, allOrders) => {
         return providers.map(p => {
             const providerOrders = allOrders.filter(o => o.providerId === p.id);
-            const intensity = Math.min(providerOrders.length / 10, 1);
+            const historicalIntensity = Math.min(providerOrders.length / FULL_INTENSITY_ORDER_COUNT, 1);
+            const applyRuralFloor = isIsolatedProvider(p, providers) && historicalIntensity < RURAL_FAIRNESS_FLOOR;
+            const intensity = Math.min(Math.max(historicalIntensity, applyRuralFloor ? RURAL_FAIRNESS_FLOOR : 0), 1);
+            const equityTag = applyRuralFloor ? 'rural-coverage-floor' : 'historical-demand';
+
             return {
                 lat: p.lat + (Math.random() - 0.5) * 0.01, // Slight offset for visual "area"
                 lng: p.lng + (Math.random() - 0.5) * 0.01,
                 intensity,
-                reason: `${p.org} frequently dispatches ${Math.floor(intensity * 100)}kg+`
+                equityTag,
+                reason: applyRuralFloor
+                    ? `${p.org} is an isolated provider; rural coverage floor keeps it visible despite limited history`
+                    : `${p.org} frequently dispatches ${Math.floor(historicalIntensity * 100)}kg+`
             };
-        }).filter(z => z.intensity > 0.3);
+        }).filter(z => z.intensity > DEMAND_ZONE_THRESHOLD);
     },
 
     /**

@@ -3946,12 +3946,15 @@ async function renderRider(mc, fullRender) {
         const demandZones = Intelligence.getHighDemandZones(providers, orders);
         
         demandZones.forEach(zone => {
+           const equityNote = zone.equityTag === 'rural-coverage-floor'
+              ? '<br><span style="color:#F59E0B;">Equity safeguard: rural zone kept visible</span>'
+              : '';
            L.circle([zone.lat, zone.lng], {
               color: 'transparent',
               fillColor: '#EF4444',
               fillOpacity: zone.intensity * 0.4,
               radius: 800
-           }).addTo(rMap).bindPopup(`<b>High Demand Area</b><br>${zone.reason}`);
+           }).addTo(rMap).bindPopup(`<b>High Demand Area</b><br>${zone.reason}${equityNote}`);
         });
 
         // Haversine total distance estimate
