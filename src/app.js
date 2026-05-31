@@ -236,6 +236,37 @@ const PROCESSING_METHODS = {
   biogas:              'Biogas Recovery'
 };
 
+const CO2_FACTOR_SOURCES = {
+  label: 'IPCC 2006 + GHG Protocol Scope 3',
+  detail: 'Waste-specific avoided-emission factors vary by processing method and are stored with each ledger row.'
+};
+
+const LOGISTICS_EMISSION_FACTOR_KG_PER_KM = 0.21;
+
+/**
+ * Resolves CO₂ offset factor metadata for transparent audit trails.
+ * @param {string} wasteType - The waste category (must match a key in CO2_FACTORS).
+ * @param {string} [processingMethod] - The plant's processing method key.
+ * @returns {{factor:number,wasteType:string,processingMethod:string,methodLabel:string,sourceLabel:string,sourceDetail:string,isFallback:boolean}}
+ */
+function getCO2FactorDetails(wasteType, processingMethod) {
+  const typeFactors = CO2_FACTORS[wasteType];
+  const methodKey = processingMethod && PROCESSING_METHODS[processingMethod]
+    ? processingMethod
+    : 'default';
+  const factor = typeFactors?.[methodKey] ?? typeFactors?.default ?? 0.55;
+
+  return {
+    factor,
+    wasteType: typeFactors ? wasteType : 'Unclassified bio-waste',
+    processingMethod: methodKey,
+    methodLabel: PROCESSING_METHODS[methodKey] || 'Conservative default',
+    sourceLabel: CO2_FACTOR_SOURCES.label,
+    sourceDetail: CO2_FACTOR_SOURCES.detail,
+    isFallback: !typeFactors || methodKey === 'default'
+  };
+}
+
 /**
  * Resolves the correct CO₂ offset factor for a given waste type and processing method.
  * Falls back to a conservative estimate if the combination is not found.
@@ -244,11 +275,10 @@ const PROCESSING_METHODS = {
  * @returns {number} CO₂ offset factor in kg CO₂eq per kg waste.
  */
 function getCO2Factor(wasteType, processingMethod) {
-  const typeFactors = CO2_FACTORS[wasteType];
-  if (!typeFactors) return 0.55; // Conservative fallback for unrecognised waste types
-  return typeFactors[processingMethod] || typeFactors['default'] || 0.55;
+  return getCO2FactorDetails(wasteType, processingMethod).factor;
 }
 window.getCO2Factor = getCO2Factor;
+window.getCO2FactorDetails = getCO2FactorDetails;
 const NOTIF_STORE_KEY = 'notifications';
 const OFFLINE_QUEUE_KEY = 'offline-sync-queue';
 const MAX_NOTIF_HISTORY = 60;
@@ -3028,6 +3058,32 @@ function renderEmissionsTracker(mc, fullRender) {
       <div class="stat-card"><div class="stat-val">${summary.avgScore || 0}</div><div class="stat-lbl">Efficiency Score</div></div>
     </div>
 
+    <div class="glass-card emissions-card emissions-proof-card">
+      <div class="between" style="gap:12px; align-items:flex-start; flex-wrap:wrap;">
+        <div>
+          <h4 style="font-size:16px;">Offset Transparency</h4>
+          <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">
+            Every carbon offset row stores the route distance, logistics emission factor, waste factor, processing method, and proof link used for the calculation.
+          </div>
+        </div>
+        <span class="badge badge-green">Auditable Factors</span>
+      </div>
+      <div class="emissions-proof-grid">
+        <div>
+          <strong>${CO2_FACTOR_SOURCES.label}</strong>
+          <span>${CO2_FACTOR_SOURCES.detail}</span>
+        </div>
+        <div>
+          <strong>${LOGISTICS_EMISSION_FACTOR_KG_PER_KM} kg CO₂/km</strong>
+          <span>Route emissions use the stored plant route distance and a visible logistics factor instead of an unexplained constant.</span>
+        </div>
+        <div>
+          <strong>Order-linked proof</strong>
+          <span>Entries are tied to the completed dispatch ID or trust-ledger hash so impact claims can be traced back to operational activity.</span>
+        </div>
+      </div>
+    </div>
+
     <div class="glass-card emissions-card">
       <div class="between" style="margin-bottom:12px;">
         <h4 style="font-size:16px;">Recent Routes</h4>
@@ -3039,6 +3095,12 @@ function renderEmissionsTracker(mc, fullRender) {
             <div>
               <div class="emissions-title">${escapeHTML(e.org)} · ${escapeHTML(e.distanceKm)} km</div>
               <div class="emissions-sub">${e.emissionKg} kg emitted · ${e.offsetKg} kg offset · ${fmtDate(e.ts)}</div>
+              <div class="emissions-proof">
+                ${escapeHTML(e.wasteType || 'Bio-waste')} via ${escapeHTML(e.processingMethodLabel || 'Conservative default')}
+                · factor ${Number(e.offsetFactor || 0).toFixed(2)} kg CO₂eq/kg
+                · ${escapeHTML(e.offsetFactorSource || CO2_FACTOR_SOURCES.label)}
+                · proof ${escapeHTML(String(e.proofId || e.orderId || 'pending')).slice(0, 16)}
+              </div>
             </div>
             <span class="badge ${e.score >= 85 ? 'badge-green' : e.score >= 70 ? 'badge-blue' : e.score >= 55 ? 'badge-amber' : 'badge-red'}">${e.score}</span>
           </div>
@@ -4761,18 +4823,29 @@ await recordTrustEvent(o, 'completed', 'plant', { lat: SESSION.lat, lng: SESSION
   }, ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room']);
   const route = getOrderRouteEndpoints(o);
   if (route.start && route.end) {
-    const distanceKm = parseFloat(distanceKm(route.start.lat, route.start.lng, route.end.lat, route.end.lng).toFixed(1));
-    const emissionKg = parseFloat((distanceKm * 0.21).toFixed(2));
+    const routeDistanceKm = parseFloat(distanceKm(route.start.lat, route.start.lng, route.end.lat, route.end.lng).toFixed(1));
+    const emissionKg = parseFloat((routeDistanceKm * LOGISTICS_EMISSION_FACTOR_KG_PER_KM).toFixed(2));
     const plantAcc = DB.get('acc:' + o.plantId);
-    const offsetKg = parseFloat((kgProcessed * getCO2Factor(o.wasteType, plantAcc?.processingMethod)).toFixed(2));
+    const factorDetails = getCO2FactorDetails(o.wasteType, plantAcc?.processingMethod);
+    const offsetKg = parseFloat((kgProcessed * factorDetails.factor).toFixed(2));
     const score = Math.max(10, Math.min(100, Math.round((offsetKg / Math.max(emissionKg, 1)) * 100)));
     addEmissionsEntry({
       id: 'ems-' + uid(),
       orderId: o.id,
       org: o.providerOrg,
-      distanceKm,
+      distanceKm: routeDistanceKm,
       emissionKg,
       offsetKg,
+      wasteType: factorDetails.wasteType,
+      processingMethod: factorDetails.processingMethod,
+      processingMethodLabel: factorDetails.methodLabel,
+      offsetFactor: factorDetails.factor,
+      offsetFactorSource: factorDetails.sourceLabel,
+      offsetFactorSourceDetail: factorDetails.sourceDetail,
+      emissionFactor: LOGISTICS_EMISSION_FACTOR_KG_PER_KM,
+      proofStatus: o.txHash ? 'ledger-attested' : 'route-and-order-linked',
+      proofId: o.txHash || o.id,
+      usedFallbackFactor: factorDetails.isFallback,
       score,
       ts: ts()
     });
