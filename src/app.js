@@ -2085,8 +2085,31 @@ function startGreenWall() {
 }
 
 window.buyMarketItem = function(price, name) {
-  if((SESSION.tokens || 0) < price) return showToast("⚠ Insufficient $RGX balance.");
-  
+  // Read the live balance from localStorage so concurrent purchases in other
+  // tabs or rapid repeated calls always see the most recently persisted value,
+  // not a potentially stale in-memory copy.
+  const acc = DB.get('acc:' + SESSION.id);
+  const currentBalance = acc ? (Number(acc.tokens) || 0) : (SESSION.tokens || 0);
+
+  if (currentBalance < price) return showToast("⚠ Insufficient $RGX balance.");
+
+  // Deduct and persist synchronously — in the same event-loop tick as the
+  // check above — so no second call can pass the same balance check before
+  // this deduction is committed.  Placing the spend inside a setTimeout
+  // created a 3.5-second window where multiple calls would all see the
+  // pre-deduction balance and each pass the check independently, ultimately
+  // driving the balance negative.
+  SESSION.tokens = currentBalance - price;
+  if (acc) acc.tokens = SESSION.tokens;
+  DB.set('acc:' + SESSION.id, acc || SESSION);
+
+  // Reflect the new balance immediately so the display is never misleading.
+  const tokenEl = document.getElementById('token-balance');
+  if (tokenEl) tokenEl.textContent = SESSION.tokens;
+
+  // Show the minting animation.  The spend is already committed above;
+  // the setTimeout below is purely cosmetic — it re-enables the close
+  // button once the animation finishes and refreshes the view.
   const hash = '0x' + Array.from({length:40}, () => Math.floor(Math.random()*16).toString(16)).join('');
   const html = `
     <h3 class="modal-title">Web3 Smart Contract Interaction</h3>
@@ -2104,13 +2127,10 @@ window.buyMarketItem = function(price, name) {
   `;
   document.getElementById('modal-box').innerHTML = html;
   document.getElementById('modal').classList.add('open');
-  
+
   setTimeout(() => {
-    SESSION.tokens -= price;
-    DB.set('acc:' + SESSION.id, SESSION);
-    document.getElementById('token-balance').textContent = SESSION.tokens;
     const b = document.getElementById('btn-close-mint');
-    if(b) { b.disabled = false; b.textContent = "Close & Claim Asset"; }
+    if (b) { b.disabled = false; b.textContent = 'Close & Claim Asset'; }
     refreshCurrentView(true);
   }, 3500);
 }
