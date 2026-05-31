@@ -4028,7 +4028,7 @@ async function renderRider(mc, fullRender) {
     }, 100);
     
     // API Call for Rider Dashboard
-    if(active && fullRender) {
+    if(activeJobs.length && fullRender) {
        fetchWeather(SESSION.lat, SESSION.lng).then(w => {
           if(!w || currentView !== 'v-rd-dash') return;
           const wt = document.getElementById('rt-weather');
