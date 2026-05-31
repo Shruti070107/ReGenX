@@ -58,6 +58,10 @@ window.BioScanner = (function () {
   let _currentResult = null;
 
   // ── MODEL LOADING ─────────────────────────────────────────────────────────────
+  /**
+   * Asynchronously loads the TensorFlow.js MobileNet classification model.
+   * @returns {Promise<Object>} The loaded MobileNet model instance.
+   */
   async function loadModel() {
     if (_model) return _model;
     if (_modelPromise) {
