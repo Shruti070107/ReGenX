@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
+import { getAuthorizedRooms } from './realtime-auth.mjs';
 
 dotenv.config();
 
@@ -33,6 +34,10 @@ function isAllowedOrigin(origin) {
   if (!origin) return true;
   return ALLOWED_ORIGINS.has(origin);
 }
+
+// Server-side session registry.  Keyed by socket.id; never derived from
+// client-supplied data after the initial join.
+const socketSessions = new Map();
 
 const app = express();
 const httpServer = createServer(app);
@@ -127,15 +132,32 @@ app.get('/healthz', (_req, res) => {
 io.on('connection', (socket) => {
   socket.emit('sync:snapshot', { version: state.version, records: state.records });
 
-  socket.on('session:join', ({ session, rooms = [] } = {}) => {
-    const joinedRooms = new Set(['network_room', ...(rooms || [])]);
-    if (session?.role) joinedRooms.add(`${session.role}s_room`);
-    if (session?.role) joinedRooms.add(`${session.role}_room`);
-    if (session?.id) joinedRooms.add(`session:${session.id}`);
-    joinedRooms.forEach((room) => socket.join(room));
+  socket.on('session:join', ({ session } = {}) => {
+    // Derive room membership from server-authoritative logic only.
+    // The client-supplied `rooms` array is intentionally ignored: accepting
+    // arbitrary room names from the client would allow role escalation (e.g.
+    // claiming 'admin') and unauthorized access to other users' private
+    // session rooms or the protected admin_room.
+    const role      = session?.role      ?? null;
+    const sessionId = session?.id        ?? null;
+
+    // Store the session on the server so reconnect paths have a stable
+    // source of truth that cannot be altered by subsequent client events.
+    socketSessions.set(socket.id, { role, sessionId });
+
+    // Leave all current rooms before re-joining to prevent stale membership
+    // accumulation across multiple session:join calls (e.g. after reconnect).
+    socket.rooms.forEach((room) => {
+      if (room !== socket.id) socket.leave(room);
+    });
+
+    // Compute and apply the authorised room set.
+    const toJoin = getAuthorizedRooms(role, sessionId);
+    toJoin.forEach((room) => socket.join(room));
   });
 
   socket.on('session:leave', () => {
+    socketSessions.delete(socket.id);
     socket.rooms.forEach((room) => {
       if (room !== socket.id) socket.leave(room);
     });
@@ -170,6 +192,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    socketSessions.delete(socket.id);
     socket.removeAllListeners();
   });
 });
