@@ -2338,11 +2338,6 @@ function getOrder(id) { return DB.get('ord:'+id); }
 function saveOrder(o) { 
   // persist locally and publish to realtime and cloud sync when available
   DB.set('ord:'+o.id, o, { rooms: ['network_room', 'providers_room', 'riders_room', 'plants_room', 'admin_room'], eventType: 'KPI_UPDATED' });
-  if (window.CloudSync && window.CloudSync.isLive && navigator.onLine) {
-    window.CloudSync.pushDocument('orders', o);
-  } else {
-    queueOfflineAction({ type: 'sync-order', payload: o });
-  }
 }
 function getAllLogs() { return DB.list('log:').map(k => DB.get(k)).filter(Boolean).sort((a,b)=>b.ts-a.ts); }
 
