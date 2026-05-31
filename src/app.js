@@ -4255,19 +4255,20 @@ window.openIntegrityScan = function(orderId) {
     const events = getOrderLedgerEvents(orderId);
     let isTampered = false;
 
+    let prevHash = 'GENESIS';
     for (const e of events) {
       if (!e.hash) {
         isTampered = true;
         break;
       }
 
-      const { hash: storedHash, ...payload } = e;
       try {
-        const expectedHash = await generateLedgerHash(payload);
-        if (normalizeHash(storedHash) !== normalizeHash(expectedHash)) {
+        const expectedHash = await generateLedgerHash(e, prevHash);
+        if (e.hash !== expectedHash) {
           isTampered = true;
           break;
         }
+        prevHash = e.hash;
       } catch (error) {
         console.error('Failed to verify ledger hash:', error);
         isTampered = true;

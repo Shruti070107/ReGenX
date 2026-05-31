@@ -139,7 +139,106 @@ export const TrustProtocol = {
         if (!analysis.anomalies.routeDeviation && analysis.maxDeviationKm > 0.7) score -= 10;
         score = Math.max(0, Math.min(100, Math.round(score)));
         return { score, ...analysis };
-    }
+    },
+
+    /**
+     * Generates a deterministic SHA-256 hash for a trust ledger entry.
+     *
+     * Only the eight canonical fields that define the record's identity are
+     * included in the digest, serialised in fixed alphabetical key order so
+     * the result is stable regardless of how the caller constructed the
+     * object or the JavaScript engine's property-insertion order.
+     *
+     * @param {Object} entry - Ledger entry (full or canonical payload).
+     * @param {string} [previousHash='GENESIS'] - Hash of the immediately preceding entry.
+     * @returns {Promise<string>} '0x'-prefixed 64-character lowercase hex SHA-256 digest.
+     */
+    generateLedgerHash: async (entry, previousHash) => {
+        // Resolve the previousHash: prefer the explicit argument, then the
+        // field embedded in the entry object, then the GENESIS sentinel.
+        const prevHash =
+            (typeof previousHash === 'string' && previousHash !== '')
+                ? previousHash
+                : (typeof entry?.previousHash === 'string' && entry.previousHash !== '')
+                    ? entry.previousHash
+                    : 'GENESIS';
+
+        // Canonical fields, normalised to stable types.  The explicit key
+        // array passed to JSON.stringify guarantees the serialisation order
+        // is independent of insertion order.
+        const CANON_KEYS = ['actorId', 'actorRole', 'event', 'lat', 'lng', 'orderId', 'previousHash', 'ts'];
+        const canonical = {
+            actorId:      typeof entry?.actorId   === 'string' ? entry.actorId   : String(entry?.actorId   ?? ''),
+            actorRole:    typeof entry?.actorRole  === 'string' ? entry.actorRole : String(entry?.actorRole ?? ''),
+            event:        typeof entry?.event      === 'string' ? entry.event     : String(entry?.event     ?? ''),
+            lat:          Number.isFinite(entry?.lat)           ? entry.lat       : null,
+            lng:          Number.isFinite(entry?.lng)           ? entry.lng       : null,
+            orderId:      typeof entry?.orderId    === 'string' ? entry.orderId   : String(entry?.orderId   ?? ''),
+            previousHash: prevHash,
+            ts:           Number.isFinite(entry?.ts)            ? entry.ts        : 0,
+        };
+
+        const serialized = JSON.stringify(canonical, CANON_KEYS);
+        const encoded    = new TextEncoder().encode(serialized);
+        const hashBuf    = await crypto.subtle.digest('SHA-256', encoded);
+        const hex        = Array.from(new Uint8Array(hashBuf), b => b.toString(16).padStart(2, '0')).join('');
+        return '0x' + hex;
+    },
+
+    /**
+     * Synchronously validates the structural integrity of a trust ledger by
+     * verifying that the hash chain is unbroken.
+     *
+     * Rules checked:
+     *  - Every entry must be a non-null object with non-empty `hash` and
+     *    `previousHash` string fields.
+     *  - The first entry must be anchored to the 'GENESIS' sentinel.
+     *  - Every subsequent entry's `previousHash` must equal the stored hash
+     *    of the immediately preceding entry.
+     *
+     * This is a structural check only; it does not recompute cryptographic
+     * hashes from canonical fields.  Full hash re-verification is performed
+     * by the async integrity-scan path in the UI.
+     *
+     * @param {Array<Object>} ledger - Ordered array of sealed ledger entries.
+     * @returns {{ valid: boolean, tampered: boolean, brokenIndex: number|null }}
+     */
+    verifyLedgerIntegrity: (ledger) => {
+        if (!Array.isArray(ledger) || ledger.length === 0) {
+            return { valid: true, tampered: false, brokenIndex: null };
+        }
+
+        for (let i = 0; i < ledger.length; i++) {
+            const entry = ledger[i];
+
+            if (!entry || typeof entry !== 'object') {
+                return { valid: false, tampered: true, brokenIndex: i };
+            }
+
+            // Both hash fields must be present and non-empty for chain validation.
+            if (typeof entry.hash !== 'string' || entry.hash === '') {
+                return { valid: false, tampered: true, brokenIndex: i };
+            }
+            if (typeof entry.previousHash !== 'string' || entry.previousHash === '') {
+                return { valid: false, tampered: true, brokenIndex: i };
+            }
+
+            if (i === 0) {
+                // The first entry must be anchored to the GENESIS sentinel.
+                if (entry.previousHash !== 'GENESIS') {
+                    return { valid: false, tampered: true, brokenIndex: 0 };
+                }
+            } else {
+                // Every subsequent entry's previousHash must reference the
+                // stored hash of the immediately preceding entry.
+                if (entry.previousHash !== ledger[i - 1].hash) {
+                    return { valid: false, tampered: true, brokenIndex: i };
+                }
+            }
+        }
+
+        return { valid: true, tampered: false, brokenIndex: null };
+    },
 };
 
 // Phase 2 Task 2: Active cryptographic ledger signatures active
