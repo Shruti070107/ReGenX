@@ -305,6 +305,12 @@ window.startI18nObserver = function() {
 };
 
 // LANGUAGE CONTROLLER
+/**
+ * Sets the active application language, persists it in local storage,
+ * and triggers immediate DOM translations before refreshing.
+ * @param {string} lang - The target language code (e.g. 'en', 'hi', 'te', 'de').
+ * @returns {void}
+ */
 window.setLanguage = function(lang) {
   const safeLang = (lang || 'en').toLowerCase();
   window.currentLanguage = safeLang;
