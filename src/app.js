@@ -4659,15 +4659,27 @@ window.confirmPlantReceipt = async function(id) {
   const o = getOrder(id); if(!o) return;
   if (o.status === 'completed') return showToast('Order already processed.');
   const score = document.getElementById('p-score').value || 0;
+
+  // Confirm FIRST — no state must change before the user approves.
+  // Previously this dialog appeared after balance mutations, allowing
+  // repeated cancellations to inflate token balances without limit.
+  const confirmed = confirm('Are you sure you want to mark this dispatch as completed?');
+  if (!confirmed) return;
+
+  // All mutations below are now guarded by the confirmation above.
   o.status = 'completed'; o.segScore = score;
-  
+
   const providerAcc = DB.get('acc:' + o.providerId);
+  // Declare earnedTokens outside the block so it is in scope for the
+  // notifications and toast that follow (fixes a ReferenceError when
+  // providerAcc is absent and const was block-scoped inside the if).
+  let earnedTokens = 0;
   if (providerAcc) {
      const providerHistory = getAllOrders().filter(ord => ord.providerId === o.providerId && ord.status === 'completed');
      const trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
-      const baseTokens = Math.round((o.actualKg || o.kg) * 2);
-      const earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
-     
+     const baseTokens = Math.round((o.actualKg || o.kg) * 2);
+     earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
+
      providerAcc.tokens = (providerAcc.tokens || 0) + earnedTokens;
      o.tokensMinted = earnedTokens;
      o.txHash = '0x' + uid() + uid() + uid();
@@ -4678,11 +4690,11 @@ window.confirmPlantReceipt = async function(id) {
          document.getElementById('token-balance').textContent = SESSION.tokens;
      }
 
-      // Expected tokens represent the base (non-trust-multiplied) reward.
-      // Minted tokens include the TrustProtocol multiplier, so deltaPct reflects
-      // the trust bonus/penalty percentage (and enables mismatch flagging).
-      const expectedTokens = baseTokens;
-      const deltaPct = expectedTokens > 0 ? Math.abs(earnedTokens - expectedTokens) / expectedTokens * 100 : 0;
+     // Expected tokens represent the base (non-trust-multiplied) reward.
+     // Minted tokens include the TrustProtocol multiplier, so deltaPct reflects
+     // the trust bonus/penalty percentage (and enables mismatch flagging).
+     const expectedTokens = baseTokens;
+     const deltaPct = expectedTokens > 0 ? Math.abs(earnedTokens - expectedTokens) / expectedTokens * 100 : 0;
      addCreditEntry({
        id: 'credit-' + uid(),
        orderId: o.id,
@@ -4694,12 +4706,6 @@ window.confirmPlantReceipt = async function(id) {
        ts: ts()
      });
   }
-
-  const confirmed = confirm(
-  "Are you sure you want to mark this dispatch as completed?"
-  );
-
-  if (!confirmed) return;
 
   saveOrder(o);
   updateSlaEntry(o.id, { completeTs: ts(), status: 'completed' });
