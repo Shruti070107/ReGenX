@@ -29,10 +29,10 @@ mcp.shared.exceptions.McpError: Connection closed
 - Appwrite MCP clone: `C:\Users\shrut\AppData\Local\Temp\appwrite-mcp-for-api`
 - MCP package: `mcp-server-appwrite 0.4.1`
 - Appwrite endpoint: `https://fra.cloud.appwrite.io/v1`
-- Appwrite project ID: `6a0e8066000191ad6305`
+- Appwrite project ID: `&lt;YOUR_APPWRITE_PROJECT_ID&gt;`
 - Timestamp: 2026-05-23T12:43:59.8618114+05:30
 
 ## First Hypothesis
 
-The provided API key is missing Appwrite Sites scopes, is not attached to project `6a0e8066000191ad6305`, or was copied incorrectly. Because the same unauthorized error appeared on a second Appwrite service probe, no further deployment retry should occur until distinct fixes are evaluated.
+The provided API key is missing Appwrite Sites scopes, is not attached to project `&lt;YOUR_APPWRITE_PROJECT_ID&gt;`, or was copied incorrectly. Because the same unauthorized error appeared on a second Appwrite service probe, no further deployment retry should occur until distinct fixes are evaluated.
 

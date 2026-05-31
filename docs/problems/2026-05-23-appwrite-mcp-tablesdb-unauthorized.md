@@ -28,7 +28,7 @@ mcp.shared.exceptions.McpError: Connection closed
 - Appwrite MCP clone: `C:\Users\shrut\AppData\Local\Temp\appwrite-mcp-for-api`
 - MCP package: `mcp-server-appwrite 0.4.1`
 - Appwrite endpoint: `https://fra.cloud.appwrite.io/v1`
-- Appwrite project ID: `6a0e8066000191ad6305`
+- Appwrite project ID: `&lt;YOUR_APPWRITE_PROJECT_ID&gt;`
 - Timestamp: 2026-05-23T12:35:06.7265231+05:30
 
 ## First Hypothesis

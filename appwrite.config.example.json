@@ -1,5 +1,5 @@
 {
-  "projectId": "6a0e8066000191ad6305",
+  "projectId": "<YOUR_APPWRITE_PROJECT_ID>",
   "endpoint": "https://fra.cloud.appwrite.io/v1",
   "sites": [
     {
