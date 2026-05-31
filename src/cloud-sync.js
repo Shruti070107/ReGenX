@@ -30,7 +30,10 @@ export const CloudSync = {
     unsubscribe: null,
 
     /**
-     * Loads configurations from the .env file at runtime.
+     * Loads public configuration from the server's safe config endpoint.
+     * Only non-secret values (endpoint, project ID, collection IDs) are
+     * returned by that endpoint.  Server-side secrets such as APPWRITE_API_KEY
+     * are never exposed to the browser.
      * @returns {Promise<Object>} The parsed configuration object.
      */
     loadConfig: async () => {
@@ -42,45 +45,22 @@ export const CloudSync = {
             accountsCollectionId: ''
         };
         try {
-            const response = await fetch('/.env');
+            const response = await fetch('/api/public-config');
             if (response.ok) {
-                const text = await response.text();
-                const lines = text.split(/\r?\n/);
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed || trimmed.startsWith('#')) continue;
-                    
-                    const eqIndex = trimmed.indexOf('=');
-                    if (eqIndex === -1) continue;
-                    
-                    const key = trimmed.substring(0, eqIndex).trim();
-                    let val = trimmed.substring(eqIndex + 1).trim();
-                    
-                    // Strip quotes if present
-                    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-                        val = val.substring(1, val.length - 1);
-                    }
-                    
-                    if (key === 'VITE_APPWRITE_ENDPOINT' || key === 'APPWRITE_ENDPOINT') {
-                        config.endpoint = val;
-                    } else if (key === 'VITE_APPWRITE_PROJECT_ID' || key === 'APPWRITE_PROJECT_ID') {
-                        config.projectId = val;
-                    } else if (key === 'VITE_APPWRITE_DATABASE_ID' || key === 'APPWRITE_DATABASE_ID') {
-                        config.databaseId = val;
-                   } else if (key === 'VITE_APPWRITE_COLLECTION_ID_ORDERS' || key === 'APPWRITE_COLLECTION_ID_ORDERS') {
-                        config.ordersCollectionId = val;
-                    } else if (key === 'VITE_APPWRITE_COLLECTION_ID_ACCOUNTS' || key === 'APPWRITE_COLLECTION_ID_ACCOUNTS') {
-                        config.accountsCollectionId = val;
-                    }
-                }
+                const data = await response.json();
+                if (data.endpoint)            config.endpoint            = data.endpoint;
+                if (data.projectId)           config.projectId           = data.projectId;
+                if (data.databaseId)          config.databaseId          = data.databaseId;
+                if (data.ordersCollectionId)  config.ordersCollectionId  = data.ordersCollectionId;
+                if (data.accountsCollectionId) config.accountsCollectionId = data.accountsCollectionId;
             } else {
-                console.warn("Could not load /.env file, status:", response.status);
+                console.warn('[CloudSync] Could not load public config, status:', response.status);
             }
         } catch (e) {
-            console.warn("Failed to fetch or parse .env file. Falling back to defaults.", e);
+            console.warn('[CloudSync] Failed to fetch public config. Falling back to defaults.', e);
         }
 
-        // Check window process for fallback
+        // Bundler / window.process environment variable fallback (e.g. Vite dev server)
         if (window.process && window.process.env) {
             config.endpoint = window.process.env.VITE_APPWRITE_ENDPOINT || window.process.env.APPWRITE_ENDPOINT || config.endpoint;
             config.projectId = window.process.env.VITE_APPWRITE_PROJECT_ID || window.process.env.APPWRITE_PROJECT_ID || config.projectId;

@@ -34,6 +34,47 @@ function isAllowedOrigin(origin) {
   return ALLOWED_ORIGINS.has(origin);
 }
 
+/**
+ * Middleware that blocks access to sensitive files and directories.
+ * Covers .env variants, hidden dot-files, the .git directory, and the
+ * runtime data directory.  Any matching request receives a 403 so that
+ * the static handler below never gets a chance to serve the file.
+ */
+function blockSensitiveFiles(req, res, next) {
+  const urlPath = req.path || '';
+
+  // Normalise away query strings and decode percent-encoding before matching
+  let decoded;
+  try {
+    decoded = decodeURIComponent(urlPath);
+  } catch {
+    decoded = urlPath;
+  }
+
+  // Split into segments; filter empty strings that result from leading slash
+  const segments = decoded.split('/').filter(Boolean);
+
+  // Block if any path segment looks like a sensitive artifact
+  const blocked = segments.some((seg) => {
+    // .env, .env.local, .env.production, .env.* etc.
+    if (/^\.env(\..*)?$/i.test(seg)) return true;
+    // .git directory and any files within it
+    if (/^\.git(\/.*)?$/i.test(seg)) return true;
+    // Any other hidden dot-file at the top level
+    if (seg.startsWith('.')) return true;
+    // data directory contains the runtime state file
+    if (seg === 'data') return true;
+    return false;
+  });
+
+  if (blocked) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  next();
+}
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -112,6 +153,23 @@ function applyUpdates(updates = []) {
   });
   state.version += 1;
 }
+
+// Block sensitive files before any static or API handler
+app.use(blockSensitiveFiles);
+
+// Safe public configuration endpoint.
+// Returns only the values the browser SDK needs to connect to Appwrite.
+// Server-side secrets (APPWRITE_API_KEY, REALTIME_AUTH_TOKEN) are never
+// included in this response.
+app.get('/api/public-config', (_req, res) => {
+  res.json({
+    endpoint: process.env.VITE_APPWRITE_ENDPOINT || process.env.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1',
+    projectId: process.env.VITE_APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT_ID || '',
+    databaseId: process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID || '',
+    ordersCollectionId: process.env.VITE_APPWRITE_COLLECTION_ID_ORDERS || process.env.APPWRITE_COLLECTION_ID_ORDERS || '',
+    accountsCollectionId: process.env.VITE_APPWRITE_COLLECTION_ID_ACCOUNTS || process.env.APPWRITE_COLLECTION_ID_ACCOUNTS || ''
+  });
+});
 
 app.use(express.static(rootDir, { extensions: ['html'] }));
 
