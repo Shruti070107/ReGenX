@@ -34,7 +34,7 @@ export const Intelligence = {
         const weights = history.map(o => o.actualKg || o.kg || 0);
         const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
         
-        // Simple weighted moving average simulation
+        // Simple weighted moving average simulation.
         const recentAvg = weights.slice(-3).reduce((a, b) => a + b, 0) / Math.min(weights.length, 3);
         const trend = recentAvg > avg ? 'Upward' : 'Downward';
         const confidence = history.length > 5 ? 'High' : 'Medium';
