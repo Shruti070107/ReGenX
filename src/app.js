@@ -710,6 +710,16 @@ async function generateLedgerHash(entry, previousHash = 'GENESIS') {
 }
 
 /**
+ * Normalize ledger hashes before comparison.
+ * @param {unknown} hash - Stored or computed hash value.
+ * @returns {string} Trimmed, lowercase hash without an optional 0x prefix.
+ */
+function normalizeHash(hash) {
+  const value = String(hash ?? '').trim().toLowerCase();
+  return value.startsWith('0x') ? value.slice(2) : value;
+}
+
+/**
  * Build the canonical payload for trust ledger hashing.
  * @param {Object} entry - Ledger entry values.
  * @param {string} previousHash - Previous chain hash.
