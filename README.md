@@ -214,6 +214,25 @@ APPWRITE_API_KEY=your-private-api-key
 
 > ⚠️ **Never expose your Appwrite API key in frontend code.**
 
+Frontend Cloud Sync reads only public Appwrite identifiers. If you need to
+configure the static browser app without a build step, define the public config
+before `src/app.js` loads:
+
+```html
+<script>
+  window.REGENX_PUBLIC_CONFIG = {
+    endpoint: "https://cloud.appwrite.io/v1",
+    projectId: "your-project-id",
+    databaseId: "your-database-id",
+    ordersCollectionId: "your-orders-collection-id",
+    accountsCollectionId: "your-accounts-collection-id"
+  };
+</script>
+```
+
+Keep `APPWRITE_API_KEY` only in `.env` for deployment scripts or server-side
+automation. The browser must never fetch `.env` or receive private keys.
+
 ## 📦 Deployment
 Appwrite Deployment
 

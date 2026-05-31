@@ -11,7 +11,8 @@
     "test:pwa": "node scripts/validate-pwa.mjs",
     "test:modules": "node scripts/validate-modules.mjs",
     "test:health": "node scripts/validate-health.mjs",
-    "test": "npm run test:pwa && npm run test:modules && npm run test:health"
+    "test:secrets": "node scripts/validate-secret-exposure.mjs",
+    "test": "npm run test:pwa && npm run test:modules && npm run test:health && npm run test:secrets"
   },
   "dependencies": {
     "express": "^4.22.2",

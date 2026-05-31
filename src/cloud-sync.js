@@ -30,8 +30,13 @@ export const CloudSync = {
     unsubscribe: null,
 
     /**
-     * Loads configurations from the .env file at runtime.
-     * @returns {Promise<Object>} The parsed configuration object.
+     * Loads only public Appwrite browser configuration.
+     *
+     * Private deployment keys must never be requested from the browser.
+     * Deployments can expose the non-secret IDs through
+     * window.REGENX_PUBLIC_CONFIG or a bundler-provided public env object.
+     *
+     * @returns {Promise<Object>} The parsed public configuration object.
      */
     loadConfig: async () => {
         const config = {
@@ -41,51 +46,31 @@ export const CloudSync = {
             ordersCollectionId: '',
             accountsCollectionId: ''
         };
-        try {
-            const response = await fetch('/.env');
-            if (response.ok) {
-                const text = await response.text();
-                const lines = text.split(/\r?\n/);
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed || trimmed.startsWith('#')) continue;
-                    
-                    const eqIndex = trimmed.indexOf('=');
-                    if (eqIndex === -1) continue;
-                    
-                    const key = trimmed.substring(0, eqIndex).trim();
-                    let val = trimmed.substring(eqIndex + 1).trim();
-                    
-                    // Strip quotes if present
-                    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-                        val = val.substring(1, val.length - 1);
-                    }
-                    
-                    if (key === 'VITE_APPWRITE_ENDPOINT' || key === 'APPWRITE_ENDPOINT') {
-                        config.endpoint = val;
-                    } else if (key === 'VITE_APPWRITE_PROJECT_ID' || key === 'APPWRITE_PROJECT_ID') {
-                        config.projectId = val;
-                    } else if (key === 'VITE_APPWRITE_DATABASE_ID' || key === 'APPWRITE_DATABASE_ID') {
-                        config.databaseId = val;
-                   } else if (key === 'VITE_APPWRITE_COLLECTION_ID_ORDERS' || key === 'APPWRITE_COLLECTION_ID_ORDERS') {
-                        config.ordersCollectionId = val;
-                    } else if (key === 'VITE_APPWRITE_COLLECTION_ID_ACCOUNTS' || key === 'APPWRITE_COLLECTION_ID_ACCOUNTS') {
-                        config.accountsCollectionId = val;
-                    }
-                }
-            } else {
-                console.warn("Could not load /.env file, status:", response.status);
-            }
-        } catch (e) {
-            console.warn("Failed to fetch or parse .env file. Falling back to defaults.", e);
+
+        const publicConfig = window.REGENX_PUBLIC_CONFIG || {};
+        if (publicConfig.endpoint) {
+            config.endpoint = publicConfig.endpoint;
+        }
+        if (publicConfig.projectId) {
+            config.projectId = publicConfig.projectId;
+        }
+        if (publicConfig.databaseId) {
+            config.databaseId = publicConfig.databaseId;
+        }
+        if (publicConfig.ordersCollectionId) {
+            config.ordersCollectionId = publicConfig.ordersCollectionId;
+        }
+        if (publicConfig.accountsCollectionId) {
+            config.accountsCollectionId = publicConfig.accountsCollectionId;
         }
 
-        // Check window process for fallback
+        // Check public env fallbacks only. Never read private APPWRITE_* keys here.
         if (window.process && window.process.env) {
-            config.endpoint = window.process.env.VITE_APPWRITE_ENDPOINT || window.process.env.APPWRITE_ENDPOINT || config.endpoint;
-            config.projectId = window.process.env.VITE_APPWRITE_PROJECT_ID || window.process.env.APPWRITE_PROJECT_ID || config.projectId;
-            config.databaseId = window.process.env.VITE_APPWRITE_DATABASE_ID || window.process.env.APPWRITE_DATABASE_ID || config.databaseId;
-            config.ordersCollectionId = window.process.env.VITE_APPWRITE_COLLECTION_ID_ORDERS || window.process.env.APPWRITE_COLLECTION_ID_ORDERS || config.ordersCollectionId;
+            config.endpoint = window.process.env.VITE_APPWRITE_ENDPOINT || config.endpoint;
+            config.projectId = window.process.env.VITE_APPWRITE_PROJECT_ID || config.projectId;
+            config.databaseId = window.process.env.VITE_APPWRITE_DATABASE_ID || config.databaseId;
+            config.ordersCollectionId = window.process.env.VITE_APPWRITE_COLLECTION_ID_ORDERS || config.ordersCollectionId;
+            config.accountsCollectionId = window.process.env.VITE_APPWRITE_COLLECTION_ID_ACCOUNTS || config.accountsCollectionId;
         }
 
         return config;
@@ -106,7 +91,7 @@ export const CloudSync = {
             const config = await CloudSync.loadConfig();
             
             if (!config.projectId || !config.databaseId || !config.ordersCollectionId) {
-                console.warn("Appwrite credentials not fully configured in .env. Running in local mode.");
+                console.warn("Appwrite public config is incomplete. Running in local mode.");
                 CloudSync.isLive = false;
                 CloudSync.renderSyncBadge('local', 'Local Mode');
                 return;
