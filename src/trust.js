@@ -139,7 +139,81 @@ export const TrustProtocol = {
         if (!analysis.anomalies.routeDeviation && analysis.maxDeviationKm > 0.7) score -= 10;
         score = Math.max(0, Math.min(100, Math.round(score)));
         return { score, ...analysis };
+    },
+
+    /**
+     * Generates a deterministic SHA-256 hash over the canonical fields of a
+     * ledger entry.  Keys are extracted in a fixed order so the resulting
+     * JSON string — and therefore the hash — is stable regardless of how
+     * the input object was constructed.  The canonical field set matches
+     * buildTrustLedgerPayload in app.js.
+     *
+     * @param {Object} entry - Ledger entry or canonical payload object.
+     * @param {string} [previousHash='GENESIS'] - Hash of the preceding entry.
+     * @returns {Promise<string>} Hex-encoded SHA-256 digest prefixed with "0x".
+     */
+    generateLedgerHash: async (entry, previousHash = 'GENESIS') => {
+        const ph = typeof previousHash === 'string' && previousHash ? previousHash : 'GENESIS';
+        // Fixed key order ensures JSON.stringify is deterministic across
+        // engines and independent of input property insertion order.
+        const canonical = {
+            previousHash: ph,
+            orderId:   typeof entry?.orderId   === 'string' ? entry.orderId   : String(entry?.orderId   ?? ''),
+            event:     typeof entry?.event     === 'string' ? entry.event     : String(entry?.event     ?? ''),
+            ts:        Number.isFinite(entry?.ts)           ? entry.ts        : 0,
+            actorRole: typeof entry?.actorRole === 'string' ? entry.actorRole : String(entry?.actorRole ?? ''),
+            actorId:   typeof entry?.actorId   === 'string' ? entry.actorId   : String(entry?.actorId   ?? ''),
+            lat:       Number.isFinite(entry?.lat)          ? entry.lat       : null,
+            lng:       Number.isFinite(entry?.lng)          ? entry.lng       : null
+        };
+        const encoded   = new TextEncoder().encode(JSON.stringify(canonical));
+        const hashBuf   = await crypto.subtle.digest('SHA-256', encoded);
+        const hashArray = Array.from(new Uint8Array(hashBuf));
+        return '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    },
+
+    /**
+     * Synchronously verifies the integrity of the trust ledger by walking the
+     * hash chain.  For each entry it checks:
+     *   - the entry carries a non-empty hash string
+     *   - the first entry anchors to 'GENESIS'
+     *   - every subsequent entry's previousHash equals its predecessor's hash
+     *
+     * This detects inserted, deleted, or reordered entries and any chain
+     * modification that was not propagated forward through the chain.
+     *
+     * Full content-hash recomputation (which is async) is handled separately
+     * by prepareTrustLedgerForWrite before each write.
+     *
+     * @param {Array<Object>} ledger - Ordered array of sealed ledger entries.
+     * @returns {{ valid: boolean, tampered: boolean, brokenIndex: number|null }}
+     */
+    verifyLedgerIntegrity: (ledger) => {
+        if (!Array.isArray(ledger) || ledger.length === 0) {
+            return { valid: true, tampered: false, brokenIndex: null };
+        }
+
+        // First entry must anchor to the genesis sentinel.
+        if (ledger[0].previousHash !== 'GENESIS') {
+            return { valid: false, tampered: true, brokenIndex: 0 };
+        }
+
+        for (let i = 0; i < ledger.length; i++) {
+            const entry = ledger[i];
+
+            // Every sealed entry must carry a non-empty hash.
+            if (!entry.hash || typeof entry.hash !== 'string') {
+                return { valid: false, tampered: true, brokenIndex: i };
+            }
+
+            // Each entry (beyond the first) must reference its predecessor.
+            if (i > 0 && entry.previousHash !== ledger[i - 1].hash) {
+                return { valid: false, tampered: true, brokenIndex: i };
+            }
+        }
+
+        return { valid: true, tampered: false, brokenIndex: null };
     }
 };
 
-// Phase 2 Task 2: Active cryptographic ledger signatures active
+// Phase 2 Task 2: Cryptographic ledger hash chain implemented.
