@@ -3,6 +3,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import process from "node:process";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const rootDir = process.cwd();
 const endpoint = process.env.APPWRITE_ENDPOINT;
