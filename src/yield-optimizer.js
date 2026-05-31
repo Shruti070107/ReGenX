@@ -15,7 +15,7 @@ export const YieldOptimizer = {
         if (!recentIntakes || recentIntakes.length === 0) {
             return {
                 predictedMethane: 0,
-                optimalTemp: 35, // Set to default mesophilic temperature.
+                optimalTemp: 35, // Set the optimal temperature to the default mesophilic temperature of 35°C.
                 healthStatus: 'Idle',
                 recommendation: 'Awaiting incoming waste for analysis.'
             };
