@@ -3682,6 +3682,8 @@ window.submitPvRequest = async function() {
 
 window.cancelOrder = function(id) {
   const o = getOrder(id); if(!o) return;
+  if (SESSION.role !== 'provider') return showToast('⚠ Unauthorized.');
+  if (o.providerId !== SESSION.id) return showToast('⚠ Unauthorized: you did not create this dispatch.');
   o.status = 'rejected'; saveOrder(o);
   publishOperationalEvent('KPI_UPDATED', [], {
     toast: `Dispatch #${o.id.slice(-6).toUpperCase()} was cancelled.`,
@@ -4092,6 +4094,8 @@ window.switchRdTab = function(t) { window._rdTab = t; refreshCurrentView(true); 
 
 window.riderAccept = async function(id) {
   const o = getOrder(id); if(!o) return;
+  if (SESSION.role !== 'rider') return showToast('⚠ Unauthorized.');
+  if (o.status !== 'requested') return showToast('⚠ This order is no longer available.');
   o.status = 'assigned'; o.riderId = SESSION.id; o.riderName = SESSION.name;
   saveOrder(o);
   updateSlaEntry(o.id, { status: 'assigned' });
@@ -4134,6 +4138,8 @@ window.riderAccept = async function(id) {
 }
 window.riderUpdate = async function(id, st) {
   const o = getOrder(id); if(!o) return;
+  if (SESSION.role !== 'rider') return showToast('⚠ Unauthorized.');
+  if (o.riderId !== SESSION.id) return showToast('⚠ Unauthorized: you are not the assigned rider.');
   o.status = st; saveOrder(o);
   updateSlaEntry(o.id, { status: st });
 await recordTrustEvent(o, st, 'rider', { lat: SESSION.lat, lng: SESSION.lng });
@@ -4179,7 +4185,11 @@ window.openPickupConfirm = function(id) {
 window.confirmPickup = async function(id) {
   const kg = document.getElementById('m-kg').value;
   if(!kg) return showToast("⚠ Enter weight.");
-  const o = getOrder(id); o.status = 'picked_up'; o.actualKg = kg; o.quality = document.getElementById('m-qual').value;
+  const o = getOrder(id);
+  if (!o) return showToast('⚠ Order not found.');
+  if (SESSION.role !== 'rider') return showToast('⚠ Unauthorized.');
+  if (o.riderId !== SESSION.id) return showToast('⚠ Unauthorized: you are not the assigned rider.');
+  o.status = 'picked_up'; o.actualKg = kg; o.quality = document.getElementById('m-qual').value;
   saveOrder(o);
   updateSlaEntry(o.id, { pickupTs: ts(), status: 'picked_up' });
 await recordTrustEvent(o, 'picked_up', 'rider', { lat: SESSION.lat, lng: SESSION.lng });
@@ -4658,16 +4668,39 @@ window.openPlantConfirm = function(id) {
 window.confirmPlantReceipt = async function(id) {
   const o = getOrder(id); if(!o) return;
   if (o.status === 'completed') return showToast('Order already processed.');
+
+  // Authorization: only the plant that the order was assigned to may confirm
+  // receipt.  Without these guards any authenticated user — regardless of
+  // role — can call this function from the browser console, complete any
+  // order in at_plant state, and trigger reward issuance for its provider.
+  if (SESSION.role !== 'plant') {
+    return showToast('⚠ Unauthorized: only a plant account can confirm receipts.');
+  }
+  if (o.plantId !== SESSION.id) {
+    return showToast('⚠ Unauthorized: this order is not assigned to your plant.');
+  }
+
   const score = document.getElementById('p-score').value || 0;
+
+  // Confirm FIRST — no state may change before the user explicitly approves.
+  const confirmed = confirm('Are you sure you want to mark this dispatch as completed?');
+  if (!confirmed) return;
+
+  // All mutations below are guarded by both the authorization checks and the
+  // confirmation dialog above.
   o.status = 'completed'; o.segScore = score;
-  
+
   const providerAcc = DB.get('acc:' + o.providerId);
+  // Declare earnedTokens outside the if-block so it remains in scope for
+  // the notifications and toast that follow (avoids ReferenceError when
+  // providerAcc is absent and const was block-scoped inside the if).
+  let earnedTokens = 0;
   if (providerAcc) {
      const providerHistory = getAllOrders().filter(ord => ord.providerId === o.providerId && ord.status === 'completed');
      const trustScore = TrustProtocol.calculateScore(providerAcc, providerHistory);
-      const baseTokens = Math.round((o.actualKg || o.kg) * 2);
-      const earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
-     
+     const baseTokens = Math.round((o.actualKg || o.kg) * 2);
+     earnedTokens = TrustProtocol.calculateReward(baseTokens, trustScore);
+
      providerAcc.tokens = (providerAcc.tokens || 0) + earnedTokens;
      o.tokensMinted = earnedTokens;
      o.txHash = '0x' + uid() + uid() + uid();
@@ -4678,11 +4711,11 @@ window.confirmPlantReceipt = async function(id) {
          document.getElementById('token-balance').textContent = SESSION.tokens;
      }
 
-      // Expected tokens represent the base (non-trust-multiplied) reward.
-      // Minted tokens include the TrustProtocol multiplier, so deltaPct reflects
-      // the trust bonus/penalty percentage (and enables mismatch flagging).
-      const expectedTokens = baseTokens;
-      const deltaPct = expectedTokens > 0 ? Math.abs(earnedTokens - expectedTokens) / expectedTokens * 100 : 0;
+     // Expected tokens represent the base (non-trust-multiplied) reward.
+     // Minted tokens include the TrustProtocol multiplier, so deltaPct reflects
+     // the trust bonus/penalty percentage (and enables mismatch flagging).
+     const expectedTokens = baseTokens;
+     const deltaPct = expectedTokens > 0 ? Math.abs(earnedTokens - expectedTokens) / expectedTokens * 100 : 0;
      addCreditEntry({
        id: 'credit-' + uid(),
        orderId: o.id,
@@ -4694,12 +4727,6 @@ window.confirmPlantReceipt = async function(id) {
        ts: ts()
      });
   }
-
-  const confirmed = confirm(
-  "Are you sure you want to mark this dispatch as completed?"
-  );
-
-  if (!confirmed) return;
 
   saveOrder(o);
   updateSlaEntry(o.id, { completeTs: ts(), status: 'completed' });
