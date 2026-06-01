@@ -2315,6 +2315,7 @@ window.showView = function(viewId) {
   
   if (window.innerWidth <= 768) toggleSidebar(false);
   refreshCurrentView(true);
+  window.dispatchEvent(new Event('regenx:viewchanged'));
 }
 
 window.toggleSidebar = function(force) {
@@ -5339,6 +5340,52 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.AccessibilityManager) {
         window.AccessibilityManager.init();
     }
+
+    // Scroll navigation buttons
+    (function initScrollNav() {
+        const mainArea = document.querySelector('.main-area');
+        const btnTop    = document.getElementById('scroll-to-top');
+        const btnBottom = document.getElementById('scroll-to-bottom');
+        if (!mainArea || !btnTop || !btnBottom) return;
+
+        btnTop.addEventListener('click', () => {
+            mainArea.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        btnBottom.addEventListener('click', () => {
+            mainArea.scrollTo({ top: mainArea.scrollHeight, behavior: 'smooth' });
+        });
+
+        let ticking = false;
+        function updateScrollButtons() {
+            const scrollTop    = mainArea.scrollTop;
+            const clientHeight = mainArea.clientHeight;
+            const scrollHeight = mainArea.scrollHeight;
+
+            if (scrollHeight <= clientHeight) {
+                btnTop.classList.remove('visible');
+                btnBottom.classList.remove('visible');
+                return;
+            }
+            btnTop.classList.toggle('visible', scrollTop > 300);
+            btnBottom.classList.toggle('visible', scrollTop + clientHeight < scrollHeight - 300);
+        }
+
+        mainArea.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    updateScrollButtons();
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        }, { passive: true });
+
+        // Re-run on view change so non-scrollable pages hide the buttons
+        window.addEventListener('regenx:viewchanged', updateScrollButtons);
+
+        updateScrollButtons();
+        window._updateScrollNav = updateScrollButtons;
+    })();
 });
 
 if ('serviceWorker' in navigator) {

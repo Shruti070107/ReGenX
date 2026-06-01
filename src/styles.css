@@ -3346,3 +3346,68 @@ h1, h2, h3, .heading {
 
 
 /* Phase 2 Task 10: Unified Space Grotesk glassmorphic gradients applied */
+
+/* ════════════════════════════════════════
+   SCROLL NAVIGATION BUTTONS (#527)
+   ════════════════════════════════════════ */
+
+.scroll-nav-btn {
+  position: fixed;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  font-family: 'Space Grotesk', sans-serif;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1500;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease,
+              transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+              background 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+.scroll-nav-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.scroll-nav-btn:hover {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+  transform: scale(1.12);
+  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.4);
+}
+
+.scroll-nav-btn:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+
+#scroll-to-top    { bottom: 128px; }
+#scroll-to-bottom { bottom: 80px; }
+
+@media (max-width: 768px) {
+  .scroll-nav-btn {
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
+  #scroll-to-top    { bottom: 120px; }
+  #scroll-to-bottom { bottom: 76px; }
+}
