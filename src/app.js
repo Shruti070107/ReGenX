@@ -3682,6 +3682,9 @@ window.submitPvRequest = async function() {
 
 window.cancelOrder = function(id) {
   const o = getOrder(id); if(!o) return;
+  // Only a pending request can be cancelled — orders that have already been
+  // accepted by a rider, completed, or rejected must not be overwritten.
+  if (o.status !== 'requested') return showToast('⚠ Only pending requests can be cancelled.');
   o.status = 'rejected'; saveOrder(o);
   publishOperationalEvent('KPI_UPDATED', [], {
     toast: `Dispatch #${o.id.slice(-6).toUpperCase()} was cancelled.`,
@@ -4092,6 +4095,11 @@ window.switchRdTab = function(t) { window._rdTab = t; refreshCurrentView(true); 
 
 window.riderAccept = async function(id) {
   const o = getOrder(id); if(!o) return;
+  // Only 'requested' orders are available for acceptance.  Guarding here
+  // prevents re-assignment of orders that are already in-progress, delivered,
+  // completed, or cancelled — all of which would corrupt the lifecycle record
+  // and rider attribution.
+  if (o.status !== 'requested') return showToast('⚠ This order is no longer available for acceptance.');
   o.status = 'assigned'; o.riderId = SESSION.id; o.riderName = SESSION.name;
   saveOrder(o);
   updateSlaEntry(o.id, { status: 'assigned' });
@@ -4134,6 +4142,15 @@ window.riderAccept = async function(id) {
 }
 window.riderUpdate = async function(id, st) {
   const o = getOrder(id); if(!o) return;
+  // Enforce valid lifecycle transitions for rider-driven status changes.
+  // Each target state has exactly one permitted predecessor:
+  //   assigned  → en_route   (rider starts navigation)
+  //   picked_up → at_plant   (rider arrives at plant)
+  // Any other from-state or target-state combination is rejected.
+  const VALID_FROM = { en_route: 'assigned', at_plant: 'picked_up' };
+  if (!VALID_FROM[st] || o.status !== VALID_FROM[st]) {
+    return showToast('⚠ Invalid state transition for this order.');
+  }
   o.status = st; saveOrder(o);
   updateSlaEntry(o.id, { status: st });
 await recordTrustEvent(o, st, 'rider', { lat: SESSION.lat, lng: SESSION.lng });
@@ -4179,7 +4196,11 @@ window.openPickupConfirm = function(id) {
 window.confirmPickup = async function(id) {
   const kg = document.getElementById('m-kg').value;
   if(!kg) return showToast("⚠ Enter weight.");
-  const o = getOrder(id); o.status = 'picked_up'; o.actualKg = kg; o.quality = document.getElementById('m-qual').value;
+  const o = getOrder(id);
+  if (!o) return showToast('⚠ Order not found.');
+  // Collection can only be confirmed when the rider is actively en route.
+  if (o.status !== 'en_route') return showToast('⚠ Collection can only be confirmed while en route.');
+  o.status = 'picked_up'; o.actualKg = kg; o.quality = document.getElementById('m-qual').value;
   saveOrder(o);
   updateSlaEntry(o.id, { pickupTs: ts(), status: 'picked_up' });
 await recordTrustEvent(o, 'picked_up', 'rider', { lat: SESSION.lat, lng: SESSION.lng });
@@ -4658,6 +4679,11 @@ window.openPlantConfirm = function(id) {
 window.confirmPlantReceipt = async function(id) {
   const o = getOrder(id); if(!o) return;
   if (o.status === 'completed') return showToast('Order already processed.');
+  // Receipt can only be confirmed once the load has physically arrived at the
+  // plant.  Checking the exact predecessor state prevents the plant from
+  // completing orders that are still in transit, pending, or already in a
+  // terminal state.
+  if (o.status !== 'at_plant') return showToast('⚠ This order has not yet arrived at the plant.');
   const score = document.getElementById('p-score').value || 0;
   o.status = 'completed'; o.segScore = score;
   
