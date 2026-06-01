@@ -258,10 +258,18 @@ const DEDUP_WINDOW_MS = 30000;
 const DB = {
   get: (key) => { try { const r = window.localStorage.getItem(STORAGE_KEY_PREFIX + key); return r ? JSON.parse(r) : null; } catch { return null; } },
   set: (key, val, options = {}) => { try {
-    window.localStorage.setItem(STORAGE_KEY_PREFIX + key, JSON.stringify(val));
+    // Stamp account records with a local-write timestamp so hydrateFromCloud
+    // can compare freshness with the Appwrite copy and avoid silently
+    // overwriting offline-earned balances with a stale cloud snapshot.
+    // A fresh object is used so the live SESSION reference is never mutated
+    // by the sync machinery.
+    const stored = (key.startsWith('acc:') && val && typeof val === 'object')
+      ? { ...val, _syncTs: Date.now() }
+      : val;
+    window.localStorage.setItem(STORAGE_KEY_PREFIX + key, JSON.stringify(stored));
     if (!options.silent && ReGenXRealtime) {
       ReGenXRealtime.syncStorageMutation({
-        updates: [{ key: STORAGE_KEY_PREFIX + key, value: val, action: 'set' }],
+        updates: [{ key: STORAGE_KEY_PREFIX + key, value: stored, action: 'set' }],
         rooms: options.rooms,
         eventType: options.eventType || 'KPI_UPDATED',
         meta: options.meta || {}
@@ -278,10 +286,10 @@ const DB = {
         }
       } else if (key.startsWith('acc:') && window.CloudSync) {
         if (navigator.onLine && window.CloudSync.isLive) {
-          window.CloudSync.pushAccount(val)
-            .catch(() => window.CloudSync.queueOfflineWrite(key, val));
+          window.CloudSync.pushAccount(stored)
+            .catch(() => window.CloudSync.queueOfflineWrite(key, stored));
         } else {
-          window.CloudSync.queueOfflineWrite(key, val);
+          window.CloudSync.queueOfflineWrite(key, stored);
         }
       }
     }

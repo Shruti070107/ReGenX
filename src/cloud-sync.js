@@ -347,6 +347,9 @@ export const CloudSync = {
         ['lat', 'lng', 'tokens', 'staked'].forEach(f => {
             sanitized[f] = account[f] != null ? Number(account[f]) : 0;
         });
+        // Persist the local-write timestamp so hydrateFromCloud can compare
+        // freshness between the Appwrite snapshot and the local copy.
+        sanitized._syncTs = account._syncTs != null ? Number(account._syncTs) : 0;
         return sanitized;
     },
 
@@ -497,11 +500,67 @@ export const CloudSync = {
                 CloudSync.fetchOrdersForUser(uid)
             ]);
 
-            // Hydrate account — cloud wins on financial fields
+            // Hydrate account — freshness-aware merge.
+            //
+            // The original code applied `{ ...localAcc, ...cloudAccount }` unconditionally,
+            // letting the cloud snapshot overwrite every local field regardless of which
+            // copy was more recent.  This silently discarded balances earned offline
+            // (when the offline queue had not yet been flushed before the hydration ran).
+            //
+            // The fix: compare the _syncTs write-timestamp that DB.set now stamps on
+            // every local account write and that sanitizeAccount includes in every push
+            // to Appwrite.
+            //
+            //   localTs > cloudTs  → device had offline edits since the last cloud sync;
+            //                        local values take precedence and are re-pushed to
+            //                        bring Appwrite up to date.
+            //
+            //   cloudTs >= localTs → cloud is current; standard cloud-wins merge applies.
+            //
+            // Safety net (no timestamps): when neither record carries a _syncTs (legacy
+            // accounts created before this fix) Math.max is applied to token and staked
+            // balances so an offline-earned balance is never silently discarded.
             if (cloudAccount) {
                 const localRaw = localStorage.getItem(STORAGE_KEY_PREFIX + 'acc:' + uid);
                 const localAcc = localRaw ? JSON.parse(localRaw) : {};
-                const merged = { ...localAcc, ...cloudAccount };
+
+                const localTs = Number(localAcc._syncTs)    || 0;
+                const cloudTs = Number(cloudAccount._syncTs) || 0;
+
+                let merged;
+                if (localTs > cloudTs) {
+                    // Local account is newer — the device had offline edits that have
+                    // not yet reached Appwrite.  Keep local values as primary and fill
+                    // in fields that exist only on the cloud record.
+                    merged = { ...cloudAccount, ...localAcc };
+                    // Re-push the fresher local state so Appwrite is brought up to date.
+                    CloudSync.pushAccount(merged).catch(err =>
+                        console.warn('[CloudSync] Failed to re-sync newer local account to cloud', err)
+                    );
+                } else {
+                    // Cloud is current (same or newer timestamp) — standard cloud-wins merge.
+                    merged = { ...localAcc, ...cloudAccount };
+
+                    // Safety net for records that predate the _syncTs field.
+                    // If neither side has a timestamp, apply Math.max on financial
+                    // fields: a higher local balance may reflect rewards earned offline
+                    // before the queue was flushed, so we protect it from silent loss.
+                    if (localTs === 0 && cloudTs === 0) {
+                        if (typeof localAcc.tokens === 'number') {
+                            merged.tokens = Math.max(
+                                Number(localAcc.tokens),
+                                Number(cloudAccount.tokens) || 0
+                            );
+                        }
+                        if (typeof localAcc.staked === 'number') {
+                            merged.staked = Math.max(
+                                Number(localAcc.staked),
+                                Number(cloudAccount.staked) || 0
+                            );
+                        }
+                    }
+                }
+
                 localStorage.setItem(STORAGE_KEY_PREFIX + 'acc:' + uid, JSON.stringify(merged));
                 if (window.SESSION?.id === uid) {
                     Object.assign(window.SESSION, merged);
