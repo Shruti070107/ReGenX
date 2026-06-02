@@ -188,14 +188,17 @@ Then open `http://localhost:4173` in your browser.
 
 The realtime server keeps Provider, Rider, and Plant dashboards synchronized across open tabs and devices.
 
-###👤 First-Time Setup
-1. **Register** your account
-2. Select your role
-      Provider
-      Rider
-      Plant)
-4. Enable location access
-5. Login and explore your role-specific dashboard
+### 👤 First-Time Setup
+
+<!-- Fixed step numbering, role list formatting, extra parenthesis, and heading spacing -->
+
+1. **Register** your account.
+2. Select your role:
+   - Provider
+   - Rider
+   - Plant
+3. Enable location access.
+4. Login and explore your role-specific dashboard.
 
 > **Tip:**Create both Provider and Rider accounts for testing full logistics flow!
 
