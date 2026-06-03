@@ -3345,4 +3345,20 @@ h1, h2, h3, .heading {
 }
 
 
+/* Dispatch History View Styles */
+.dh-filters-row1 {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 768px) {
+  .dh-filters-row1 {
+    grid-template-columns: 1fr !important;
+  }
+}
+.dh-status-btn {
+  transition: all 0.3s ease;
+}
+
+
 /* Phase 2 Task 10: Unified Space Grotesk glassmorphic gradients applied */

@@ -60,9 +60,9 @@ function getDefaultViewForRole(role) {
 function isViewValidForRole(viewId, role) {
   if (!viewId || !role) return false;
   const validViews = {
-    provider: ['v-pv-dash','v-pv-req','v-iot-bins','v-pv-hist-week','v-pv-hist-month','v-compliance','v-reconciliation','v-sla','v-energy','v-sensor','v-emissions','v-quality','v-automation','v-market','v-audit-portal'],
-    rider: ['v-rd-dash','v-rd-jobs','v-rd-hist','v-compliance','v-reconciliation','v-sla','v-energy','v-sensor','v-emissions','v-quality','v-automation','v-audit-portal'],
-    plant: ['v-pl-dash','v-pl-in','v-pl-out','v-compliance','v-reconciliation','v-sla','v-energy','v-sensor','v-emissions','v-quality','v-automation','v-audit-portal']
+    provider: ['v-pv-dash','v-pv-req','v-iot-bins','v-pv-hist-week','v-pv-hist-month','v-compliance','v-reconciliation','v-sla','v-energy','v-sensor','v-emissions','v-quality','v-automation','v-market','v-audit-portal','v-dispatch-history'],
+    rider: ['v-rd-dash','v-rd-jobs','v-rd-hist','v-compliance','v-reconciliation','v-sla','v-energy','v-sensor','v-emissions','v-quality','v-automation','v-audit-portal','v-dispatch-history'],
+    plant: ['v-pl-dash','v-pl-in','v-pl-out','v-compliance','v-reconciliation','v-sla','v-energy','v-sensor','v-emissions','v-quality','v-automation','v-audit-portal','v-dispatch-history']
   };
   return validViews[role]?.includes(viewId);
 }
@@ -2231,6 +2231,7 @@ function buildSidebar() {
       <button class="nav-item" onclick="showView('v-iot-bins')" id="nav-v-iot-bins"><span class="nav-item-icon">🗑️</span> IoT Sensory Bins <span class="nav-badge" id="iot-alert-badge" style="display:none">!</span></button>
       <button class="nav-item" onclick="showView('v-pv-hist-week')" id="nav-v-pv-hist-week"><span class="nav-item-icon">📅</span> Weekly Records</button>
       <button class="nav-item" onclick="showView('v-pv-hist-month')" id="nav-v-pv-hist-month"><span class="nav-item-icon">🗓️</span> Monthly Records</button>
+      <button class="nav-item" onclick="showView('v-dispatch-history')" id="nav-v-dispatch-history"><span class="nav-item-icon">📂</span> Dispatch History</button>
       <button class="nav-item" onclick="showView('v-compliance')" id="nav-v-compliance"><span class="nav-item-icon">🧭</span> Compliance Center</button>
       <button class="nav-item" onclick="showView('v-reconciliation')" id="nav-v-reconciliation"><span class="nav-item-icon">🧮</span> Reconciliation</button>
       <button class="nav-item" onclick="showView('v-sla')" id="nav-v-sla"><span class="nav-item-icon">⏱️</span> SLA Monitor</button>
@@ -2253,6 +2254,7 @@ function buildSidebar() {
       <button class="nav-item active" onclick="showView('v-rd-dash')" id="nav-v-rd-dash"><span class="nav-item-icon">🗺️</span> Active Route</button>
       <button class="nav-item" onclick="showView('v-rd-jobs')" id="nav-v-rd-jobs"><span class="nav-item-icon">📋</span> Available Jobs <span class="nav-badge" id="rd-badge" style="display:none"></span></button>
       <button class="nav-item" onclick="showView('v-rd-hist')" id="nav-v-rd-hist"><span class="nav-item-icon">✓</span> Completions</button>
+      <button class="nav-item" onclick="showView('v-dispatch-history')" id="nav-v-dispatch-history"><span class="nav-item-icon">📂</span> Dispatch History</button>
       <button class="nav-item" onclick="showView('v-compliance')" id="nav-v-compliance"><span class="nav-item-icon">🧭</span> Compliance Center</button>
       <button class="nav-item" onclick="showView('v-reconciliation')" id="nav-v-reconciliation"><span class="nav-item-icon">🧮</span> Reconciliation</button>
       <button class="nav-item" onclick="showView('v-sla')" id="nav-v-sla"><span class="nav-item-icon">⏱️</span> SLA Monitor</button>
@@ -2273,6 +2275,7 @@ function buildSidebar() {
       <button class="nav-item active" onclick="showView('v-pl-dash')" id="nav-v-pl-dash"><span class="nav-item-icon">🏭</span> Operations</button>
       <button class="nav-item" onclick="showView('v-pl-in')" id="nav-v-pl-in"><span class="nav-item-icon">🚚</span> Incoming Flow</button>
       <button class="nav-item" onclick="showView('v-pl-out')" id="nav-v-pl-out"><span class="nav-item-icon">⚗️</span> Log Output</button>
+      <button class="nav-item" onclick="showView('v-dispatch-history')" id="nav-v-dispatch-history"><span class="nav-item-icon">📂</span> Dispatch History</button>
       <button class="nav-item" onclick="showView('v-compliance')" id="nav-v-compliance"><span class="nav-item-icon">🧭</span> Compliance Center</button>
       <button class="nav-item" onclick="showView('v-reconciliation')" id="nav-v-reconciliation"><span class="nav-item-icon">🧮</span> Reconciliation</button>
       <button class="nav-item" onclick="showView('v-sla')" id="nav-v-sla"><span class="nav-item-icon">⏱️</span> SLA Monitor</button>
@@ -2600,6 +2603,10 @@ async function refreshCurrentView(fullRender = false) {
     AuditPortal.renderPortal(mc, fullRender);
     return;
   }
+  if (currentView === 'v-dispatch-history') {
+    renderDispatchHistory(mc, fullRender);
+    return;
+  }
   if (currentView === 'v-compliance') {
     renderCompliance(mc, fullRender);
     return;
@@ -2703,6 +2710,184 @@ async function refreshCurrentView(fullRender = false) {
   if (SESSION.role === 'provider') await renderProvider(mc, fullRender);
   if (SESSION.role === 'rider') await renderRider(mc, fullRender);
   if (SESSION.role === 'plant') await renderPlant(mc, fullRender);
+}
+
+// ── DISPATCH HISTORY VIEW ──
+window.dhFilters = window.dhFilters || { search: '', status: 'all', startDate: '', endDate: '' };
+
+window.updateDhFilters = function() {
+  const searchInput = document.getElementById('dh-search');
+  const startDateInput = document.getElementById('dh-start-date');
+  const endDateInput = document.getElementById('dh-end-date');
+
+  if (searchInput) window.dhFilters.search = searchInput.value;
+  if (startDateInput) window.dhFilters.startDate = startDateInput.value;
+  if (endDateInput) window.dhFilters.endDate = endDateInput.value;
+
+  renderDispatchHistoryList();
+};
+
+window.setDhStatusFilter = function(status) {
+  window.dhFilters.status = status;
+  
+  const buttons = document.querySelectorAll('.dh-status-btn');
+  buttons.forEach(btn => {
+    if (btn.dataset.status === status) {
+      btn.classList.remove('btn-ghost');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-ghost');
+    }
+  });
+
+  renderDispatchHistoryList();
+};
+
+window.clearDhFilters = function() {
+  window.dhFilters = { search: '', status: 'all', startDate: '', endDate: '' };
+  
+  const searchInput = document.getElementById('dh-search');
+  const startDateInput = document.getElementById('dh-start-date');
+  const endDateInput = document.getElementById('dh-end-date');
+
+  if (searchInput) searchInput.value = '';
+  if (startDateInput) startDateInput.value = '';
+  if (endDateInput) endDateInput.value = '';
+
+  const buttons = document.querySelectorAll('.dh-status-btn');
+  buttons.forEach(btn => {
+    if (btn.dataset.status === 'all') {
+      btn.classList.remove('btn-ghost');
+      btn.classList.add('btn-primary');
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-ghost');
+    }
+  });
+
+  renderDispatchHistoryList();
+};
+
+function renderDispatchHistory(mc, fullRender) {
+  if (!fullRender) {
+    renderDispatchHistoryList();
+    return;
+  }
+
+  mc.innerHTML = `
+    <div class="between" style="margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+      <div>
+        <h3 class="heading">📂 Dispatch History</h3>
+        <div style="font-size:13px; color:var(--text-muted);">Search and filter all circular bio-waste dispatches across the ReGenX network.</div>
+      </div>
+    </div>
+
+    <!-- Search and Filters Card -->
+    <div class="glass-card" style="padding: 24px; margin-bottom: 24px; border-color: rgba(255,255,255,0.12);">
+      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;" class="dh-filters-row1">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">🔍 Search Dispatches</label>
+          <input type="text" id="dh-search" class="form-input" placeholder="Search by Dispatch ID, Provider, Rider, or Plant..." value="${escapeHTML(window.dhFilters.search)}" oninput="window.updateDhFilters()">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">📅 Start Date</label>
+          <input type="date" id="dh-start-date" class="form-input" value="${escapeHTML(window.dhFilters.startDate)}" onchange="window.updateDhFilters()">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">📅 End Date</label>
+          <input type="date" id="dh-end-date" class="form-input" value="${escapeHTML(window.dhFilters.endDate)}" onchange="window.updateDhFilters()">
+        </div>
+      </div>
+      <div class="between" style="flex-wrap: wrap; gap: 12px; align-items: center; border-top: 1px dashed var(--border); padding-top: 16px; margin-top: 16px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="dh-status-filters">
+           <button class="btn ${window.dhFilters.status === 'all' ? 'btn-primary' : 'btn-ghost'} btn-sm dh-status-btn" data-status="all" onclick="window.setDhStatusFilter('all')">All</button>
+           <button class="btn ${window.dhFilters.status === 'pending' ? 'btn-primary' : 'btn-ghost'} btn-sm dh-status-btn" data-status="pending" onclick="window.setDhStatusFilter('pending')">Pending</button>
+           <button class="btn ${window.dhFilters.status === 'accepted' ? 'btn-primary' : 'btn-ghost'} btn-sm dh-status-btn" data-status="accepted" onclick="window.setDhStatusFilter('accepted')">Accepted</button>
+           <button class="btn ${window.dhFilters.status === 'in_transit' ? 'btn-primary' : 'btn-ghost'} btn-sm dh-status-btn" data-status="in_transit" onclick="window.setDhStatusFilter('in_transit')">In Transit</button>
+           <button class="btn ${window.dhFilters.status === 'completed' ? 'btn-primary' : 'btn-ghost'} btn-sm dh-status-btn" data-status="completed" onclick="window.setDhStatusFilter('completed')">Completed</button>
+           <button class="btn ${window.dhFilters.status === 'cancelled' ? 'btn-primary' : 'btn-ghost'} btn-sm dh-status-btn" data-status="cancelled" onclick="window.setDhStatusFilter('cancelled')">Cancelled</button>
+        </div>
+        <button class="btn btn-outline-danger btn-sm" onclick="window.clearDhFilters()">✕ Reset Filters</button>
+      </div>
+    </div>
+
+    <div id="dh-list" class="record-stack"></div>
+  `;
+
+  renderDispatchHistoryList();
+}
+
+function renderDispatchHistoryList() {
+  const listContainer = document.getElementById('dh-list');
+  if (!listContainer) return;
+
+  const query = (window.dhFilters.search || '').toLowerCase().trim();
+  const statusFilter = window.dhFilters.status || 'all';
+  const startDate = window.dhFilters.startDate;
+  const endDate = window.dhFilters.endDate;
+
+  let filtered = getAllOrders();
+
+  // Search filter (Dispatch ID, Provider Name, Rider Name, Plant Name)
+  if (query) {
+    filtered = filtered.filter(o => {
+      const idMatch = o.id && o.id.toLowerCase().includes(query);
+      const providerMatch = o.providerOrg && o.providerOrg.toLowerCase().includes(query);
+      const riderMatch = o.riderName && o.riderName.toLowerCase().includes(query);
+      const plantMatch = o.plantName && o.plantName.toLowerCase().includes(query);
+      const wasteTypeMatch = o.wasteType && o.wasteType.toLowerCase().includes(query);
+      return idMatch || providerMatch || riderMatch || plantMatch || wasteTypeMatch;
+    });
+  }
+
+  // Status filter (Pending, Accepted, In Transit, Completed, Cancelled)
+  if (statusFilter !== 'all') {
+    filtered = filtered.filter(o => {
+      if (statusFilter === 'pending') {
+        return o.status === 'requested';
+      } else if (statusFilter === 'accepted') {
+        return o.status === 'assigned';
+      } else if (statusFilter === 'in_transit') {
+        return ['en_route', 'picked_up', 'at_plant'].includes(o.status);
+      } else if (statusFilter === 'completed') {
+        return o.status === 'completed';
+      } else if (statusFilter === 'cancelled') {
+        return o.status === 'rejected' || o.status === 'cancelled';
+      }
+      return true;
+    });
+  }
+
+  // Date filter
+  if (startDate) {
+    const startMs = new Date(startDate).setHours(0,0,0,0);
+    filtered = filtered.filter(o => o.ts >= startMs);
+  }
+  if (endDate) {
+    const endMs = new Date(endDate).setHours(23,59,59,999);
+    filtered = filtered.filter(o => o.ts <= endMs);
+  }
+
+  listContainer.innerHTML = filtered.length 
+    ? filtered.map(o => buildOrderCard(o, SESSION.role)).join('')
+    : renderDashboardListState({
+        icon: '🔍',
+        title: 'No Matching Dispatches',
+        description: 'No dispatch records found matching the active search and filter criteria.',
+        statusLabel: 'No Results',
+        tone: 'inactive'
+      });
+
+  if (window.gsap && filtered.length) {
+    gsap.from('#dh-list .order-card', {
+      opacity: 0,
+      y: 12,
+      stagger: 0.05,
+      duration: 0.3,
+      ease: 'power2.out'
+    });
+  }
 }
 
 /**
