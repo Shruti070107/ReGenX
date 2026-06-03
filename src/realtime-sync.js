@@ -58,7 +58,7 @@ function parsePayload(value) {
  * @param {Array<{key: string, value: *, action: string}>} [updates=[]] - Update records to apply.
  * @param {Object} [options={}] - Processing flags.
  * @param {boolean} [options.quiet=false] - Suppress toast notifications when true.
- * @returns {void}
+ * @returns {void} Does not return a value.
  */
 function applyUpdates(updates = [], options = {}) {
   updates.forEach((update) => {
@@ -177,7 +177,7 @@ function setupFallbackChannel() {
  * @param {*} value - The value to serialise and store.
  * @param {Object} [options={}] - Options object.
  * @param {boolean} [options.silent=false] - Skip broadcasting when true.
- * @returns {void}
+ * @returns {void} Does not return a value.
  */
 function writeStorage(key, value, options = {}) {
   try {

@@ -24,8 +24,6 @@ const QUALITY_LEDGER_KEY = STORAGE_KEY_PREFIX + "quality-ledger";
 const AUTOMATION_PIPELINE_KEY = STORAGE_KEY_PREFIX + "automation-pipeline";
 const SESSION_STATE_KEY = STORAGE_KEY_PREFIX + 'active-session';
 
-console.debug('APP JS loaded');
-
 function saveActiveSession(accountId, viewId) {
   try {
     const payload = { accountId, lastView: viewId || '', timestamp: Date.now() };
@@ -71,7 +69,6 @@ function isViewValidForRole(viewId, role) {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js')
     .then(reg => {
-      console.info('☁️ ReGenX SW v3 Registered');
       window._swReg = reg;
 
       // Listen for Background Sync completion messages from SW
@@ -127,7 +124,7 @@ function getAlertPreference() {
  * @function setAlertPreference
  * @description Persists the smart alert preference for the current user.
  * @param {boolean} enabled - Whether alerts should be enabled.
- * @returns {void}
+ * @returns {void} Does not return a value.
  */
 function setAlertPreference(enabled) {
   if (!SESSION || !SESSION.id) return;
@@ -145,7 +142,7 @@ function setAlertPreference(enabled) {
  * @description Toggles Smart Dispatch Alerts on or off. Persists preference
  * to localStorage, updates button UI with GSAP animation, and deregisters
  * Background Sync when disabling.
- * @returns {Promise<void>}
+ * @returns {Promise<void>} Resolves after the alert preference and UI state are updated.
  */
 window.toggleSmartAlerts = async function() {
   const btn = document.getElementById('btn-smart-alerts');
@@ -653,7 +650,7 @@ let trustLedgerTamperWarningShown = false;
  * @function handleTrustLedgerTamper
  * @description Shows a single warning toast when trust ledger integrity is compromised.
  * @param {{valid:boolean,tampered:boolean,brokenIndex:(number|null)}} result - Verification result.
- * @returns {void}
+ * @returns {void} Does not return a value.
  */
 function handleTrustLedgerTamper(result) {
   if (trustLedgerTamperWarningShown || !result?.tampered) return;
@@ -667,7 +664,7 @@ function handleTrustLedgerTamper(result) {
  * @function handleLedgerStorageError
  * @description Centralized handler for ledger localStorage exceptions (e.g. quota exceeded).
  * @param {Error} err - Exception object.
- * @returns {void}
+ * @returns {void} Does not return a value.
  */
 function handleLedgerStorageError(err) {
   console.error("Ledger storage error:", err);
@@ -5260,7 +5257,7 @@ window.addEventListener('DOMContentLoaded', animateAuthEntry);
  * @description Detects whether the user is on a touch (mobile) or pointer (desktop) device
  * using the CSS media query API. Applies a data-device attribute to <body> so CSS can
  * serve targeted layout rules without JS-in-CSS hacks.
- * @returns {void}
+ * @returns {void} Does not return a value.
  */
 function detectDeviceClass() {
   const isTouch = window.matchMedia('(pointer: coarse)').matches;
@@ -5345,8 +5342,6 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/service-worker.js');
-
-      console.info('Service Worker registered:', registration.scope);
     } catch (error) {
       console.error('Service Worker registration failed:', error);
     }
