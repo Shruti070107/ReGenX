@@ -73,11 +73,9 @@ export const CloudSync = {
                         config.accountsCollectionId = val;
                     }
                 }
-            } else {
-                console.warn("Could not load /.env file, status:", response.status);
             }
         } catch (e) {
-            console.warn("Failed to fetch or parse .env file. Falling back to defaults.", e);
+            console.warn("Cloud sync configuration could not be loaded. Falling back to defaults.");
         }
 
         // Check window process for fallback
@@ -106,7 +104,7 @@ export const CloudSync = {
             const config = await CloudSync.loadConfig();
             
             if (!config.projectId || !config.databaseId || !config.ordersCollectionId) {
-                console.warn("Appwrite credentials not fully configured in .env. Running in local mode.");
+                console.warn("Cloud sync is not configured. Running in local mode.");
                 CloudSync.isLive = false;
                 CloudSync.renderSyncBadge('local', 'Local Mode');
                 return;
@@ -215,12 +213,9 @@ export const CloudSync = {
         if (!CloudSync.client || !CloudSync.config) return;
 
         const channel = `databases.${CloudSync.config.databaseId}.collections.${CloudSync.config.ordersCollectionId}.documents`;
-        console.debug(`📡 Subscribed to Appwrite Realtime: ${channel}`);
         
         try {
             CloudSync.unsubscribe = CloudSync.client.subscribe(channel, response => {
-                console.debug("⚡ Appwrite Realtime Event Received:", response);
-                
                 const syncedOrder = response.payload;
                 if (!syncedOrder || !syncedOrder.id) return;
                 
@@ -235,8 +230,6 @@ export const CloudSync = {
                                    localOrder.riderName !== syncedOrder.riderName;
                                    
                 if (hasChanged) {
-                    console.log(`🔄 Synced order [${syncedOrder.id}] has changes. Saving locally.`);
-                    
                     const originalLive = CloudSync.isLive;
                     CloudSync.isLive = false;
                     try {
@@ -325,7 +318,6 @@ export const CloudSync = {
                     payload.id,
                     sanitizedDoc
                 );
-                console.log(`☁️ Synced to Appwrite (Updated) -> Collection [${ordersCollectionId}]`, sanitizedDoc);
             } catch (updateErr) {
                 if (updateErr.code === 404) {
                     await CloudSync.databases.createDocument(
@@ -334,7 +326,6 @@ export const CloudSync = {
                         payload.id,
                         sanitizedDoc
                     );
-                    console.log(`☁️ Synced to Appwrite (Created) -> Collection [${ordersCollectionId}]`, sanitizedDoc);
                 } else {
                     throw updateErr;
                 }
@@ -461,7 +452,6 @@ export const CloudSync = {
             const filtered = queue.filter(item => item.key !== key);
             filtered.push({ key, data, ts: Date.now() });
             localStorage.setItem('regenx-offline-queue', JSON.stringify(filtered));
-            console.debug(`[CloudSync] Queued offline write for key: ${key}`);
         } catch (e) {
             console.warn('[CloudSync] Failed to queue offline write:', e);
         }
@@ -482,7 +472,6 @@ export const CloudSync = {
         try {
             const queue = JSON.parse(localStorage.getItem('regenx-offline-queue') || '[]');
             if (queue.length === 0) return;
-            console.log(`[CloudSync] Flushing ${queue.length} offline queued writes...`);
             const failed = [];
             for (const item of queue) {
                 try {
@@ -547,7 +536,6 @@ export const CloudSync = {
             }
 
             CloudSync.renderSyncBadge('live', 'Cloud Live');
-            console.log(`☁️ Hydrated from cloud: account + ${cloudOrders.length} orders`);
 
             // Refresh the current dashboard view with fresh data
             window.refreshCurrentView?.(true);

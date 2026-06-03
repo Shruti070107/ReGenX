@@ -145,10 +145,7 @@ self.addEventListener('activate', (event) => {
         Promise.all(
           keys
             .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE)
-            .map((key) => {
-              console.log(`[SW] Deleting stale cache: ${key}`);
-              return caches.delete(key);
-            })
+            .map((key) => caches.delete(key))
         )
       )
       .then(() => self.clients.claim())
@@ -220,7 +217,6 @@ async function replayQueuedOrders() {
       });
     });
 
-    console.log('[SW] Background sync triggered — offline queue notified');
   } catch (error) {
     console.error('[SW] Background sync failed:', error);
   }

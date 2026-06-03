@@ -24,8 +24,6 @@ const QUALITY_LEDGER_KEY = STORAGE_KEY_PREFIX + "quality-ledger";
 const AUTOMATION_PIPELINE_KEY = STORAGE_KEY_PREFIX + "automation-pipeline";
 const SESSION_STATE_KEY = STORAGE_KEY_PREFIX + 'active-session';
 
-console.debug('APP JS loaded');
-
 function saveActiveSession(accountId, viewId) {
   try {
     const payload = { accountId, lastView: viewId || '', timestamp: Date.now() };
@@ -71,7 +69,6 @@ function isViewValidForRole(viewId, role) {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js')
     .then(reg => {
-      console.info('☁️ ReGenX SW v3 Registered');
       window._swReg = reg;
 
       // Listen for Background Sync completion messages from SW
@@ -5345,8 +5342,6 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/service-worker.js');
-
-      console.info('Service Worker registered:', registration.scope);
     } catch (error) {
       console.error('Service Worker registration failed:', error);
     }
