@@ -2072,7 +2072,13 @@ function startGreenWall() {
   
   const completedOrders = getAllOrders().filter(o => o.status === 'completed');
   if(completedOrders.length === 0) {
-    feed.innerHTML = '<div class="gw-item" style="color:var(--text-muted)">No network activity yet. Complete a pickup to appear here!</div>';
+    feed.innerHTML = renderEmptyState({
+      icon: '🌱',
+      title: 'Green Wall is quiet',
+      description: 'Divert waste to display network activity here.',
+      ctaText: SESSION.role === 'provider' ? 'Divert Waste' : '',
+      ctaAction: SESSION.role === 'provider' ? "showView('v-pv-req')" : ''
+    });
     return;
   }
   
@@ -2383,6 +2389,23 @@ function renderErrorState({ title = 'Operational error', description = 'Unable t
   `;
 }
 
+function renderEmptyState({ icon = '🌱', title = 'No data available', description = 'There is no data to show here right now.', ctaText = '', ctaAction = '', ctaId = '' } = {}) {
+  const ctaHtml = ctaText && ctaAction
+    ? `<button class="btn btn-primary empty-state-cta" ${ctaId ? `id="${ctaId}"` : ''} onclick="${ctaAction}">${ctaText}</button>`
+    : '';
+  return `
+    <div class="empty-state-container animated fadeIn">
+      <div class="empty-state-icon-wrapper">
+        <span class="empty-state-icon">${icon}</span>
+      </div>
+      <h4 class="empty-state-title">${title}</h4>
+      <p class="empty-state-desc">${description}</p>
+      ${ctaHtml ? `<div class="empty-state-actions">${ctaHtml}</div>` : ''}
+    </div>
+  `;
+}
+window.renderEmptyState = renderEmptyState;
+
 function renderEmptyStateCard({ icon = '◌', title = 'No data available', description = 'There is no operational data for this widget yet.', subtext = '', statusLabel = 'Idle', tone = 'inactive', actionHtml = '' } = {}) {
   return `
     <div class="dashboard-state dashboard-state-empty">
@@ -2438,7 +2461,23 @@ function renderMetricGrid(cards = []) {
 }
 
 function renderDashboardListState({ icon = '◌', title = 'No data available', description = 'This section is empty right now.', subtext = '', statusLabel = 'Idle', tone = 'inactive', actionHtml = '' } = {}) {
-  return renderEmptyStateCard({ icon, title, description, subtext, statusLabel, tone, actionHtml });
+  if (actionHtml) {
+    return `
+      <div class="empty-state-container animated fadeIn">
+        <div class="empty-state-icon-wrapper">
+          <span class="empty-state-icon">${icon}</span>
+        </div>
+        <h4 class="empty-state-title">${title}</h4>
+        <p class="empty-state-desc">${description}${subtext ? `<br><span style="display:inline-block;margin-top:4px;color:var(--text-muted);font-size:11px;">${subtext}</span>` : ''}</p>
+        <div class="empty-state-actions">${actionHtml}</div>
+      </div>
+    `;
+  }
+  return renderEmptyState({
+    icon,
+    title,
+    description: description + (subtext ? ' ' + subtext : '')
+  });
 }
 
 function renderSectionPlaceholder({ title = 'Loading data', description = 'Preparing dashboard state…' } = {}) {
@@ -3283,13 +3322,12 @@ async function renderProvider(mc, fullRender) {
     const lbDiv = document.getElementById('pv-leaderboard');
     if(lbDiv) {
       if (!allCompleted.length) {
-        lbDiv.innerHTML = renderDashboardListState({
+        lbDiv.innerHTML = renderEmptyState({
           icon: '🏆',
           title: 'Leaderboard coming soon',
-          description: 'Regional rankings update as you complete dispatches.',
-          subtext: 'Top contributors by material recovered will appear here.',
-          statusLabel: 'Idle',
-          tone: 'inactive'
+          description: 'Regional rankings update as you complete dispatches. Divert waste to rise in rank.',
+          ctaText: 'Divert Waste',
+          ctaAction: "showView('v-pv-req')"
         });
       } else {
         const lbHTML = lbSorted.map((item, i) => `
@@ -3382,13 +3420,12 @@ async function renderProvider(mc, fullRender) {
     const pvMyKg = document.getElementById('pv-my-kg');
     if(pvMyKg) pvMyKg.textContent = totalKg + ' kg';
     const pvActDiv = document.getElementById('pv-act');
-    if(pvActDiv) pvActDiv.innerHTML = active.length ? active.map(o=>buildOrderCard(o,'provider')).join('') : renderDashboardListState({
+    if(pvActDiv) pvActDiv.innerHTML = active.length ? active.map(o=>buildOrderCard(o,'provider')).join('') : renderEmptyState({
       icon: '🚚',
       title: 'No active dispatches',
-      description: 'There are no in-flight provider orders right now.',
-      subtext: 'Create a dispatch request to populate this section.',
-      statusLabel: 'Idle',
-      tone: 'inactive'
+      description: 'There are no in-flight provider orders right now. Create a dispatch request to begin.',
+      ctaText: 'Request Pickup',
+      ctaAction: "showView('v-pv-req')"
     });
 
     if(fullRender) setTimeout(initPvChart, 100);
@@ -3398,7 +3435,13 @@ async function renderProvider(mc, fullRender) {
     if (iotWidget) {
       const bins = getIoTBins();
       if (!bins.length) {
-        iotWidget.innerHTML = '<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:12px;">No bins registered. <button class="btn btn-ghost btn-sm" onclick="showView(\'v-iot-bins\')">Add one →</button></div>';
+        iotWidget.innerHTML = renderEmptyState({
+          icon: '🗑️',
+          title: 'No registered bins',
+          description: 'No IoT sensory bins have been added yet.',
+          ctaText: 'Add Sensory Bin',
+          ctaAction: "showView('v-iot-bins')"
+        });
       } else {
         iotWidget.innerHTML = bins.map(b => {
           const col = b.fill >= 85 ? 'var(--red)' : b.fill >= 60 ? 'var(--amber)' : 'var(--green)';
@@ -3476,13 +3519,12 @@ async function renderProvider(mc, fullRender) {
         <div id="pv-hist-list" class="record-stack"></div>
       </section>
     `;
-    document.getElementById('pv-hist-list').innerHTML = filteredHistory.length ? filteredHistory.map(o=>buildOrderCard(o,'provider')).join('') : renderDashboardListState({
+    document.getElementById('pv-hist-list').innerHTML = filteredHistory.length ? filteredHistory.map(o=>buildOrderCard(o,'provider')).join('') : renderEmptyState({
       icon: '📦',
       title: `No completed history in the last ${limitDays} days`,
-      description: 'No provider order history was recorded during this period.',
-      subtext: 'Completed dispatches will display here once available.',
-      statusLabel: 'Idle',
-      tone: 'inactive'
+      description: 'No provider order history was recorded during this period. Completed dispatches will display here once available.',
+      ctaText: 'Divert Waste',
+      ctaAction: "showView('v-pv-req')"
     });
   }
 }
@@ -3850,25 +3892,23 @@ async function renderRider(mc, fullRender) {
              <div class="between" style="margin-bottom:8px;"><div>⏱️ ETA</div><div style="font-weight:700; color:var(--blue);" id="rt-eta">Calculating…</div></div>
              <div class="between" style="margin-bottom:8px;"><div>⛽ Fuel Saved</div><div style="font-weight:700; color:var(--green);" id="rt-fuel-saved">—</div></div>
              <div class="between"><div>🔋 Battery</div><div style="font-weight:700;" id="rt-batt">--</div></div>
-          </div>` : renderDashboardListState({
+          </div>` : renderEmptyState({
             icon: '📡',
             title: 'No active telemetry',
-            description: 'Accept a job to start live route telemetry.',
-            subtext: 'Weather, ETA, fuel, and battery values will appear after a route is active.',
-            statusLabel: 'Idle',
-            tone: 'inactive'
+            description: 'Accept a job to start live route telemetry. Weather, ETA, fuel, and battery values will appear after a route is active.',
+            ctaText: 'View Available Jobs',
+            ctaAction: "showView('v-rd-jobs')"
           })}
         </div>
       </div>
     `;
     
-    document.getElementById('rd-act').innerHTML = activeJobs.length ? activeJobs.map(o => buildOrderCard(o, 'rider')).join('') : renderDashboardListState({
+    document.getElementById('rd-act').innerHTML = activeJobs.length ? activeJobs.map(o => buildOrderCard(o, 'rider')).join('') : renderEmptyState({
       icon: '📍',
       title: 'No active task',
-      description: 'Check available jobs to begin a route.',
-      subtext: 'When a dispatch is accepted, route progress will appear here.',
-      statusLabel: 'Idle',
-      tone: 'inactive'
+      description: 'Check available jobs to begin a route. When a dispatch is accepted, route progress will appear here.',
+      ctaText: 'Available Jobs',
+      ctaAction: "showView('v-rd-jobs')"
     });
     
     if (activeJobs.length) {
@@ -4066,24 +4106,23 @@ async function renderRider(mc, fullRender) {
 
   if (currentView === 'v-rd-jobs') {
     if(fullRender) mc.innerHTML = `<h3 class="heading" style="margin-bottom:24px;">Available Jobs</h3><div id="rd-jobs-list"></div>`;
-    document.getElementById('rd-jobs-list').innerHTML = pending.length ? pending.map(o=>buildOrderCard(o,'rider')).join('') : renderDashboardListState({
+    document.getElementById('rd-jobs-list').innerHTML = pending.length ? pending.map(o=>buildOrderCard(o,'rider')).join('') : renderEmptyState({
       icon: '📋',
       title: 'No pending requests',
-      description: 'There are no unassigned requests right now.',
-      subtext: 'New requests will populate this queue automatically.',
-      statusLabel: 'Idle',
-      tone: 'inactive'
+      description: 'There are no unassigned requests right now. New requests will populate this queue automatically.',
+      ctaText: 'Refresh Queue',
+      ctaAction: "refreshCurrentView(true)"
     });
   }
 
   if (currentView === 'v-rd-hist') {
     if(fullRender) mc.innerHTML = `<h3 class="heading" style="margin-bottom:24px;">Completions</h3><div id="rd-hist-list"></div>`;
-    document.getElementById('rd-hist-list').innerHTML = hist.length ? hist.map(o=>buildOrderCard(o,'rider')).join('') : renderDashboardListState({
+    document.getElementById('rd-hist-list').innerHTML = hist.length ? hist.map(o=>buildOrderCard(o,'rider')).join('') : renderEmptyState({
       icon: '✓',
       title: 'No completions yet',
-      description: 'Completed jobs will appear here after route closure.',
-      statusLabel: 'Idle',
-      tone: 'inactive'
+      description: 'Completed jobs will appear here after route closure. Accept a job to get started.',
+      ctaText: 'View Available Jobs',
+      ctaAction: "showView('v-rd-jobs')"
     });
   }
 }
@@ -4542,13 +4581,12 @@ async function renderPlant(mc, fullRender) {
           </div>
         `;
     }
-    document.getElementById('pl-inc').innerHTML = incoming.length ? incoming.map(o=>buildOrderCard(o,'plant')).join('') : renderDashboardListState({
+    document.getElementById('pl-inc').innerHTML = incoming.length ? incoming.map(o=>buildOrderCard(o,'plant')).join('') : renderEmptyState({
       icon: '🚚',
       title: 'No trucks waiting at gate',
-      description: 'Incoming flow is currently idle.',
-      subtext: 'New arrivals will appear here as they reach the plant.',
-      statusLabel: 'Idle',
-      tone: 'inactive'
+      description: 'Incoming flow is currently idle. New arrivals will appear here as they reach the plant.',
+      ctaText: 'Refresh Arrivals',
+      ctaAction: "refreshCurrentView(true)"
     });
     
     document.getElementById('pl-out-logs').innerHTML = logs.length ? logs.slice(0,4).map(l => `
@@ -4556,12 +4594,12 @@ async function renderPlant(mc, fullRender) {
          <div class="between" style="margin-bottom:8px;"><span class="badge badge-blue">Log</span> <span class="muted" style="font-size:12px">${fmtDate(l.ts)}</span></div>
          <div style="font-size:14px;"><strong>Biogas:</strong> ${l.bio} m³ &nbsp;·&nbsp; <strong>Compost:</strong> ${l.comp} kg</div>
       </div>
-    `).join('') : renderDashboardListState({
+    `).join('') : renderEmptyState({
       icon: '📜',
       title: 'No outputs logged',
       description: 'Biogas and compost outputs will appear here once the plant starts logging results.',
-      statusLabel: 'Idle',
-      tone: 'inactive'
+      ctaText: 'Log Daily Output',
+      ctaAction: "showView('v-pl-out')"
     });
     
     if(fullRender) {
@@ -4593,13 +4631,12 @@ async function renderPlant(mc, fullRender) {
 
   if (currentView === 'v-pl-in') {
     if(fullRender) mc.innerHTML = `<div class="incoming-shell"><h3 class="heading">Incoming Flow</h3><div id="pl-in-list"></div></div>`;
-    document.getElementById('pl-in-list').innerHTML = incoming.length ? incoming.map(o=>buildOrderCard(o,'plant')).join('') : renderDashboardListState({
+    document.getElementById('pl-in-list').innerHTML = incoming.length ? incoming.map(o=>buildOrderCard(o,'plant')).join('') : renderEmptyState({
       icon: '🚛',
       title: 'No incoming flow',
-      description: 'There are no inbound loads queued for the plant.',
-      subtext: 'Dispatch activity will populate this lane automatically.',
-      statusLabel: 'Idle',
-      tone: 'inactive'
+      description: 'There are no inbound loads queued for the plant. Dispatch activity will populate this lane automatically.',
+      ctaText: 'Overview Dashboard',
+      ctaAction: "showView('v-pl-dash')"
     });
   }
 
