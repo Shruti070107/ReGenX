@@ -91,7 +91,7 @@ export const CloudSync = {
 
     /**
      * Initializes the Appwrite Web SDK and establishes Realtime connection.
-     * @returns {Promise<void>}
+     * @returns {Promise<void>} Resolves after cloud sync is initialized or local mode is selected.
      */
     init: async () => {
         if (!window.Appwrite) {
@@ -136,7 +136,7 @@ export const CloudSync = {
      * Renders a premium Glassmorphic sync badge in the DOM header.
      * @param {string} [status='local'] - The status ('live', 'local', 'error', 'offline', or 'syncing').
      * @param {string} [label='Local Mode'] - The label to display.
-     * @returns {void}
+     * @returns {void} Does not return a value.
      */
     renderSyncBadge: (status = 'local', label = 'Local Mode') => {
         const topbarUser = document.querySelector('.topbar-user');
@@ -207,7 +207,7 @@ export const CloudSync = {
 
     /**
      * Subscribes to the Appwrite Realtime API for incoming dispatches.
-     * @returns {void}
+     * @returns {void} Does not return a value.
      */
     subscribeToDispatches: () => {
         if (!CloudSync.client || !CloudSync.config) return;
@@ -254,16 +254,10 @@ export const CloudSync = {
     },
 
     /**
-     * Sanitizes an order object to match database attribute schemas.
-     * Ensures all values match correct types.
-     * @param {Object} doc - Raw order document.
-     * @returns {Object} Sanitized object ready for Appwrite.
-     */
-    /**
      * Strips internal and private fields from a document before cloud upload.
      * Removes underscore-prefixed keys and non-serialisable values (functions, undefined).
-     * @param {Object} doc - The raw document object to sanitise.
-     * @returns {Object} A cleaned copy safe for Firestore/cloud storage.
+     * @param {Object} doc - The raw order document object to sanitise.
+     * @returns {Object} A cleaned copy safe for Appwrite order storage.
      */
     sanitizeDoc: (doc) => {
         const sanitized = {};
@@ -290,17 +284,11 @@ export const CloudSync = {
     },
 
     /**
-     * Pushes a local state change to the Appwrite Database.
-     * @param {string} collection - Target collection ID.
-     * @param {Object} payload - Data to sync.
-     * @returns {Promise<void>}
-     */
-    /**
-     * Writes a sanitised document to the specified Firestore collection.
+     * Writes a sanitised order document to the configured Appwrite collection.
      * Falls back to the offline queue when connectivity is unavailable.
-     * @param {string} collection - Firestore collection path (e.g. 'orders', 'accounts').
+     * @param {string} collection - Target collection ID supplied by callers for compatibility.
      * @param {Object} payload - The document data to write (will be sanitised before upload).
-     * @returns {Promise<void>}
+     * @returns {Promise<void>} Resolves after the document is created or updated.
      */
     pushDocument: async (collection, payload) => {
         if (!CloudSync.isLive || !CloudSync.databases || !CloudSync.config) return;
@@ -357,7 +345,7 @@ export const CloudSync = {
     /**
      * Upserts an account document to Appwrite.
      * @param {Object} account - Account object with at minimum an `id` field.
-     * @returns {Promise<void>}
+     * @returns {Promise<void>} Resolves after the account is created or updated.
      */
     pushAccount: async (account) => {
         if (!CloudSync.isLive || !CloudSync.databases || !CloudSync.config?.accountsCollectionId) return;
@@ -380,7 +368,7 @@ export const CloudSync = {
     /**
      * Fetches a single account document from Appwrite by UID.
      * @param {string} uid - Account ID.
-     * @returns {Promise<Object|null>}
+     * @returns {Promise<Object|null>} Account document when found, otherwise null.
      */
     fetchAccount: async (uid) => {
         if (!CloudSync.isLive || !CloudSync.databases || !CloudSync.config?.accountsCollectionId) return null;
@@ -398,7 +386,7 @@ export const CloudSync = {
     /**
      * Fetches all orders related to a given user UID from Appwrite.
      * @param {string} uid - User ID (matched against providerId, riderId, or plantId).
-     * @returns {Promise<Array>}
+     * @returns {Promise<Array<Object>>} Deduplicated order documents for the user.
      */
     fetchOrdersForUser: async (uid) => {
         if (!CloudSync.isLive || !CloudSync.databases || !CloudSync.config) return [];
@@ -434,17 +422,11 @@ export const CloudSync = {
     },
 
     /**
-     * Queues a write for offline retry. Stored in localStorage under a dedicated key.
-     * Latest value for any given key wins (deduplication).
-     * @param {string} key - Data key (e.g. 'ord:abc123').
-     * @param {Object} data - Data payload.
-     */
-    /**
      * Enqueues a write operation for deferred cloud sync when offline.
      * Caps the queue at 100 entries to prevent LocalStorage quota exhaustion.
      * @param {string} key - The storage key to write to upon reconnect.
      * @param {*} data - The data payload to persist.
-     * @returns {void}
+     * @returns {void} Does not return a value.
      */
     queueOfflineWrite: (key, data) => {
         try {
@@ -458,14 +440,9 @@ export const CloudSync = {
     },
 
     /**
-     * Flushes all offline-queued writes to Appwrite.
-     * Called when the app comes back online.
-     * @returns {Promise<void>}
-     */
-    /**
      * Flushes all pending offline writes to the cloud when connectivity is restored.
      * Processes each queued item in FIFO order and clears the queue on success.
-     * @returns {Promise<void>}
+     * @returns {Promise<void>} Resolves after queued writes have been attempted.
      */
     flushOfflineQueue: async () => {
         if (!CloudSync.isLive) return;
@@ -500,7 +477,7 @@ export const CloudSync = {
      * Cloud data wins for account fields (tokens, staked).
      * Cloud data wins for orders where cloud timestamp is newer.
      * @param {string} uid - The logged-in user's ID.
-     * @returns {Promise<void>}
+     * @returns {Promise<void>} Resolves after local account and order data are refreshed.
      */
     hydrateFromCloud: async (uid) => {
         if (!CloudSync.isLive) return;

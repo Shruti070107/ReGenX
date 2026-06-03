@@ -66,7 +66,7 @@ export const AccessibilityManager = {
 
     /**
      * Injects the accessibility trigger button and control panel markup into the document body.
-     * @returns {void}
+     * @returns {void} Does not return a value.
      */
     injectUI: () => {
         // Accessibility Trigger Button
@@ -252,7 +252,7 @@ export const AccessibilityManager = {
      * Adjusts the global font scale by the given delta value.
      * The resulting scale is clamped to the valid range [0.8, 1.5].
      * @param {number} delta - Amount to add to the current scale (e.g. 0.1 to increase, -0.1 to decrease).
-     * @returns {void}
+     * @returns {void} Does not return a value.
      */
     changeFontScale: (delta) => {
         const next = Math.max(0.8, Math.min(1.5, AccessibilityManager.state.fontScale + delta));
@@ -292,7 +292,7 @@ export const AccessibilityManager = {
      * Silently no-ops when TTS is disabled or the browser lacks SpeechSynthesis support.
      * @param {string} text - The text string to synthesise.
      * @param {number} [rate=1.0] - Speech rate multiplier (0.1 to 10, default 1.0).
-     * @returns {void}
+     * @returns {void} Does not return a value.
      */
     speak: (text, rate = 1.0) => {
         if (!window.speechSynthesis) return;

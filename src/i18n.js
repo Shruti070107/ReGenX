@@ -159,7 +159,7 @@ window.i18nDictionary = {
  * Translates a single string based on the active language.
  * @param {string} text - The source text.
  * @param {string} lang - The target language ('en', 'hi', 'te', 'de').
- * @returns {string}
+ * @returns {string} Translated text when available, otherwise the original source text.
  */
 window.translateText = function(text, lang) {
   if (!text) return "";
@@ -217,7 +217,7 @@ window.translateText = function(text, lang) {
 /**
  * Traverses the DOM recursively to translate all visible labels and text nodes.
  * @param {Node} [root=document.body] - The root node to start traversal.
- * @returns {void}
+ * @returns {void} Does not return a value.
  */
 window.translateDOM = function(root = document.body) {
   const lang = window.currentLanguage || 'en';
@@ -309,7 +309,7 @@ window.startI18nObserver = function() {
  * Switches the active UI language and retranslates all visible DOM text.
  * Persists the selection to LocalStorage under the 'regenx-lang' key.
  * @param {string} lang - BCP-47 language code. Supported: 'en', 'hi', 'te', 'de'.
- * @returns {void}
+ * @returns {void} Does not return a value.
  */
 window.setLanguage = function(lang) {
   const safeLang = (lang || 'en').toLowerCase();

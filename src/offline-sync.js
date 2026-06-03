@@ -10,10 +10,6 @@ const STORE_NAME = 'pendingActions';
 let db = null;
 
 /**
- * Initialize IndexedDB for offline storage
- * @returns {Promise<IDBDatabase>}
- */
-/**
  * Initialises the IndexedDB offline action store for ReGenX.
  * Creates the 'offline-actions' object store with an auto-incrementing key if it does not exist.
  * @returns {Promise<IDBDatabase>} Resolves with the opened IDBDatabase instance.
@@ -44,8 +40,8 @@ export function initOfflineDB() {
 }
 
 /**
- * Generate unique UUID for each action
- * @returns {string}
+ * Generates a unique UUID for an offline action record.
+ * @returns {string} RFC 4122-style UUID string used as the action key.
  */
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -56,17 +52,11 @@ function generateUUID() {
 }
 
 /**
- * Queue an action for offline storage
- * @param {string} type - Action type (dispatch, pickup, gps, scan, etc.)
- * @param {Object} payload - Action data
- * @returns {Promise<string>} - UUID of queued action
- */
-/**
  * Persists an offline action to IndexedDB for background sync when connectivity is restored.
  * Assigns a UUID and timestamp to each action before storage.
- * @param {string} type - The action type identifier (e.g. 'ORDER_UPDATE', 'GPS_UPDATE').
+ * @param {string} type - The action type identifier (e.g. 'dispatch', 'pickup', 'gps', or 'scan').
  * @param {Object} payload - The data payload associated with the action.
- * @returns {Promise<void>}
+ * @returns {Promise<string>} UUID of the queued action.
  */
 export function queueOfflineAction(type, payload) {
   return new Promise((resolve, reject) => {
@@ -95,10 +85,6 @@ export function queueOfflineAction(type, payload) {
 }
 
 /**
- * Get all pending actions from IndexedDB
- * @returns {Promise<Array>}
- */
-/**
  * Retrieves all pending offline actions from IndexedDB awaiting background sync.
  * @returns {Promise<Array<{id: string, type: string, payload: Object, timestamp: number}>>} Ordered list of pending actions.
  */
@@ -118,7 +104,7 @@ export function getPendingActions() {
 /**
  * Remove a successfully synced action from IndexedDB
  * @param {string} id - UUID of action to remove
- * @returns {Promise<void>}
+ * @returns {Promise<void>} Resolves after the action has been removed or skipped when the database is unavailable.
  */
 export function removeAction(id) {
   return new Promise((resolve, reject) => {
@@ -136,7 +122,7 @@ export function removeAction(id) {
 /**
  * Sync all pending actions when online
  * Uses exponential backoff for retries
- * @returns {Promise<void>}
+ * @returns {Promise<void>} Resolves after all pending actions have been attempted.
  */
 export async function syncPendingActions() {
   const actions = await getPendingActions();
@@ -163,8 +149,8 @@ export async function syncPendingActions() {
 
 /**
  * Process a single action (simulate API call)
- * @param {Object} action
- * @returns {Promise<void>}
+ * @param {Object} action - Pending action record with type and payload fields.
+ * @returns {Promise<void>} Resolves when the action endpoint accepts the payload.
  */
 async function processAction(action) {
   // Replace with actual API endpoints per action type
@@ -189,7 +175,7 @@ async function processAction(action) {
 
 /**
  * Handle retry with exponential backoff
- * @param {Object} action
+ * @param {Object} action - Pending action record whose retry count should be incremented.
  */
 async function handleRetry(action) {
   if (!db) return;
@@ -209,13 +195,9 @@ async function handleRetry(action) {
 }
 
 /**
- * Update sync status UI banner
- * @param {'pending'|'syncing'|'synced'|'retry-failed'} status
- */
-/**
  * Updates the offline sync status indicator element in the UI.
- * @param {'synced' | 'pending' | 'syncing' | 'error'} status - The current sync state to display.
- * @returns {void}
+ * @param {'pending' | 'syncing' | 'synced' | 'retry-failed'} status - The current sync state to display.
+ * @returns {void} Does not return a value.
  */
 export function updateSyncUI(status) {
   let banner = document.getElementById('sync-status-banner');
@@ -268,7 +250,7 @@ export function setupNetworkListeners() {
 
 /**
  * Show/hide offline notification banner
- * @param {boolean} isOffline
+ * @param {boolean} isOffline - Whether the browser is currently offline.
  */
 function showOfflineBanner(isOffline) {
   let offlineBanner = document.getElementById('offline-banner');

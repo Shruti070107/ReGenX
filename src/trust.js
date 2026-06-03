@@ -43,14 +43,9 @@ export const TrustProtocol = {
     },
 
     /**
-     * Determines the rank name and visual properties based on score.
-     * @param {number} score - The user's current trust score.
-     * @returns {Object}
-     */
-    /**
      * Returns the rank tier details for a given trust score.
-     * @param {number} score - The contributor's current trust score (0–1000).
-     * @returns {{ rank: string, badge: string, color: string, minScore: number }} Rank details object.
+     * @param {number} score - The contributor's current trust score (0-100).
+     * @returns {{ name: string, color: string, multiplier: number, icon: string }} Rank display details and reward multiplier.
      */
     getRankDetails: (score) => {
         if (score >= 90) return { name: TrustProtocol.RANKS.DIAMOND, color: '#3B82F6', multiplier: 1.5, icon: '💎' };
@@ -60,15 +55,9 @@ export const TrustProtocol = {
     },
 
     /**
-     * Gets the dynamic reward for a completed order based on trust.
-     * @param {number} baseAmount - The base reward amount.
-     * @param {number} score 
-     * @returns {number}
-     */
-    /**
      * Calculates a trust-weighted token reward amount.
      * @param {number} baseAmount - The base reward amount in $RGX tokens.
-     * @param {number} score - The contributor's current trust score (0–1000).
+     * @param {number} score - The contributor's current trust score (0-100).
      * @returns {number} Final reward amount after applying the trust multiplier.
      */
     calculateReward: (baseAmount, score) => {
@@ -97,19 +86,11 @@ export const TrustProtocol = {
     },
 
     /**
-     * Analyzes integrity events for anomalies.
-     * @param {Array<Object>} events - Ledger events for an order.
-     * @param {{start?:{lat:number,lng:number}, end?:{lat:number,lng:number}}} route - Route endpoints.
-     * @param {(lat1:number,lng1:number,lat2:number,lng2:number)=>number} distanceFn - Distance function.
-     * @returns {{maxGapMins:number,maxDeviationKm:number,anomalies:{timeGap:boolean,routeDeviation:boolean}}}
-     */
-    /**
-     * Analyses rider GPS integrity by cross-referencing location events against the assigned route.
-     * Flags events that deviate beyond the allowed threshold.
-     * @param {Array<Object>} events - GPS event log from the rider's session.
-     * @param {Array<Object>} route - Ordered array of assigned route waypoints with lat/lng.
-     * @param {Function} distanceFn - Distance function accepting two lat/lng point objects.
-     * @returns {{ flagged: number, total: number, deviations: Array<Object> }} Integrity analysis report.
+     * Analyzes trust ledger integrity by measuring event timing gaps and route deviation.
+     * @param {Array<Object>} events - Ledger events for an order, optionally including lat/lng coordinates and timestamps.
+     * @param {{start?:{lat:number,lng:number}, end?:{lat:number,lng:number}}} route - Optional route endpoints used to calculate deviation.
+     * @param {(lat1:number,lng1:number,lat2:number,lng2:number)=>number} distanceFn - Distance function that returns kilometres between coordinate pairs.
+     * @returns {{maxGapMins:number,maxDeviationKm:number,anomalies:{timeGap:boolean,routeDeviation:boolean}}} Integrity anomaly summary.
      */
     analyzeIntegrity: (events, route, distanceFn) => {
         if (!events || events.length === 0) {
@@ -143,19 +124,12 @@ export const TrustProtocol = {
     },
 
     /**
-     * Calculates a trust integrity score from ledger events.
-     * @param {Array<Object>} events - Ledger events for an order.
-     * @param {{start?:{lat:number,lng:number}, end?:{lat:number,lng:number}}} route - Route endpoints.
-     * @param {(lat1:number,lng1:number,lat2:number,lng2:number)=>number} distanceFn - Distance function.
-     * @returns {{score:number, maxGapMins:number, maxDeviationKm:number, anomalies:{timeGap:boolean,routeDeviation:boolean}}}
-     */
-    /**
-     * Calculates a 0–100 GPS integrity score for a rider session.
-     * Higher scores indicate minimal route deviation and trustworthy behaviour.
-     * @param {Array<Object>} events - GPS events from the rider's session.
-     * @param {Array<Object>} route - Assigned route waypoints with lat/lng.
-     * @param {Function} distanceFn - Distance function for two coordinate objects.
-     * @returns {number} Integrity score in the range [0, 100].
+     * Calculates a 0-100 integrity score from ledger timing and route anomaly checks.
+     * Higher scores indicate complete event coverage and minimal route deviation.
+     * @param {Array<Object>} events - Ledger events for an order, including timestamps and optional coordinates.
+     * @param {{start?:{lat:number,lng:number}, end?:{lat:number,lng:number}}} route - Optional route endpoints used to evaluate deviation.
+     * @param {(lat1:number,lng1:number,lat2:number,lng2:number)=>number} distanceFn - Distance function that returns kilometres between coordinate pairs.
+     * @returns {{score:number, maxGapMins:number, maxDeviationKm:number, anomalies:{timeGap:boolean,routeDeviation:boolean}}} Score and supporting anomaly metrics.
      */
     calculateIntegrityScore: (events, route, distanceFn) => {
         const analysis = TrustProtocol.analyzeIntegrity(events, route, distanceFn);

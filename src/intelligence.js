@@ -22,14 +22,9 @@
 
 export const Intelligence = {
     /**
-     * Predicts future waste volume based on historical data.
-     * @param {Array} history - Array of completed order objects.
-     * @returns {PredictionResult}
-     */
-    /**
      * Predicts future bio-waste volume using a weighted moving average of history.
      * @param {Array<Object>} history - Array of past waste intake records with actualKg/kg fields.
-     * @returns {number} Predicted waste volume in kilograms for the next day.
+     * @returns {PredictionResult} Predicted next-day volume, confidence label, and trend direction.
      */
     predictWasteVolume: (history) => {
         if (!history || history.length === 0) {
@@ -52,16 +47,10 @@ export const Intelligence = {
     },
 
     /**
-     * Calculates high demand zones for riders based on provider density and historical frequency.
-     * @param {Array} providers - Array of provider account objects.
-     * @param {Array} allOrders - Array of all orders.
-     * @returns {HighDemandZone[]}
-     */
-    /**
      * Identifies provider zones with the highest organic waste demand.
      * @param {Array<Object>} providers - List of registered provider accounts with lat/lng.
      * @param {Array<Object>} allOrders - All active orders in the system.
-     * @returns {Array<Object>} Providers sorted by demand score descending.
+     * @returns {HighDemandZone[]} High-demand map zones derived from provider order frequency.
      */
     getHighDemandZones: (providers, allOrders) => {
         return providers.map(p => {
@@ -78,7 +67,7 @@ export const Intelligence = {
 
     /**
      * Generates a unique transaction hash for "blockchain" interactions.
-     * @returns {string}
+     * @returns {string} Pseudo transaction hash with a 0x prefix.
      */
     generateTxHash: () => {
         return '0x' + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');

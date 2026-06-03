@@ -7,14 +7,9 @@
 
 export const YieldOptimizer = {
     /**
-     * Calculates the theoretical maximum Biogas yield based on incoming waste quality.
-     * @param {Array} recentIntakes - Array of recently completed incoming orders.
-     * @returns {Object} Prediction data containing theoretical yield and suggested temp.
-     */
-    /**
-     * Predicts the composting bio-chemical yield from recent waste intakes.
-     * @param {Array<Object>} recentIntakes - Recent waste intake records with kg/segScore fields.
-     * @returns {{ compostKg: number, methaneL: number, qualityIndex: number }} Predicted yield metrics.
+     * Predicts methane yield and digester operating guidance from recent waste intakes.
+     * @param {Array<Object>} recentIntakes - Recently completed intake records with kg/actualKg and segScore quality fields.
+     * @returns {{ predictedMethane: number, optimalTemp: number, healthStatus: string, recommendation: string, avgScore?: number }} Yield forecast and recommended operating conditions.
      */
     predictYield: (recentIntakes) => {
         if (!recentIntakes || recentIntakes.length === 0) {
