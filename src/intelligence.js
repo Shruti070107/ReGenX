@@ -20,6 +20,8 @@
  * @property {string} reason - Why this zone is predicted to be high demand.
  */
 
+const MAX_ORDERS_FOR_FULL_INTENSITY = 10;
+
 export const Intelligence = {
     /**
      * Predicts future waste volume based on historical data.
@@ -66,7 +68,7 @@ export const Intelligence = {
     getHighDemandZones: (providers, allOrders) => {
         return providers.map(p => {
             const providerOrders = allOrders.filter(o => o.providerId === p.id);
-            const intensity = Math.min(providerOrders.length / 10, 1);
+            const intensity = Math.min(providerOrders.length / MAX_ORDERS_FOR_FULL_INTENSITY, 1);
             return {
                 lat: p.lat + (Math.random() - 0.5) * 0.01, // Slight offset for visual "area"
                 lng: p.lng + (Math.random() - 0.5) * 0.01,
