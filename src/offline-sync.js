@@ -33,7 +33,6 @@ export function initOfflineDB() {
 
     request.onsuccess = (event) => {
       db = event.target.result;
-      console.info('[OfflineSync] IndexedDB initialized');
       resolve(db);
     };
 
@@ -87,7 +86,6 @@ export function queueOfflineAction(type, payload) {
     const request = store.add(action);
 
     request.onsuccess = () => {
-      console.log(`[OfflineSync] Action queued: ${type} (${action.id})`);
       updateSyncUI('pending');
       resolve(action.id);
     };
@@ -147,14 +145,12 @@ export async function syncPendingActions() {
     return;
   }
 
-  console.log(`[OfflineSync] Syncing ${actions.length} pending actions...`);
   updateSyncUI('syncing');
 
   for (const action of actions) {
     try {
       await processAction(action);
       await removeAction(action.id);
-      console.log(`[OfflineSync] Synced: ${action.type} (${action.id})`);
     } catch (error) {
       console.warn(`[OfflineSync] Failed to sync: ${action.id}`, error);
       await handleRetry(action);
@@ -260,13 +256,11 @@ export function updateSyncUI(status) {
  */
 export function setupNetworkListeners() {
   window.addEventListener('online', async () => {
-    console.log('[OfflineSync] Back online — starting sync...');
     showOfflineBanner(false);
     await syncPendingActions();
   });
 
   window.addEventListener('offline', () => {
-    console.log('[OfflineSync] Gone offline');
     showOfflineBanner(true);
     updateSyncUI('pending');
   });
