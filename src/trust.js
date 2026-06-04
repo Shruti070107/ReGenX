@@ -43,11 +43,6 @@ export const TrustProtocol = {
     },
 
     /**
-     * Determines the rank name and visual properties based on score.
-     * @param {number} score - The user's current trust score.
-     * @returns {Object}
-     */
-    /**
      * Returns the rank tier details for a given trust score.
      * @param {number} score - The contributor's current trust score (0–1000).
      * @returns {{ rank: string, badge: string, color: string, minScore: number }} Rank details object.
@@ -59,12 +54,6 @@ export const TrustProtocol = {
         return { name: TrustProtocol.RANKS.BRONZE, color: '#B45309', multiplier: 1.0, icon: '🥉' };
     },
 
-    /**
-     * Gets the dynamic reward for a completed order based on trust.
-     * @param {number} baseAmount - The base reward amount.
-     * @param {number} score 
-     * @returns {number}
-     */
     /**
      * Calculates a trust-weighted token reward amount.
      * @param {number} baseAmount - The base reward amount in $RGX tokens.
@@ -96,13 +85,6 @@ export const TrustProtocol = {
         return Number.isFinite(height) ? height : 0;
     },
 
-    /**
-     * Analyzes integrity events for anomalies.
-     * @param {Array<Object>} events - Ledger events for an order.
-     * @param {{start?:{lat:number,lng:number}, end?:{lat:number,lng:number}}} route - Route endpoints.
-     * @param {(lat1:number,lng1:number,lat2:number,lng2:number)=>number} distanceFn - Distance function.
-     * @returns {{maxGapMins:number,maxDeviationKm:number,anomalies:{timeGap:boolean,routeDeviation:boolean}}}
-     */
     /**
      * Analyses rider GPS integrity by cross-referencing location events against the assigned route.
      * Flags events that deviate beyond the allowed threshold.
@@ -142,13 +124,6 @@ export const TrustProtocol = {
         };
     },
 
-    /**
-     * Calculates a trust integrity score from ledger events.
-     * @param {Array<Object>} events - Ledger events for an order.
-     * @param {{start?:{lat:number,lng:number}, end?:{lat:number,lng:number}}} route - Route endpoints.
-     * @param {(lat1:number,lng1:number,lat2:number,lng2:number)=>number} distanceFn - Distance function.
-     * @returns {{score:number, maxGapMins:number, maxDeviationKm:number, anomalies:{timeGap:boolean,routeDeviation:boolean}}}
-     */
     /**
      * Calculates a 0–100 GPS integrity score for a rider session.
      * Higher scores indicate minimal route deviation and trustworthy behaviour.
