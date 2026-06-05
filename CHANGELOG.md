@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - Added deployment step logging under `docs/steps.md`.
+- Added explicit local validation guidance for contributors.
 - Added problem and solution documentation for the malformed non-ASCII scan command.
 
 ### Changed

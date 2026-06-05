@@ -1,7 +1,7 @@
 {
   "name": "ReGenX BioWaste Platform",
   "short_name": "ReGenX",
-  "description": "Premium BioWaste Logistics & Carbon Exchange",
+  "description": "Premium bio-waste logistics, scanning, and carbon exchange platform",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",

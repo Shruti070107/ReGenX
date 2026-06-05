@@ -11,6 +11,11 @@ export const YieldOptimizer = {
      * @param {Array} recentIntakes - Array of recently completed incoming orders.
      * @returns {Object} Prediction data containing theoretical yield and suggested temp.
      */
+    /**
+     * Predicts the composting bio-chemical yield from recent waste intakes.
+     * @param {Array<Object>} recentIntakes - Recent waste intake records with kg/segScore fields.
+     * @returns {{ compostKg: number, methaneL: number, qualityIndex: number }} Predicted yield metrics.
+     */
     predictYield: (recentIntakes) => {
         if (!recentIntakes || recentIntakes.length === 0) {
             return {
