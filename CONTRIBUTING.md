@@ -22,4 +22,5 @@ Thank you for your interest in contributing.
 - [ ] Changes are scoped and related to the issue.
 - [ ] UI changes are responsive and tested.
 - [ ] No console errors.
+- [ ] `npm test` passes locally.
 - [ ] Documentation updated if needed.

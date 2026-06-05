@@ -305,6 +305,12 @@ window.startI18nObserver = function() {
 };
 
 // LANGUAGE CONTROLLER
+/**
+ * Switches the active UI language and retranslates all visible DOM text.
+ * Persists the selection to LocalStorage under the 'regenx-lang' key.
+ * @param {string} lang - BCP-47 language code. Supported: 'en', 'hi', 'te', 'de'.
+ * @returns {void}
+ */
 window.setLanguage = function(lang) {
   const safeLang = (lang || 'en').toLowerCase();
   window.currentLanguage = safeLang;
