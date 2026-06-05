@@ -22,7 +22,7 @@
 
 > ReGenX is a premium Progressive Web App (PWA) that digitizes the entire bio-waste supply chain — from hotel waste generation, through GPS-tracked rider pickup, to verified delivery at processing plants.
 
-The platform combines AI-powered waste scanning, live GPS tracking, analytics dashboards, blockchain reward systems, and sustainability impact monitoring into one modern ecosystem.Built using modern frontend technologies and optimized for scalability, ReGenX focuses on sustainability, logistics automation, and environmental transparency.
+The platform combines AI-powered waste scanning, live GPS tracking, analytics dashboards, blockchain reward systems, and sustainability impact monitoring into one modern ecosystem. Built using modern frontend technologies and optimized for scalability, ReGenX focuses on sustainability, logistics automation, and environmental transparency.
 
 
 

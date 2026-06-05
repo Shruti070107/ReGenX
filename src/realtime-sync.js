@@ -42,11 +42,24 @@ function inferRoomsFromKey(key) {
   return [NETWORK_ROOM];
 }
 
+/**
+ * Safely parses a JSON string received from the realtime sync channel.
+ * Returns null on parse failure rather than throwing to prevent channel crashes.
+ * @param {string} value - The raw JSON string to parse.
+ * @returns {Object|null} Parsed object, or null if the input is invalid JSON.
+ */
 function parsePayload(value) {
   if (value === null || typeof value === 'undefined') return null;
   return value;
 }
 
+/**
+ * Applies a batch of storage updates received from the realtime sync channel.
+ * @param {Array<{key: string, value: *, action: string}>} [updates=[]] - Update records to apply.
+ * @param {Object} [options={}] - Processing flags.
+ * @param {boolean} [options.quiet=false] - Suppress toast notifications when true.
+ * @returns {void}
+ */
 function applyUpdates(updates = [], options = {}) {
   updates.forEach((update) => {
     if (!update || !update.key) return;
@@ -158,6 +171,14 @@ function setupFallbackChannel() {
   };
 }
 
+/**
+ * Writes a value to LocalStorage and broadcasts the change to other open tabs.
+ * @param {string} key - The LocalStorage key to write.
+ * @param {*} value - The value to serialise and store.
+ * @param {Object} [options={}] - Options object.
+ * @param {boolean} [options.silent=false] - Skip broadcasting when true.
+ * @returns {void}
+ */
 function writeStorage(key, value, options = {}) {
   try {
     if (value === null || typeof value === 'undefined') {

@@ -9,6 +9,7 @@
     "build": "echo \"No build step required for static frontend\"",
     "lint": "echo \"lint skipped (no config yet)\"",
     "test:pwa": "node scripts/validate-pwa.mjs",
+    "test:config": "node scripts/validate-config.mjs",
     "test:modules": "node scripts/validate-modules.mjs",
     "test:health": "node scripts/validate-health.mjs",
     "test": "npm run test:pwa && npm run test:modules && npm run test:health"

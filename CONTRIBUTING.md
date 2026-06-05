@@ -76,3 +76,10 @@ Your pull request should include:
 Maintainers may ask for a smaller scope, tests, screenshots, or a rebase before
 reviewing. Please respond in the pull request thread and keep follow-up commits
 focused on the requested changes.
+
+## Pull Request Checklist
+- [ ] Changes are scoped and related to the issue.
+- [ ] UI changes are responsive and tested.
+- [ ] No console errors.
+- [ ] `npm test` passes locally.
+- [ ] Documentation updated if needed.

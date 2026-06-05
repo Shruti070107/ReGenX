@@ -13,6 +13,11 @@ let db = null;
  * Initialize IndexedDB for offline storage
  * @returns {Promise<IDBDatabase>}
  */
+/**
+ * Initialises the IndexedDB offline action store for ReGenX.
+ * Creates the 'offline-actions' object store with an auto-incrementing key if it does not exist.
+ * @returns {Promise<IDBDatabase>} Resolves with the opened IDBDatabase instance.
+ */
 export function initOfflineDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -57,6 +62,13 @@ function generateUUID() {
  * @param {Object} payload - Action data
  * @returns {Promise<string>} - UUID of queued action
  */
+/**
+ * Persists an offline action to IndexedDB for background sync when connectivity is restored.
+ * Assigns a UUID and timestamp to each action before storage.
+ * @param {string} type - The action type identifier (e.g. 'ORDER_UPDATE', 'GPS_UPDATE').
+ * @param {Object} payload - The data payload associated with the action.
+ * @returns {Promise<void>}
+ */
 export function queueOfflineAction(type, payload) {
   return new Promise((resolve, reject) => {
     if (!db) { reject(new Error('DB not initialized')); return; }
@@ -87,6 +99,10 @@ export function queueOfflineAction(type, payload) {
 /**
  * Get all pending actions from IndexedDB
  * @returns {Promise<Array>}
+ */
+/**
+ * Retrieves all pending offline actions from IndexedDB awaiting background sync.
+ * @returns {Promise<Array<{id: string, type: string, payload: Object, timestamp: number}>>} Ordered list of pending actions.
  */
 export function getPendingActions() {
   return new Promise((resolve, reject) => {
@@ -199,6 +215,11 @@ async function handleRetry(action) {
 /**
  * Update sync status UI banner
  * @param {'pending'|'syncing'|'synced'|'retry-failed'} status
+ */
+/**
+ * Updates the offline sync status indicator element in the UI.
+ * @param {'synced' | 'pending' | 'syncing' | 'error'} status - The current sync state to display.
+ * @returns {void}
  */
 export function updateSyncUI(status) {
   let banner = document.getElementById('sync-status-banner');
