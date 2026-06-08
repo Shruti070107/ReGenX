@@ -266,6 +266,12 @@ export const CloudSync = {
      * @param {Object} doc - Raw order document.
      * @returns {Object} Sanitized object ready for Appwrite.
      */
+    /**
+     * Strips internal and private fields from a document before cloud upload.
+     * Removes underscore-prefixed keys and non-serialisable values (functions, undefined).
+     * @param {Object} doc - The raw document object to sanitise.
+     * @returns {Object} A cleaned copy safe for Firestore/cloud storage.
+     */
     sanitizeDoc: (doc) => {
         const sanitized = {};
         
@@ -294,6 +300,13 @@ export const CloudSync = {
      * Pushes a local state change to the Appwrite Database.
      * @param {string} collection - Target collection ID.
      * @param {Object} payload - Data to sync.
+     * @returns {Promise<void>}
+     */
+    /**
+     * Writes a sanitised document to the specified Firestore collection.
+     * Falls back to the offline queue when connectivity is unavailable.
+     * @param {string} collection - Firestore collection path (e.g. 'orders', 'accounts').
+     * @param {Object} payload - The document data to write (will be sanitised before upload).
      * @returns {Promise<void>}
      */
     pushDocument: async (collection, payload) => {
@@ -435,6 +448,13 @@ export const CloudSync = {
      * @param {string} key - Data key (e.g. 'ord:abc123').
      * @param {Object} data - Data payload.
      */
+    /**
+     * Enqueues a write operation for deferred cloud sync when offline.
+     * Caps the queue at 100 entries to prevent LocalStorage quota exhaustion.
+     * @param {string} key - The storage key to write to upon reconnect.
+     * @param {*} data - The data payload to persist.
+     * @returns {void}
+     */
     queueOfflineWrite: (key, data) => {
         try {
             const queue = JSON.parse(localStorage.getItem('regenx-offline-queue') || '[]');
@@ -450,6 +470,11 @@ export const CloudSync = {
     /**
      * Flushes all offline-queued writes to Appwrite.
      * Called when the app comes back online.
+     * @returns {Promise<void>}
+     */
+    /**
+     * Flushes all pending offline writes to the cloud when connectivity is restored.
+     * Processes each queued item in FIFO order and clears the queue on success.
      * @returns {Promise<void>}
      */
     flushOfflineQueue: async () => {

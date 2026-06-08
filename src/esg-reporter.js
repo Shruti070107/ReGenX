@@ -26,6 +26,11 @@ export const ESGReporter = {
      * @param {Object} payload - Report payload to hash.
      * @returns {Promise<string>} Hex-encoded hash with 0x prefix.
      */
+    /**
+     * Computes a SHA-256 cryptographic hash of the given ESG report payload.
+     * @param {Object} payload - Data to hash (org, role, userId, totalKg, totalCO2, tokens, timestamp).
+     * @returns {Promise<string>} Hex-encoded SHA-256 hash prefixed with '0x'.
+     */
     computeSecureHash: async (payload) => {
         if (!window.crypto?.subtle) {
             throw new Error('Web Crypto API is unavailable in this browser context.');
