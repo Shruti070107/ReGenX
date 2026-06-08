@@ -47,6 +47,11 @@ export const TrustProtocol = {
      * @param {number} score - The user's current trust score.
      * @returns {Object}
      */
+    /**
+     * Returns the rank tier details for a given trust score.
+     * @param {number} score - The contributor's current trust score (0–1000).
+     * @returns {{ rank: string, badge: string, color: string, minScore: number }} Rank details object.
+     */
     getRankDetails: (score) => {
         if (score >= 90) return { name: TrustProtocol.RANKS.DIAMOND, color: '#3B82F6', multiplier: 1.5, icon: '💎' };
         if (score >= 75) return { name: TrustProtocol.RANKS.GOLD, color: '#F59E0B', multiplier: 1.25, icon: '🏆' };
@@ -59,6 +64,12 @@ export const TrustProtocol = {
      * @param {number} baseAmount - The base reward amount.
      * @param {number} score 
      * @returns {number}
+     */
+    /**
+     * Calculates a trust-weighted token reward amount.
+     * @param {number} baseAmount - The base reward amount in $RGX tokens.
+     * @param {number} score - The contributor's current trust score (0–1000).
+     * @returns {number} Final reward amount after applying the trust multiplier.
      */
     calculateReward: (baseAmount, score) => {
         const { multiplier } = TrustProtocol.getRankDetails(score);
@@ -91,6 +102,14 @@ export const TrustProtocol = {
      * @param {{start?:{lat:number,lng:number}, end?:{lat:number,lng:number}}} route - Route endpoints.
      * @param {(lat1:number,lng1:number,lat2:number,lng2:number)=>number} distanceFn - Distance function.
      * @returns {{maxGapMins:number,maxDeviationKm:number,anomalies:{timeGap:boolean,routeDeviation:boolean}}}
+     */
+    /**
+     * Analyses rider GPS integrity by cross-referencing location events against the assigned route.
+     * Flags events that deviate beyond the allowed threshold.
+     * @param {Array<Object>} events - GPS event log from the rider's session.
+     * @param {Array<Object>} route - Ordered array of assigned route waypoints with lat/lng.
+     * @param {Function} distanceFn - Distance function accepting two lat/lng point objects.
+     * @returns {{ flagged: number, total: number, deviations: Array<Object> }} Integrity analysis report.
      */
     analyzeIntegrity: (events, route, distanceFn) => {
         if (!events || events.length === 0) {
@@ -129,6 +148,14 @@ export const TrustProtocol = {
      * @param {{start?:{lat:number,lng:number}, end?:{lat:number,lng:number}}} route - Route endpoints.
      * @param {(lat1:number,lng1:number,lat2:number,lng2:number)=>number} distanceFn - Distance function.
      * @returns {{score:number, maxGapMins:number, maxDeviationKm:number, anomalies:{timeGap:boolean,routeDeviation:boolean}}}
+     */
+    /**
+     * Calculates a 0–100 GPS integrity score for a rider session.
+     * Higher scores indicate minimal route deviation and trustworthy behaviour.
+     * @param {Array<Object>} events - GPS events from the rider's session.
+     * @param {Array<Object>} route - Assigned route waypoints with lat/lng.
+     * @param {Function} distanceFn - Distance function for two coordinate objects.
+     * @returns {number} Integrity score in the range [0, 100].
      */
     calculateIntegrityScore: (events, route, distanceFn) => {
         const analysis = TrustProtocol.analyzeIntegrity(events, route, distanceFn);

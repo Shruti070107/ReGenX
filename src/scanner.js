@@ -81,6 +81,11 @@ window.BioScanner = (function () {
   }
 
   // ── CLASSIFICATION ENGINE ─────────────────────────────────────────────────────
+  /**
+   * Maps MobileNet model predictions to ReGenX waste category labels.
+   * @param {Array<{className: string, probability: number}>} predictions - Top-K MobileNet predictions.
+   * @returns {{ wasteType: string, confidence: number, isOrganic: boolean, biogas: number }} Classification result.
+   */
   function classifyResult(predictions) {
     let organicScore = 0;
     let inorganicScore = 0;
@@ -142,6 +147,11 @@ window.BioScanner = (function () {
     };
   }
 
+  /**
+   * Maps a raw MobileNet class label to a ReGenX waste category string.
+   * @param {string} label - Lowercase MobileNet class label (e.g. 'banana', 'plastic bottle').
+   * @returns {'food' | 'garden' | 'paper' | 'plastic' | 'metal' | 'glass' | 'unknown'} Waste category.
+   */
   function detectWasteCategory(label) {
     if (/fruit|apple|banana|mango|orange|berry|grape|melon|peach|pear/.test(label)) return 'Fruit Waste';
     if (/vegetable|broccoli|carrot|cabbage|lettuce|spinach|onion|potato|pepper/.test(label)) return 'Vegetable Scraps';

@@ -26,6 +26,11 @@ export const Intelligence = {
      * @param {Array} history - Array of completed order objects.
      * @returns {PredictionResult}
      */
+    /**
+     * Predicts future bio-waste volume using a weighted moving average of history.
+     * @param {Array<Object>} history - Array of past waste intake records with actualKg/kg fields.
+     * @returns {number} Predicted waste volume in kilograms for the next day.
+     */
     predictWasteVolume: (history) => {
         if (!history || history.length === 0) {
             return { expectedKg: 0, confidence: 'Low', trend: 'Neutral' };
@@ -51,6 +56,12 @@ export const Intelligence = {
      * @param {Array} providers - Array of provider account objects.
      * @param {Array} allOrders - Array of all orders.
      * @returns {HighDemandZone[]}
+     */
+    /**
+     * Identifies provider zones with the highest organic waste demand.
+     * @param {Array<Object>} providers - List of registered provider accounts with lat/lng.
+     * @param {Array<Object>} allOrders - All active orders in the system.
+     * @returns {Array<Object>} Providers sorted by demand score descending.
      */
     getHighDemandZones: (providers, allOrders) => {
         return providers.map(p => {

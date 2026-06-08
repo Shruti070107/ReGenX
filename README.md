@@ -9,15 +9,6 @@
 <br>
 <br>
 
-<h3>
- 👨‍🏫 Project Mentor
-</h3>
-<h3>
- SATYAM PANDEY
-</h3>
-
- LinkedIn: https://www.linkedin.com/in/satyam-pandey-0b246432a/
- Phone: 9820866720
 
 ![HTML](https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)
@@ -31,7 +22,7 @@
 
 > ReGenX is a premium Progressive Web App (PWA) that digitizes the entire bio-waste supply chain — from hotel waste generation, through GPS-tracked rider pickup, to verified delivery at processing plants.
 
-The platform combines AI-powered waste scanning, live GPS tracking, analytics dashboards, blockchain reward systems, and sustainability impact monitoring into one modern ecosystem.Built using modern frontend technologies and optimized for scalability, ReGenX focuses on sustainability, logistics automation, and environmental transparency.
+The platform combines AI-powered waste scanning, live GPS tracking, analytics dashboards, blockchain reward systems, and sustainability impact monitoring into one modern ecosystem. Built using modern frontend technologies and optimized for scalability, ReGenX focuses on sustainability, logistics automation, and environmental transparency.
 
 
 
