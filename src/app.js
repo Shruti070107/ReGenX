@@ -3505,7 +3505,7 @@ window.openScanner = function() {
       showView('v-pv-req');
       setTimeout(() => {
         const rKg = document.getElementById('req-kg'); if(rKg) rKg.value = Math.floor(Math.random() * 150 + 50); 
-        const rType = document.getElementById('req-type'); if(rType) rType.value = organicPercent > 70 ? "Food Waste" : "Dry Waste";
+        const rType = document.getElementById('req-type'); if(rType) rType.value = organicPercent > 70 ? "Food waste (wet)" : "Mixed kitchen waste";
         showToast(`✓ Scanner Data Applied: ${score}% Segregation Score`);
         closeScanner();
       }, 200);
@@ -3623,6 +3623,7 @@ window.submitPvRequest = async function() {
   const kg = parseInt(document.getElementById('req-kg').value);
   const shift = document.getElementById('req-shift').value;
   
+  if (!type || !WASTE_TYPES.includes(type)) return showToast("⚠ Please select a valid waste type.");
   if (!kg || kg < 50) return showToast("⚠ Minimum 50 kg requirement not met to ensure net-positive energy yield.");
   
   // Find nearest plant (50km limit)
