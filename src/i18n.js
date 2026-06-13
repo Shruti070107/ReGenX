@@ -1,6 +1,6 @@
 /**
  * @fileoverview ReGenX Multi-lingual Translation and Internationalization System
- * Provides instant dynamic translations for English, Hindi, Telugu, and German.
+ * Provides instant dynamic translations for English, Hindi, Spanish, and French.
  * Integrates a MutationObserver to automatically translate dynamic UI changes.
  */
 
@@ -8,157 +8,157 @@ window.currentLanguage = localStorage.getItem('regenx-lang') || 'en';
 
 window.i18nDictionary = {
   // Auth Screen / Registration
-  "🌿ReGenX": { hi: "🌿रीजेनएक्स", te: "🌿రీజెన్ఎక్స్", de: "🌿ReGenX" },
-  "ReGenX": { hi: "रीजेनएक्स", te: "రీజెన్ఎక్స్", de: "ReGenX" },
+  "🌿ReGenX": { hi: "🌿रीजेनएक्स", es: "🌿ReGenX", fr: "🌿ReGenX" },
+  "ReGenX": { hi: "रीजेनएक्स", es: "ReGenX", fr: "ReGenX" },
   "Smart circular bio-waste logistics": {
     hi: "स्मार्ट चक्रीय जैव-कचरा रसद",
-    te: "స్మార్ట్ బయో-వేస్ట్ లాజిస్టిక్స్",
-    de: "Intelligente zirkuläre Bioabfall-Logistik"
+    es: "Logística circular inteligente de biorresiduos",
+    fr: "Logistique circulaire intelligente des biodéchets"
   },
-  "Login": { hi: "लॉगिन", te: "లాగిన్", de: "Anmelden" },
-  "Register": { hi: "पंजीकरण", te: "రిజిస్టర్", de: "Registrieren" },
-  "I am a...": { hi: "मैं एक हूँ...", te: "నేను ఒక...", de: "Ich bin ein..." },
-  "Provider": { hi: "प्रदाता", te: "సరఫరాదారు", de: "Entsorger" },
-  "Rider": { hi: "राइडर", te: "రైడర్", de: "Fahrer" },
-  "Plant": { hi: "संयंत्र", te: "ప్లాంట్", de: "Anlage" },
-  "Full Name": { hi: "पूरा नाम", te: "పూర్తి పేరు", de: "Vollständiger Name" },
-  "Organisation / Entity Name": { hi: "संगठन / इकाई का नाम", te: "సంస్థ పేరు", de: "Organisation / Firmenname" },
-  "Location (Search or GPS)": { hi: "स्थान (खोज या जीपीएस)", te: "స్థానం (సెర్చ్ లేదా GPS)", de: "Standort (Suche oder GPS)" },
-  "Auto-Detect GPS": { hi: "ऑटो-डिटेक्ट जीपीएस", te: "ఆటో-డిటెక్ట్ GPS", de: "GPS automatisch erkennen" },
-  "Create Account": { hi: "खाता बनाएं", te: "ఖాతా సృష్టించండి", de: "Konto erstellen" },
-  "Enter Dashboard": { hi: "डैशबोर्ड में प्रवेश करें", te: "డాష్‌బోర్డ్ లోనికి ప్రవేశించండి", de: "Dashboard öffnen" },
-  "Reset All App Data": { hi: "सभी ऐप डेटा रीसेट करें", te: "అన్ని యాప్ డేటాను రీసెట్ చేయి", de: "Alle App-Daten zurücksetzen" },
-  "Account Created!": { hi: "खाता बन गया!", te: "ఖాతా సృష్టించబడింది!", de: "Konto erstellt!" },
-  "Welcome to ReGenX. Redirecting you...": { hi: "रीजेनएक्स में आपका स्वागत है। पुनर्निर्देशित किया जा रहा है...", te: "రీజెన్ఎక్స్ కు స్వాగతం. మళ్లిస్తున్నాము...", de: "Willkommen bei ReGenX. Weiterleitung..." },
+  "Login": { hi: "लॉगिन", es: "Iniciar sesión", fr: "Connexion" },
+  "Register": { hi: "पंजीकरण", es: "Registrarse", fr: "S'inscrire" },
+  "I am a...": { hi: "मैं एक हूँ...", es: "Soy un...", fr: "Je suis un..." },
+  "Provider": { hi: "प्रदाता", es: "Proveedor", fr: "Fournisseur" },
+  "Rider": { hi: "राइडर", es: "Transportista", fr: "Collecteur" },
+  "Plant": { hi: "संयंत्र", es: "Planta", fr: "Usine" },
+  "Full Name": { hi: "पूरा नाम", es: "Nombre completo", fr: "Nom complet" },
+  "Organisation / Entity Name": { hi: "संगठन / इकाई का नाम", es: "Nombre de la organización", fr: "Nom de l'organisation" },
+  "Location (Search or GPS)": { hi: "स्थान (खोज या जीपीएस)", es: "Ubicación (Búsqueda o GPS)", fr: "Localisation (Recherche ou GPS)" },
+  "Auto-Detect GPS": { hi: "ऑटो-डिटेक्ट जीपीएस", es: "Autodetectar GPS", fr: "Détecter le GPS" },
+  "Create Account": { hi: "खाता बनाएं", es: "Crear cuenta", fr: "Créer un compte" },
+  "Enter Dashboard": { hi: "डैशबोर्ड में प्रवेश करें", es: "Entrar al panel", fr: "Accéder au tableau de bord" },
+  "Reset All App Data": { hi: "सभी ऐप डेटा रीसेट करें", es: "Restablecer todos los datos", fr: "Réinitialiser les données" },
+  "Account Created!": { hi: "खाta बन गया!", es: "¡Cuenta creada!", fr: "Compte créé !" },
+  "Welcome to ReGenX. Redirecting you...": { hi: "रीजेनएक्स में आपका स्वागत है। पुनर्निर्देशित किया जा रहा है...", es: "Bienvenido a ReGenX. Redirigiendo...", fr: "Bienvenue sur ReGenX. Redirection..." },
 
   // Sidebar Nav Links
-  "Overview": { hi: "अवलोकन", te: "అవలోకనం", de: "Übersicht" },
-  "Dispatch Request": { hi: "पिकअप अनुरोध", te: "అభ్యర్థన పంపండి", de: "Abholauftrag" },
-  "IoT Sensory Bins": { hi: "आईओटी संवेदी डिब्बे", te: "IoT సెన్సరీ బిన్స్", de: "Smarte IoT-Abfallbehälter" },
-  "Weekly Records": { hi: "साप्ताहिक रिकॉर्ड", te: "వారపు రికార్డులు", de: "Wöchentliche Berichte" },
-  "Monthly Records": { hi: "मासिक रिकॉर्ड", te: "నెలవారీ రికార్డులు", de: "Monatliche Berichte" },
-  "Compliance Center": { hi: "अनुपालन केंद्र", te: "అనువర్తన కేంద్రం", de: "Compliance-Zentrum" },
-  "Reconciliation": { hi: "सुलह", te: "సయోధ్య", de: "Abgleich" },
-  "SLA Monitor": { hi: "एसएलए मॉनिटर", te: "SLA మానిటర్", de: "SLA-Überwachung" },
-  "Energy Scorecard": { hi: "ऊर्जा स्कोरकार्ड", te: "ఎनरジー స్కోర్‌కార్డ్", de: "Energie-Scorecard" },
-  "Sensor Reliability": { hi: "सेंसर विश्वसनीयता", te: "సెన్సార్ విశ్వసనీయత", de: "Sensorzuverlässigkeit" },
-  "Emissions Tracker": { hi: "उत्सर्जन ट्रैकर", te: "ఉద్గారాల ట్రాకర్", de: "Emissions-Tracker" },
-  "Quality Index": { hi: "गुणवत्ता सूचकांक", te: "నాణ్యత సూచిక", de: "Qualitätsindex" },
-  "Automation Pipeline": { hi: "स्वचालन पाइपलाइन", te: "ఆటోమేషన్ పైప్‌లైన్", de: "Automatisierungs-Pipeline" },
-  "Sustainability Hub": { hi: "स्थिरता केंद्र", te: "సస్టైనబిలిటీ హబ్", de: "Nachhaltigkeits-Hub" },
-  "Sustainability Report Hub": { hi: "स्थिरता रिपोर्ट हब", te: "సస్టైనబిలిటీ రిపోర్ట్ హబ్", de: "Nachhaltigkeitsbericht-Hub" },
-  "ReGen Exchange": { hi: "रीजेन एक्सचेंज", te: "రీజెన్ ఎక్స్ఛేంజ్", de: "ReGen-Börse" },
-  "Public Verification": { hi: "सार्वजनिक सत्यापन", te: "పబ్लिक వెరిఫికేషన్", de: "Öffentliche Überprüfung" },
-  "Available Jobs": { hi: "उपलब्ध नौकरियां", te: "అందుబాటులో ఉన్న ఉద్యోగాలు", de: "Verfügbare Aufträge" },
-  "Completions": { hi: "पूर्णता", te: "పూర్తయినవి", de: "Fertigstellungen" },
-  "Incoming Flow": { hi: "आने वाला प्रवाह", te: "ఇన్‌కమింగ్ ఫ్లో", de: "Eingehender Fluss" },
-  "Log Output": { hi: "लॉग आउटपुट", te: "లాగ్ అవుట్‌పుట్", de: "Protokollausgabe" },
-  "Toggle Theme": { hi: "थीम बदलें", te: "థీమ్ మార్చండి", de: "Design umschalten" },
-  "Logout": { hi: "लॉगआउट", te: "లాగ్అవుట్", de: "Abmelden" },
+  "Overview": { hi: "अवलोकन", es: "Vista general", fr: "Vue d'ensemble" },
+  "Dispatch Request": { hi: "पिकअप अनुरोध", es: "Solicitar recogida", fr: "Demande de collecte" },
+  "IoT Sensory Bins": { hi: "आईओटी संवेदी डिब्बे", es: "Contenedores IoT", fr: "Bacs connectés IoT" },
+  "Weekly Records": { hi: "साप्ताहिक रिकॉर्ड", es: "Registros semanales", fr: "Rapports hebdomadaires" },
+  "Monthly Records": { hi: "मासिक रिकॉर्ड", es: "Registros mensuales", fr: "Rapports mensuels" },
+  "Compliance Center": { hi: "अनुपालन केंद्र", es: "Centro de cumplimiento", fr: "Centre de conformité" },
+  "Reconciliation": { hi: "सुलह", es: "Reconciliación", fr: "Réconciliation" },
+  "SLA Monitor": { hi: "एसएलए मॉनिटर", es: "Monitor de SLA", fr: "Moniteur SLA" },
+  "Energy Scorecard": { hi: "ऊर्जा स्कोरकार्ड", es: "Tarjeta de energía", fr: "Fiche énergétique" },
+  "Sensor Reliability": { hi: "सेंसर विश्वसनीयता", es: "Fiabilidad del sensor", fr: "Fiabilité des capteurs" },
+  "Emissions Tracker": { hi: "उत्सर्जन ट्रैकर", es: "Rastreador de emisiones", fr: "Suivi des émissions" },
+  "Quality Index": { hi: "गुणवत्ता सूचकांक", es: "Índice de calidad", fr: "Indice de qualité" },
+  "Automation Pipeline": { hi: "स्वचालन पाइपलाइन", es: "Canalización automatizada", fr: "Pipeline d'automatisation" },
+  "Sustainability Hub": { hi: "स्थिरता केंद्र", es: "Portal de sostenibilidad", fr: "Hub de durabilité" },
+  "Sustainability Report Hub": { hi: "स्थिरता रिपोर्ट हब", es: "Centro de informes de sostenibilidad", fr: "Hub rapports de durabilité" },
+  "ReGen Exchange": { hi: "रीजेन एक्सचेंज", es: "Bolsa ReGen", fr: "Échange ReGen" },
+  "Public Verification": { hi: "सार्वजनिक सत्यापन", es: "Verificación pública", fr: "Vérification publique" },
+  "Available Jobs": { hi: "उपलब्ध नौकरियां", es: "Trabajos disponibles", fr: "Tâches disponibles" },
+  "Completions": { hi: "पूर्णता", es: "Completados", fr: "Terminés" },
+  "Incoming Flow": { hi: "आने वाला प्रवाह", es: "Flujo entrante", fr: "Flux entrant" },
+  "Log Output": { hi: "लॉग आउटपुट", es: "Registrar producción", fr: "Enregistrer la production" },
+  "Toggle Theme": { hi: "थीम बदलें", es: "Cambiar tema", fr: "Changer de thème" },
+  "Logout": { hi: "लॉगआउट", es: "Cerrar sesión", fr: "Déconnexion" },
 
   // Stats Card Titles & Details
-  "Total Requests": { hi: "कुल अनुरोध", te: "మొత్తం అభ్యర్థనలు", de: "Gesamtanträge" },
-  "Kg Recycled": { hi: "कुल प्रसंस्कृत किग्रा", te: "రీసైకిल చేసిన కిలోలు", de: "Recycelt (in kg)" },
-  "CO₂ Offset (kg)": { hi: "CO₂ ऑफसेट (किग्रा)", te: "CO₂ ఆఫ్‌సెట్ (కిలోలు)", de: "CO2-Kompensation (in kg)" },
-  "Bins Critical": { hi: "गंभीर डिब्बे", te: "బిన్స్ క్రిటికల్", de: "Kritische Behälter" },
-  "No data": { hi: "कोई डेटा नहीं", te: "డేటా లేదు", de: "Keine Daten" },
-  "Active": { hi: "सक्रिय", te: "యాక్టివ్", de: "Aktiv" },
-  "Warning": { hi: "चेतावनी", te: "హెచ్చరిక", de: "Warnung" },
-  "Idle": { hi: "निष्क्रिय", te: "ఖాళీగా ఉంది", de: "Inaktiv" },
+  "Total Requests": { hi: "कुल अनुरोध", es: "Total solicitudes", fr: "Total des demandes" },
+  "Kg Recycled": { hi: "कुल प्रसंस्कृत किग्रा", es: "Kg reciclados", fr: "Kg recyclés" },
+  "CO₂ Offset (kg)": { hi: "CO₂ ऑफसेट (किग्रा)", es: "CO₂ compensado (kg)", fr: "CO₂ compensé (kg)" },
+  "Bins Critical": { hi: "गंभीर डिब्बे", es: "Contenedores críticos", fr: "Bacs critiques" },
+  "No data": { hi: "कोई डेटा नहीं", es: "Sin datos", fr: "Pas de données" },
+  "Active": { hi: "सक्रिय", es: "Activo", fr: "Actif" },
+  "Warning": { hi: "चेतावनी", es: "Advertencia", fr: "Avertissement" },
+  "Idle": { hi: "निष्क्रिय", es: "Inactivo", fr: "Inactif" },
 
   // Stats Card Descriptions
-  "No dispatch requests have been created yet.": { hi: "अभी तक कोई पिकअप अनुरोध नहीं बनाया गया है।", te: "ఇంకా ఎలాంటి అభ్యర్థనలు సృష్టించబడలేదు.", de: "Bisher wurden keine Abholaufträge erstellt." },
-  "Dispatch requests tracked in the system.": { hi: "सिस्टम में ट्रैक किए गए पिकअप अनुरोध।", te: "సిస్టమ్‌లో ట్రాక్ చేయబడిన అభ్యర్థనలు.", de: "Im System erfasste Abholaufträge." },
-  "No material has been processed yet.": { hi: "अभी तक किसी सामग्री का प्रसंस्करण नहीं किया गया है।", te: "ఇंకా ఎలాంటి వ్యర్థాలు ప్రాసెస్ చేయబడలేదు.", de: "Es wurde noch kein Material verarbeitet." },
-  "Recovered material captured from completed loads.": { hi: "पूर्ण किए गए भार से प्राप्त प्रसंस्कृत सामग्री।", te: "పూర్తయిన లోడ్ల నుండి సేకరించిన వ్యర్థాలు.", de: "Aus abgeschlossenen Ladungen rückgewonnenes Material." },
-  "No offset can be calculated until loads are processed.": { hi: "लोड संसाधित होने तक कोई ऑफसेट गणना नहीं की जा सकती।", te: "వ్యర్థాలు ప్రాసెస్ అయ్యేంతవరకు ఆఫ్‌సెట్ లెక్కించబడదు.", de: "Kompensation kann erst nach Verarbeitung berechnet werden." },
-  "Estimated emissions avoided from recovered waste.": { hi: "पुनर्प्राप्त कचरे से बचा हुआ अनुमानित उत्सर्जन।", te: "సేకరించిన వ్యర్థాల నుండి నివారించబడిన ఉద్గారాలు.", de: "Vermiedene Emissionen durch verwerteten Abfall (geschätzt)." },
-  "No IoT bins are connected yet.": { hi: "अभी तक कोई आईओटी डिब्बे नहीं जुड़े हैं।", te: "ఇంకా ఏ IoT బిన్స్ కనెక్ట్ చేయబడలేదు.", de: "Bisher sind keine smarten Behälter verbunden." },
-  "Connected bins above the critical fill threshold.": { hi: "महत्वपूर्ण सीमा से ऊपर भरे हुए जुड़े डिब्बे।", te: "క్రిటికల్ పరిమితి కంటే ఎక్కువ నిండిన బిన్స్.", de: "Verbundene Behälter über dem kritischen Füllstand." },
-  "Open bins": { hi: "डिब्बे खोलें", te: "బిన్స్ ఓపెన్ చేయండి", de: "Behälter öffnen" },
+  "No dispatch requests have been created yet.": { hi: "अभी तक कोई पिकअप अनुरोध नहीं बनाया गया है।", es: "No se han creado solicitudes de envío aún.", fr: "Aucune demande d'envoi n'a encore été créée." },
+  "Dispatch requests tracked in the system.": { hi: "सिस्टम में ट्रैक किए गए पिकअप अनुरोध।", es: "Solicitudes de envío rastreadas en el sistema.", fr: "Demandes d'envoi suivies dans le système." },
+  "No material has been processed yet.": { hi: "अभी तक किसी सामग्री का प्रसंस्करण नहीं किया गया है।", es: "No se ha procesado ningún material aún.", fr: "Aucun matériau n'a encore été traité." },
+  "Recovered material captured from completed loads.": { hi: "पूर्ण किए गए भार से प्राप्त प्रसंस्कृत सामग्री।", es: "Material recuperado capturado de cargas completadas.", fr: "Matériau récupéré à partir de charges terminées." },
+  "No offset can be calculated until loads are processed.": { hi: "लोड संसाधित होने तक कोई ऑफसेट गणना नहीं की जा सकती।", es: "No se puede calcular la compensación hasta que se procesen las cargas.", fr: "Aucune compensation ne peut être calculée tant que les charges ne sont pas traitées." },
+  "Estimated emissions avoided from recovered waste.": { hi: "पुनर्प्राप्त कचरे से बचा हुआ अनुमानित उत्सर्जन।", es: "Emisiones estimadas evitadas a partir de residuos recuperados.", fr: "Émissions estimées évitées à partir des déchets récupérés." },
+  "No IoT bins are connected yet.": { hi: "अभी तक कोई आईओटी डिब्बे नहीं जुड़े हैं।", es: "No hay contenedores IoT conectados aún.", fr: "Aucun bac IoT n'est encore connecté." },
+  "Connected bins above the critical fill threshold.": { hi: "महत्वपूर्ण सीमा से ऊपर भरे हुए जुड़े डिब्बे।", es: "Contenedores conectados por encima del umbral crítico.", fr: "Bacs connectés au-dessus du seuil critique de remplissage." },
+  "Open bins": { hi: "डिब्बे खोलें", es: "Contenedores abiertos", fr: "Ouvrir les bacs" },
 
   // Public Trust Index
-  "Public Trust Index": { hi: "सार्वजनिक विश्वास सूचकांक", te: "పబ్లిక్ ట్రస్ట్ ఇండెక్స్", de: "Öffentlicher Vertrauensindex" },
-  "No verified orders have been recorded yet.": { hi: "अभी तक कोई सत्यापित ऑर्डर रिकॉर्ड नहीं किया गया है।", te: "ఇంకా ఎలాంటి ఆర్డర్లు రికార్డు కాలेదు.", de: "Bisher wurden keine verifizierten Aufträge erfasst." },
+  "Public Trust Index": { hi: "सार्वजनिक विश्वास सूचकांक", es: "Índice de confianza pública", fr: "Indice de confiance publique" },
+  "No verified orders have been recorded yet.": { hi: "अभी तक कोई सत्यापित ऑर्डर रिकॉर्ड नहीं किया गया है।", es: "No se han registrado pedidos verificados aún.", fr: "Aucune commande vérifiée n'a encore été enregistrée." },
   "Integrity scoring will appear once dispatch events are written to the ledger.": {
     hi: "बहीखाते में पिकअप घटनाएं लिखे जाने के बाद अखंडता स्कोरिंग दिखाई देगी।",
-    te: "లెడ్జర్‌లో రికార్డ్ రాగానే ఇంటెగ్రిటీ స్కోరింగ్ కనిపిస్తుంది.",
-    de: "Vertrauenswert wird angezeigt, sobald Abholungen im Register erfasst sind."
+    es: "La puntuación de integridad aparecerá una vez que los eventos de envío se registren.",
+    fr: "Le score d'intégrité apparaîtra une fois les collectes enregistrées."
   },
 
   // Compliance Radar & Alerts
-  "COMPLIANCE RADAR": { hi: "अनुपालन रडार", te: "అనువర్తన రాడార్", de: "COMPLIANCE-RADAR" },
-  "No compliance alerts": { hi: "कोई अनुपालन अलर्ट नहीं", te: "ఎలాंటి అనువర్తన హెచ్చరికలు లేవు", de: "Keine Compliance-Warnungen" },
-  "0 active alerts": { hi: "0 सक्रिय अलर्ट", te: "0 యాక్టివ్ అలర్ట్‌లు", de: "0 aktive Warnungen" },
+  "COMPLIANCE RADAR": { hi: "अनुपालन रडार", es: "RADAR DE CUMPLIMIENTO", fr: "RADAR DE CONFORMITÉ" },
+  "No compliance alerts": { hi: "कोई अनुपालन अलर्ट नहीं", es: "Sin alertas de cumplimiento", fr: "Aucune alerte de conformité" },
+  "0 active alerts": { hi: "0 सक्रिय अलर्ट", es: "0 alertas activas", fr: "0 alerte active" },
 
   // Ticker Feed messages
   "AI Route Optimization Active. Saving 12% Fuel Fleet-wide.": {
     hi: "एआई मार्ग अनुकूलन सक्रिय। पूरे बेड़े में 12% ईंधन की बचत।",
-    te: "AI రూట్ ఆప్టిమైజేషన్ యాక్టివ్. ఫ్లీట్ వ్యాప్తంగా 12% ఇంధనం ఆదా అవుతోంది.",
-    de: "AI-Routenoptimierung aktiv. Flottenweit 12% Treibstoff gespart."
+    es: "Optimización de rutas por IA activa. Ahorro de 12% de combustible.",
+    fr: "Optimisation des itinéraires par IA active. 12% de carburant économisé."
   },
   "Plant Alpha just minted 250 $RGX for organic compost yield.": {
     hi: "संयंत्र अल्फा ने जैविक खाद उपज के लिए 250 $RGX बनाए।",
-    te: "ప్లాంట్ ఆల్ఫా ఇప్పుడే సేంద్రీయ కంపోస్ట్ దిగుబడి కోసం 250 $RGX మింట్ చేసింది.",
-    de: "Anlage Alpha hat soeben 250 $RGX für organischen Kompostertrag geprägt."
+    es: "Planta Alpha acuñó 250 $RGX por rendimiento de compost orgánico.",
+    fr: "L'usine Alpha vient de générer 250 $RGX pour le compost organique."
   },
   "Over 5,000kg of biowaste diverted from landfills today.": {
     hi: "आज 5,000 किलोग्राम से अधिक जैव-कचरा लैंडफिल से हटाया गया।",
-    te: "ఈరోజు ల్యాండ్‌ఫిల్స్ నుండి 5,000 కిలోల కంటే ఎక్కువ బయో-వేస్ట్ మళ్లించబడింది.",
-    de: "Heute über 5.000 kg Bioabfall von Deponien umgeleitet."
+    es: "Más de 5,000 kg de biorresiduos desviados de vertederos hoy.",
+    fr: "Plus de 5 000 kg de biodéchets détournés des décharges aujourd'hui."
   },
 
   // Dynamic placeholders & lists
-  "No active dispatches": { hi: "कोई सक्रिय पिकअप नहीं", te: "ఎలాంటి యాక్టివ్ పికప్‌లు లేవు", de: "Keine aktiven Abholungen" },
-  "There are no in-flight provider orders right now.": { hi: "इस समय कोई इन-फ़्लाइट प्रदाता ऑर्डर नहीं हैं।", te: "ప్రస్తుతం ఎలాంటి ఆర్డర్లు లేవు.", de: "Aktuell gibt es keine aktiven Aufträge." },
-  "Create a dispatch request to populate this section.": { hi: "इस अनुभाग को भरने के लिए एक पिकअप अनुरोध बनाएं।", te: "ఈ విభాగాన్ని నింపడానికి అభ్యర్థన సృష్టించండి.", de: "Erstellen Sie einen Abholauftrag, um diesen Bereich zu füllen." },
-  "The Green Wall": { hi: "द ग्रीन वॉल", te: "ది గ్రీన్ వాల్", de: "Die Grüne Wand" },
+  "No active dispatches": { hi: "कोई सक्रिय पिकअप नहीं", es: "Sin envíos activos", fr: "Aucune collecte active" },
+  "There are no in-flight provider orders right now.": { hi: "इस समय कोई इन-फ़्लाइट प्रदाता ऑर्डर नहीं हैं।", es: "No hay pedidos de proveedores en tránsito ahora.", fr: "Aucune commande de fournisseur en cours actuellement." },
+  "Create a dispatch request to populate this section.": { hi: "इस अनुभाग को भरने के लिए एक पिकअप अनुरोध बनाएं।", es: "Crea una solicitud de envío para completar esta sección.", fr: "Créez une demande de collecte pour remplir cette section." },
+  "The Green Wall": { hi: "द ग्रीन वॉल", es: "El Muro Verde", fr: "Le Mur Vert" },
   "No network activity yet. Complete a pickup to appear here!": {
     hi: "अभी तक कोई नेटवर्क गतिविधि नहीं है। यहाँ दिखाई देने के लिए एक पिकअप पूरा करें!",
-    te: "ఇంకా నెట్‌వర్క్ కార్యాచరణ లేదు. ఇక్కడ కనిపించడానికి పికప్‌ని పూర్తి చేయండి!",
-    de: "Noch keine Netzwerkaktivität. Schließen Sie eine Abholung ab, um hier zu erscheinen!"
+    es: "¡Completa una recogida para aparecer aquí!",
+    fr: "Complétez une collecte pour apparaître ici !"
   },
-  "System Overview": { hi: "सिस्टम अवलोकन", te: "సిస్టమ్ అవలోకనం", de: "Systemübersicht" },
-  "Active Log": { hi: "सक्रिय लॉग", te: "యాక్టివ్ లాగ్", de: "Aktivitätsprotokoll" },
-  "Public Audits": { hi: "सार्वजनिक ऑडिट", te: "పబ్లిక్ ఆడిట్", de: "Öffentliche Audits" },
-  "Verify Data": { hi: "डेटा सत्यापित करें", te: "డేటాను ధృవీకరించు", de: "Daten verifizieren" },
-  "Compliance Rating": { hi: "अनुपालन रेटिंग", te: "అనువర్తన రేటింగ్", de: "Compliance-Bewertung" },
-  "Wallet Balance": { hi: "वॉलेट बैलेंस", te: "వాలెట్ బ్యాలెన్స్", de: "Guthaben" },
-  "Staked for Environment": { hi: "पर्यावरण के लिए स्टेक किया गया", te: "పర్యావరణం కోసం స్టేక్ చేసినవి", de: "Für die Umwelt gestakt" },
-  "DeFi Carbon Exchange Hub": { hi: "डेफी कार्बन एक्सचेंज हब", te: "DeFi కార్బన్ ఎక్స్ఛేంజ్ హబ్", de: "DeFi Carbon Exchange Hub" },
-  "Network TVL": { hi: "नेटवर्क टीवीएल", te: "నెట్‌వర్క్ TVL", de: "Netzwerk-TVL" },
-  "Stake for Environment": { hi: "पर्यावरण के लिए स्टेक करें", te: "పర్యావరణం కోసం స్టేక్ చేయండి", de: "Für die Umwelt staken" },
-  "Global Impact Crowdfunding": { hi: "वैश्विक प्रभाव क्राउडफंडिंग", te: "గ్లోబల్ ఇంపాక్ట్ క్రౌడ్‌ఫండింగ్", de: "Globales Impact Crowdfunding" },
-  "Amazon Reforestation Initiative": { hi: "अमेज़न वनीकरण पहल", te: "అమేజాన్ రీఫారెస్టేషన్ इनिशिएटिव", de: "Amazon Reforestation Initiative" },
-  "Goal": { hi: "लक्ष्य", te: "లక్ష్యం", de: "Ziel" },
-  "Fund with 500 $RGX": { hi: "500 $RGX के साथ फंड करें", te: "500 $RGX తో ఫండ్ చేయండి", de: "Mit 500 $RGX unterstützen" },
+  "System Overview": { hi: "सिस्टम अवलोकन", es: "Resumen del sistema", fr: "Aperçu du système" },
+  "Active Log": { hi: "सक्रिय लॉग", es: "Registro activo", fr: "Journal d'activité" },
+  "Public Audits": { hi: "सार्वजनिक ऑडिट", es: "Auditorías públicas", fr: "Audits publics" },
+  "Verify Data": { hi: "डेटा सत्यापित करें", es: "Verificar datos", fr: "Vérifier les données" },
+  "Compliance Rating": { hi: "अनुपालन रेटिंग", es: "Calificación de cumplimiento", fr: "Indice de conformité" },
+  "Wallet Balance": { hi: "वॉलेट बैलेंस", es: "Saldo de billetera", fr: "Solde du portefeuille" },
+  "Staked for Environment": { hi: "पर्यावरण के लिए स्टेक किया गया", es: "Staked por el medio ambiente", fr: "Staké pour l'environnement" },
+  "DeFi Carbon Exchange Hub": { hi: "डेफी कार्बन एक्सचेंज हब", es: "Centro de intercambio de carbono DeFi", fr: "Plateforme d'échange de carbone DeFi" },
+  "Network TVL": { hi: "नेटवर्क टीवीएल", es: "TVL de la red", fr: "TVL du réseau" },
+  "Stake for Environment": { hi: "पर्यावरण के लिए स्टेक करें", es: "Stakear por el medio ambiente", fr: "Staker pour l'environnement" },
+  "Global Impact Crowdfunding": { hi: "वैश्विक प्रभाव क्राउडफंडिंग", es: "Crowdfunding de impacto global", fr: "Financement participatif d'impact global" },
+  "Amazon Reforestation Initiative": { hi: "अमेज़न वनीकरण पहल", es: "Iniciativa de reforestación de la Amazonia", fr: "Initiative de reboisement d'Amazonie" },
+  "Goal": { hi: "लक्ष्य", es: "Meta", fr: "Objectif" },
+  "Fund with 500 $RGX": { hi: "500 $RGX के साथ फंड करें", es: "Financiar con 500 $RGX", fr: "Financer avec 500 $RGX" },
 
   // General UI Words & Controls
-  "Submit": { hi: "जमा करें", te: "సమర్పించు", de: "Absenden" },
-  "Save": { hi: "सहेजें", te: "సేవ్ చేయి", de: "Speichern" },
-  "Close": { hi: "बंद करें", te: "మూసివేయి", de: "Schließen" },
-  "Cancel": { hi: "रद्द करें", te: "రద్దు చేయి", de: "Abbrechen" },
-  "Search": { hi: "खोजें", te: "వెతకండి", de: "Suchen" },
-  "Add": { hi: "जोड़ें", te: "జోడించు", de: "Hinzufügen" },
-  "Download": { hi: "डाउनलोड", te: "డౌన్‌లోడ్", de: "Herunterladen" },
-  "Generate Report": { hi: "रिपोर्ट जनरेट करें", te: "निवेదికను సృష్టించు", de: "Bericht erstellen" },
-  "Generate PDF": { hi: "पीडीएफ बनाएं", te: "PDF సృష్టించు", de: "PDF erstellen" },
-  "Notifications": { hi: "सूचनाएं", te: "నోటిఫికేషన్‌లు", de: "Benachrichtigungen" },
-  "Activity Center": { hi: "गतिविधि केंद्र", te: "యాక్టివిటీ సెంటర్", de: "Aktivitätscenter" },
-  "System Status": { hi: "सिस्टम स्थिति", te: "సిస్టమ్ స్థితి", de: "Systemstatus" },
-  "Online": { hi: "ऑनलाइन", te: "ఆన్‌లైన్", de: "Online" },
-  "Offline": { hi: "ऑफ़लाइन", te: "ఆఫ్‌లైన్", de: "Offline" },
-  "Mark all read": { hi: "सभी पढ़े हुए के रूप में चिह्नित करें", te: "అన్నీ చదివినట్లు మార్క్ చేయి", de: "Alle als gelesen markieren" },
-  "All activity synced": { hi: "सभी गतिविधि सिंक हो गई", te: "అన్ని కార్యకలాపాలు సమకాలీకరించబడ్డాయి", de: "Alle Aktivitäten synchronisiert" },
-  "System initializing...": { hi: "प्रणाली प्रारंभ हो रही है...", te: "సిస్టమ్ ప్రారంభమవుతోంది...", de: "System wird initialisiert..." },
-  "Local Mode": { hi: "स्थानीय मोड", te: "లోకల్ మోడ్", de: "Lokaler Modus" },
-  "LOCAL MODE": { hi: "स्थानीय मोड", te: "లోకल మోడ్", de: "LOKALER MODUS" }
+  "Submit": { hi: "जमा करें", es: "Enviar", fr: "Soumettre" },
+  "Save": { hi: "सहेजें", es: "Guardar", fr: "Sauvegarder" },
+  "Close": { hi: "बंद करें", es: "Cerrar", fr: "Fermer" },
+  "Cancel": { hi: "रद्द करें", es: "Cancelar", fr: "Annuler" },
+  "Search": { hi: "खोजें", es: "Buscar", fr: "Rechercher" },
+  "Add": { hi: "जोड़ें", es: "Añadir", fr: "Ajouter" },
+  "Download": { hi: "डाउनलोड", es: "Descargar", fr: "Télécharger" },
+  "Generate Report": { hi: "रिपोर्ट जनरेट करें", es: "Generar informe", fr: "Générer le rapport" },
+  "Generate PDF": { hi: "पीडीएफ बनाएं", es: "Generar PDF", fr: "Générer PDF" },
+  "Notifications": { hi: "सूचनाएं", es: "Notificaciones", fr: "Notifications" },
+  "Activity Center": { hi: "गतिविधि केंद्र", es: "Centro de actividades", fr: "Centre d'activité" },
+  "System Status": { hi: "सिस्टम स्थिति", es: "Estado del sistema", fr: "Statut du système" },
+  "Online": { hi: "ऑनलाइन", es: "En línea", fr: "En ligne" },
+  "Offline": { hi: "ऑफ़लाइन", es: "Desconectado", fr: "Hors ligne" },
+  "Mark all read": { hi: "सभी पढ़े हुए के रूप में चिह्नित करें", es: "Marcar todo como leído", fr: "Tout marquer comme lu" },
+  "All activity synced": { hi: "सभी गतिविधि सिंक हो गई", es: "Actividad sincronizada", fr: "Toutes les activités synchronisées" },
+  "System initializing...": { hi: "प्रणाली प्रारंभ हो रही है...", es: "Inicializando sistema...", fr: "Initialisation du système..." },
+  "Local Mode": { hi: "स्थानीय मोड", es: "Modo local", fr: "Mode local" },
+  "LOCAL MODE": { hi: "स्थानीय मोड", es: "MODO LOCAL", fr: "MODE LOCAL" }
 };
 
 /**
  * Translates a single string based on the active language.
  * @param {string} text - The source text.
- * @param {string} lang - The target language ('en', 'hi', 'te', 'de').
+ * @param {string} lang - The target language ('en', 'hi', 'es', 'fr').
  * @returns {string}
  */
 window.translateText = function(text, lang) {
@@ -187,21 +187,21 @@ window.translateText = function(text, lang) {
   let translated = text;
 
   const phraseReplacements = {
-    "Kg Recycled": { hi: "किग्रा पुनर्चक्रित", te: "రీసైకిల్ చేసిన కిలోలు", de: "Kg Recycelt" },
-    "CO₂ Offset (kg)": { hi: "CO₂ ऑफसेट (किग्रा)", te: "CO₂ ఆఫ్‌సెట్ (కిలోలు)", de: "CO2-Kompensation (in kg)" },
-    "active alerts": { hi: "सक्रिय अलर्ट", te: "యాక్టివ్ అలర్ట్‌లు", de: "aktive Warnungen" },
-    "alerts": { hi: "अलर्ट", te: "హెच्चరికలు", de: "Warnungen" },
-    "BINS CRITICAL": { hi: "गंभीर डिब्बे", te: "బిన్స్ క్రిటికल", de: "BEHÄLTER KRITISCH" },
-    "diverted": { hi: "मोड़ दिया", te: "మళ్లించారు", de: "umgeleitet" },
-    "kg of waste": { hi: "किग्रा कचरा", te: "కిలోల వ్యర్థాలు", de: "kg Abfall" },
-    "kg": { hi: "किग्रा", te: "కిలోలు", de: "kg" },
-    "tons": { hi: "टन", te: "టన్నులు", de: "Tonnen" },
-    "of waste": { hi: "कचरा", te: "వ్యర్థాలు", de: "Abfall" },
-    "processed": { hi: "प्रसंस्कृत", te: "ప్రాసెస్ చేయబడింది", de: "verarbeitet" },
-    "active": { hi: "सक्रिय", te: "యాక్టివ్", de: "aktiv" },
-    "pending": { hi: "लंबित", te: "పెండింగ్", de: "ausstehend" },
-    "completed": { hi: "पूरा किया", te: "పూర్తయింది", de: "abgeschlossen" },
-    "Rider Assigned": { hi: "राइडर असाइन किया गया", te: "రైడర్ కేటాయించబడింది", de: "Fahrer zugewiesen" },
+    "Kg Recycled": { hi: "किग्रा पुनर्चक्रित", es: "Kg reciclados", fr: "Kg recyclés" },
+    "CO₂ Offset (kg)": { hi: "CO₂ ऑफसेट (किग्रा)", es: "CO₂ compensado (kg)", fr: "CO₂ compensé (kg)" },
+    "active alerts": { hi: "सक्रिय अलर्ट", es: "alertas activas", fr: "alertes actives" },
+    "alerts": { hi: "अलर्ट", es: "alertas", fr: "alertes" },
+    "BINS CRITICAL": { hi: "गंभीर डिब्बे", es: "CONTENEDORES CRÍTICOS", fr: "BACS CRITIQUES" },
+    "diverted": { hi: "मोड़ दिया", es: "desviado", fr: "détourné" },
+    "kg of waste": { hi: "किग्रा कचरा", es: "kg de residuos", fr: "kg de déchets" },
+    "kg": { hi: "किग्रा", es: "kg", fr: "kg" },
+    "tons": { hi: "टन", es: "toneladas", fr: "tonnes" },
+    "of waste": { hi: "कचरा", es: "de residuos", fr: "de déchets" },
+    "processed": { hi: "प्रसंस्कृत", es: "procesado", fr: "traité" },
+    "active": { hi: "सक्रिय", es: "activo", fr: "actif" },
+    "pending": { hi: "लंबित", es: "pendiente", fr: "en attente" },
+    "completed": { hi: "पूरा किया", es: "completado", fr: "terminé" },
+    "Rider Assigned": { hi: "राइडर असाइन किया गया", es: "Transportista asignado", fr: "Collecteur assigné" },
   };
 
   for (const key in phraseReplacements) {
@@ -308,7 +308,7 @@ window.startI18nObserver = function() {
 /**
  * Switches the active UI language and retranslates all visible DOM text.
  * Persists the selection to LocalStorage under the 'regenx-lang' key.
- * @param {string} lang - BCP-47 language code. Supported: 'en', 'hi', 'te', 'de'.
+ * @param {string} lang - BCP-47 language code. Supported: 'en', 'hi', 'es', 'fr'.
  * @returns {void}
  */
 window.setLanguage = function(lang) {
