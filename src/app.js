@@ -2193,10 +2193,22 @@ function executeLogin(acc) {
   buildSidebar();
   autoRefreshTimer = setInterval(() => refreshCurrentView(), 15000);
   ReGenXRealtime?.setSession(SESSION);
+  if (Intelligence.Speech) {
+    try {
+      Intelligence.Speech.init();
+    } catch (e) {
+      console.warn("Failed to initialize speech recognition:", e);
+    }
+  }
 }
 
 
 window.doLogout = function() {
+  if (Intelligence.Speech?.active) {
+    try {
+      Intelligence.Speech.recognition?.stop();
+    } catch (e) {}
+  }
   clearInterval(autoRefreshTimer);
   clearInterval(tickerTimer);
   clearInterval(gwTimer);
