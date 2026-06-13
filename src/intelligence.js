@@ -109,7 +109,141 @@ export const Intelligence = {
             icon: '🌳',
             description: 'Verified carbon offset minted as a tradable NFT.'
         }
-    ]
+    ],
+
+    Speech: {
+        recognition: null,
+        active: false,
+
+        speak: (text) => {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                const voices = window.speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    utterance.voice = voices.find(v => v.lang.includes('en')) || voices[0];
+                }
+                window.speechSynthesis.speak(utterance);
+            }
+        },
+
+        init: function() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.warn("Speech Recognition API not supported in this browser.");
+                return;
+            }
+
+            this.recognition = new SpeechRecognition();
+            this.recognition.continuous = true;
+            this.recognition.interimResults = false;
+            this.recognition.lang = 'en-US';
+
+            this.recognition.onstart = () => {
+                this.active = true;
+                console.log("[Speech] Voice command listener activated.");
+            };
+
+            this.recognition.onend = () => {
+                this.active = false;
+                console.log("[Speech] Voice command listener deactivated.");
+                if (window.SESSION && window.SESSION.id) {
+                    try {
+                        this.recognition.start();
+                    } catch (e) {}
+                }
+            };
+
+            this.recognition.onerror = (e) => {
+                console.error("[Speech] Error:", e);
+            };
+
+            this.recognition.onresult = (event) => {
+                const result = event.results[event.results.length - 1];
+                if (result.isFinal) {
+                    const transcript = result[0].transcript.trim().toLowerCase();
+                    console.log("[Speech] Command received:", transcript);
+                    this.handleCommand(transcript);
+                }
+            };
+
+            try {
+                this.recognition.start();
+            } catch (e) {}
+        },
+
+        handleCommand: function(command) {
+            if (command.includes('scan waste') || command.includes('open scanner') || command.includes('start scan')) {
+                if (window.openScanner) {
+                    this.speak("Opening BioScan AI scanner.");
+                    window.openScanner();
+                } else if (window.VisionScanner?.openScanner) {
+                    this.speak("Opening AI vision scanner.");
+                    window.VisionScanner.openScanner('p-score');
+                }
+                return;
+            }
+
+            if (command.includes('submit dispatch') || command.includes('submit request') || command.includes('send request')) {
+                if (window.submitPvRequest) {
+                    this.speak("Submitting dispatch request.");
+                    window.submitPvRequest();
+                }
+                return;
+            }
+
+            if (command.includes('confirm weight') || command.includes('confirm pickup') || command.includes('confirm receipt')) {
+                const numMatch = command.match(/\d+/);
+                const weightInput = document.getElementById('m-kg');
+                
+                if (weightInput && numMatch) {
+                    weightInput.value = numMatch[0];
+                    this.speak(`Setting weight to ${numMatch[0]} kilograms.`);
+                }
+
+                const confirmBtn = document.querySelector("#modal-box button[onclick^='confirmPickup']");
+                const plantBtn = document.querySelector("#modal-box button[onclick^='confirmPlantReceipt']");
+
+                if (confirmBtn) {
+                    if (weightInput && !weightInput.value) {
+                        weightInput.value = "75";
+                        this.speak("Default weight of 75 kilograms set. Confirming collection.");
+                    } else {
+                        this.speak("Confirming collection.");
+                    }
+                    confirmBtn.click();
+                } else if (plantBtn) {
+                    if (weightInput && !weightInput.value) {
+                        weightInput.value = "75";
+                        this.speak("Default weight of 75 kilograms set. Confirming receipt.");
+                    } else {
+                        this.speak("Confirming receipt.");
+                    }
+                    plantBtn.click();
+                } else {
+                    this.speak("No active confirmation modal found.");
+                }
+                return;
+            }
+
+            if (command.includes('sustainability') || command.includes('esg hub')) {
+                this.speak("Navigating to Sustainability Hub.");
+                window.showView('v-esg-hub');
+                return;
+            }
+            if (command.includes('compliance')) {
+                this.speak("Navigating to Compliance Center.");
+                window.showView('v-compliance');
+                return;
+            }
+            if (command.includes('overview') || command.includes('dashboard')) {
+                this.speak("Navigating to dashboard overview.");
+                if (window.SESSION?.role === 'provider') window.showView('v-pv-dash');
+                if (window.SESSION?.role === 'rider') window.showView('v-rd-dash');
+                if (window.SESSION?.role === 'plant') window.showView('v-pl-dash');
+                return;
+            }
+        }
+    }
 };
 
 // Phase 2 Task 5: MobileNet intelligence forecasts calibrated
