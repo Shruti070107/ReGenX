@@ -48,6 +48,27 @@ export const ESGReporter = {
     generateAuditHash: async (payload) => ESGReporter.computeSecureHash(payload),
 
     /**
+     * Generate a synchronous SHA-256-like mock hash for UI display.
+     * @param {*} payload - Payload to hash.
+     * @returns {string} Hex-encoded string.
+     */
+    generateSyncHash: (payload) => {
+        const str = ESGReporter.canonicalizeHashPayload(payload);
+        let h = 2166136261 >>> 0;
+        for (let i = 0; i < str.length; i++) {
+            h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+        }
+        let result = '';
+        for (let j = 0; j < 8; j++) {
+            h = Math.imul(h ^ (h >>> 16), 2246822507);
+            h = Math.imul(h ^ (h >>> 13), 3266489909);
+            h = h ^ (h >>> 16);
+            result += (h >>> 0).toString(16).padStart(8, '0');
+        }
+        return '0x' + result;
+    },
+
+    /**
      * Loads the public audit registry from localStorage.
      * @returns {Array<Object>} Registry records.
      */
@@ -97,7 +118,15 @@ export const ESGReporter = {
             : 0;
 
         const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        const reportHash = ESGReporter.generateAuditHash();
+        const reportHash = ESGReporter.generateSyncHash({
+            org: account.org || account.name,
+            role: account.role,
+            userId: account.id,
+            totalKg,
+            totalCO2,
+            tokens: totalTokens,
+            dispatchesCount: history.length
+        });
 
         let qualityBadgeColor = 'badge-red';
         let qualityText = 'Needs Improvement';
@@ -194,7 +223,7 @@ export const ESGReporter = {
                         </div>
                         <div style="flex:1; overflow-y:auto; max-height:480px; padding-right:4px;">
                             ${history.length ? history.map(o => {
-                                const orderHash = o.txHash || ESGReporter.generateAuditHash().slice(0, 18) + '...';
+                                const orderHash = o.txHash || ESGReporter.generateSyncHash(o).slice(0, 18) + '...';
                                 const score = parseFloat(o.segScore) || (o.quality === 'Good (Segregated)' ? 85 : 45);
                                 return `
                                     <div style="background:var(--surface-hover); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:12px;">
@@ -490,7 +519,7 @@ export const ESGReporter = {
                 </thead>
                 <tbody>
                     ${history.length ? history.map(o => {
-                        const h = o.txHash || ESGReporter.generateAuditHash();
+                        const h = o.txHash || ESGReporter.generateSyncHash(o);
                         const s = parseFloat(o.segScore) || (o.quality === 'Good (Segregated)' ? 85 : 45);
                         return `
                             <tr>
