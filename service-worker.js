@@ -7,6 +7,8 @@
 const CACHE_VERSION = 'regenx-v7';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
+const MAP_TILE_CACHE = 'leaflet-tiles';
+const MAX_TILE_ITEMS = 1500; // ~50MB limit
 const SYNC_TAG = 'regenx-order-sync';
 
 const OFFLINE_URL = '/offline.html';
@@ -104,6 +106,26 @@ async function cacheDynamicResponse(request, response) {
 }
 
 /**
+ * Limits the size of a cache by deleting the oldest items.
+ * @param {string} cacheName - Name of the cache.
+ * @param {number} maxItems - Maximum number of items allowed.
+ */
+async function limitCacheSize(cacheName, maxItems) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length > maxItems) {
+      const deleteCount = keys.length - maxItems;
+      for (let i = 0; i < deleteCount; i++) {
+        await cache.delete(keys[i]);
+      }
+    }
+  } catch (error) {
+    console.error(`[SW] Failed to limit cache size for ${cacheName}:`, error);
+  }
+}
+
+/**
  * Returns the offline fallback page for navigation requests.
  * Falls back to a simple HTML response if the cached page is unavailable.
  *
@@ -144,7 +166,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE)
+            .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE && key !== MAP_TILE_CACHE)
             .map((key) => {
               console.log(`[SW] Deleting stale cache: ${key}`);
               return caches.delete(key);
@@ -160,6 +182,31 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   if (request.method !== 'GET' || url.protocol === 'chrome-extension:') {
+    return;
+  }
+
+  // Intercept OpenStreetMap tile requests
+  if (url.hostname.includes('tile.openstreetmap.org')) {
+    event.respondWith(
+      caches.open(MAP_TILE_CACHE).then(async (cache) => {
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse.ok) {
+            await cache.put(request, networkResponse.clone());
+            event.waitUntil(limitCacheSize(MAP_TILE_CACHE, MAX_TILE_ITEMS));
+          }
+          return networkResponse;
+        } catch (error) {
+          const cachedResponse = await cache.match(request);
+          if (cachedResponse) {
+            // Re-put to update insertion order (LRU)
+            await cache.put(request, cachedResponse.clone());
+            return cachedResponse;
+          }
+          throw error;
+        }
+      })
+    );
     return;
   }
 
