@@ -96,6 +96,14 @@ export const CloudSync = {
      * @returns {Promise<void>}
      */
     init: async () => {
+        await CloudSync.initWithBackoff(1);
+    },
+
+    /**
+     * Initializes the Appwrite Web SDK and handles connection retries with exponential backoff.
+     * @param {number} attempt - Current connection attempt.
+     */
+    initWithBackoff: async (attempt = 1) => {
         if (!window.Appwrite) {
             console.warn("Appwrite SDK not loaded.");
             CloudSync.renderSyncBadge('offline', 'Offline');
@@ -119,18 +127,67 @@ export const CloudSync = {
                 .setProject(config.projectId);
 
             CloudSync.databases = new Databases(CloudSync.client);
+            
+            // Test connection/authentication status
+            await CloudSync.databases.listDocuments(config.databaseId, config.ordersCollectionId, [window.Appwrite.Query.limit(1)]);
+
             CloudSync.isLive = true;
             CloudSync.config = config;
 
-
             CloudSync.renderSyncBadge('live', 'Cloud Live');
+            CloudSync.hideReconnectionBanner();
             
             // Setup Realtime Subscription
             CloudSync.subscribeToDispatches();
+
+            // Flush offline queue on successful reconnection
+            await CloudSync.flushOfflineQueue();
         } catch (e) {
-            console.error("CloudSync Init Failed:", e);
+            console.error(`CloudSync Init Failed (attempt ${attempt}):`, e);
             CloudSync.isLive = false;
             CloudSync.renderSyncBadge('error', 'Sync Error');
+            
+            CloudSync.showReconnectionBanner(attempt);
+            
+            const delay = Math.min(30000, Math.pow(2, attempt) * 1000);
+            console.log(`[CloudSync] Retrying connection in ${delay}ms...`);
+            setTimeout(() => {
+                CloudSync.initWithBackoff(attempt + 1);
+            }, delay);
+        }
+    },
+
+    /**
+     * Shows a floating status banner notifying the user of reconnection status.
+     * @param {number} attempt - Current reconnection attempt number.
+     */
+    showReconnectionBanner: (attempt) => {
+        let banner = document.getElementById('appwrite-reconnect-banner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'appwrite-reconnect-banner';
+            banner.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;background:rgba(15,23,42,0.9);border:1px solid rgba(239,68,68,0.3);color:#f8fafc;padding:12px 18px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:system-ui,sans-serif;font-size:13px;display:flex;align-items:center;gap:10px;backdrop-filter:blur(8px);transition:all 0.3s ease;';
+            document.body.appendChild(banner);
+        }
+        const delay = Math.min(30, Math.pow(2, attempt));
+        banner.innerHTML = `
+            <div style="width:10px;height:10px;background:#ef4444;border-radius:50%;box-shadow:0 0 8px #ef4444;animation:cs-pulse 1s infinite;"></div>
+            <div>
+                <strong style="color:#ef4444;">Appwrite Connection Offline</strong><br>
+                <span style="color:#94a3b8;font-size:11px;">Retrying in ${delay}s (Attempt ${attempt})...</span>
+            </div>
+        `;
+    },
+
+    /**
+     * Hides the floating status banner.
+     */
+    hideReconnectionBanner: () => {
+        const banner = document.getElementById('appwrite-reconnect-banner');
+        if (banner) {
+            banner.style.opacity = '0';
+            banner.style.transform = 'translateY(10px)';
+            setTimeout(() => banner.remove(), 300);
         }
     },
 
