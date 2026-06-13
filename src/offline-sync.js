@@ -3,6 +3,8 @@
  * Handles offline action queuing, background sync, and retry logic
  */
 
+import { resolveConflict } from './conflict-resolver.js';
+
 const DB_NAME = 'ReGenX_OfflineDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'pendingActions';
@@ -152,7 +154,30 @@ export async function syncPendingActions() {
 
   for (const action of actions) {
     try {
-      await processAction(action);
+      // Fetch current server state of the record to check for conflicts
+      let serverData = null;
+      try {
+        const recordId = action.payload?.id || action.id;
+        const res = await fetch(`/api/records/${recordId}`);
+        if (res.ok) {
+          serverData = await res.json();
+        }
+      } catch (e) {
+        console.warn(`[OfflineSync] Could not fetch server state for conflict check:`, e);
+      }
+
+      let actionToProcess = action;
+      if (serverData) {
+        const resolved = await resolveConflict(action, serverData, 'merge');
+        if (!resolved) {
+          console.log(`[OfflineSync] Action discarded due to conflict resolution: ${action.id}`);
+          await removeAction(action.id);
+          continue;
+        }
+        actionToProcess = resolved;
+      }
+
+      await processAction(actionToProcess);
       await removeAction(action.id);
       console.log(`[OfflineSync] Synced: ${action.type} (${action.id})`);
     } catch (error) {

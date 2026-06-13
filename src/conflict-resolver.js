@@ -4,20 +4,14 @@
  */
 
 /**
- * Resolve conflicts between offline and server data
- * Uses timestamp-based "last write wins" strategy with UUID validation
+ * Resolves conflict using a specific strategy.
+ * Supports: 'server-wins' (default), 'client-wins', and 'merge' (with user prompt).
  * @param {Object} localAction - Action stored offline
  * @param {Object} serverData - Current server state
- * @returns {Object} - Resolved action to apply
+ * @param {'server-wins'|'client-wins'|'merge'} strategy - Strategy to apply
+ * @returns {Promise<Object|null>} - Resolved action to apply or null if discarded
  */
-/**
- * Resolves an offline/online data conflict using a server-wins merge strategy.
- * Local actions are applied on top of server data where no direct field clash exists.
- * @param {Object} localAction - The pending local action with type and payload fields.
- * @param {Object} serverData - The authoritative server-side data snapshot.
- * @returns {{ resolved: Object, conflict: boolean }} Merged result and conflict flag.
- */
-export function resolveConflict(localAction, serverData) {
+export async function resolveConflict(localAction, serverData, strategy = 'server-wins') {
   // If no server data exists, local action wins
   if (!serverData) {
     console.debug(`[ConflictResolver] No server data — local action applied: ${localAction.id}`);
@@ -25,28 +19,50 @@ export function resolveConflict(localAction, serverData) {
   }
 
   // UUID duplicate check — if same ID already on server, skip
-  if (serverData.id === localAction.id) {
+  if (serverData.id === localAction.id && !localAction.forceUpdate) {
     console.warn(`[ConflictResolver] Duplicate detected — skipping: ${localAction.id}`);
     return null;
   }
 
-  // Timestamp check — newer data wins
-  if (serverData.timestamp > localAction.timestamp) {
-    console.warn(`[ConflictResolver] Server data is newer — discarding local: ${localAction.id}`);
-    return null;
+  if (strategy === 'client-wins') {
+    console.debug(`[ConflictResolver] Client-Wins strategy applied: ${localAction.id}`);
+    return localAction;
   }
 
-  console.debug(`[ConflictResolver] Local action is newer — applying: ${localAction.id}`);
+  if (strategy === 'server-wins') {
+    if (serverData.timestamp > localAction.timestamp) {
+      console.warn(`[ConflictResolver] Server-Wins: Server is newer. Discarding local: ${localAction.id}`);
+      return null;
+    }
+    return localAction;
+  }
+
+  if (strategy === 'merge') {
+    console.debug(`[ConflictResolver] Merge strategy for: ${localAction.id}`);
+    const mergedPayload = { ...serverData, ...localAction.payload };
+
+    // Prompt user on critical conflicts (status discrepancy)
+    if (serverData.status && localAction.payload.status && serverData.status !== localAction.payload.status) {
+      if (typeof window !== 'undefined' && window.confirm) {
+        const keepLocal = window.confirm(
+          `Conflict on dispatch ${localAction.id || ''}:\n` +
+          `Server status: "${serverData.status}" vs Local status: "${localAction.payload.status}".\n` +
+          `Do you want to override the server with your offline changes?`
+        );
+        if (!keepLocal) {
+          return null; // Keep server data, discard local update
+        }
+      }
+    }
+    return {
+      ...localAction,
+      payload: mergedPayload
+    };
+  }
+
   return localAction;
 }
 
-/**
- * Check if an action is a duplicate in the pending queue
- * @param {Array} pendingActions - All queued offline actions
- * @param {string} type - Action type to check
- * @param {Object} payload - Action payload to compare
- * @returns {boolean}
- */
 /**
  * Checks whether an identical action already exists in the pending offline queue.
  * Used to prevent duplicate writes during intermittent connectivity.
@@ -63,11 +79,6 @@ export function isDuplicate(pendingActions, type, payload) {
   );
 }
 
-/**
- * Merge offline GPS updates — keep only the latest location
- * @param {Array} actions - All pending GPS actions
- * @returns {Array} - Deduplicated actions (latest GPS only)
- */
 /**
  * Deduplicates and merges GPS location update actions from the offline queue.
  * Keeps only the most recent update per rider, discarding stale duplicates.
@@ -90,16 +101,10 @@ export function mergeGPSUpdates(actions) {
 }
 
 /**
- * Validate action before queuing — prevent invalid data
- * @param {string} type - Action type
- * @param {Object} payload - Action data
- * @returns {boolean}
- */
-/**
  * Validates an offline action's payload against the required schema for its type.
  * @param {string} type - The action type (e.g. 'ORDER_UPDATE', 'GPS_UPDATE').
  * @param {Object} payload - The action payload to validate.
- * @returns {{ valid: boolean, errors: string[] }} Validation result with any error messages.
+ * @returns {boolean} Validation result.
  */
 export function validateAction(type, payload) {
   const validTypes = ['dispatch', 'pickup', 'gps', 'scan', 'reward', 'plant'];
