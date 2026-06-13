@@ -74,6 +74,21 @@ if ('serviceWorker' in navigator) {
       console.info('☁️ ReGenX SW v3 Registered');
       window._swReg = reg;
 
+      // Check for waiting update on load
+      if (reg.waiting) {
+        showUpdatePrompt(reg.waiting);
+      }
+
+      // Listen for future updates
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdatePrompt(newWorker);
+          }
+        });
+      });
+
       // Listen for Background Sync completion messages from SW
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data?.type === 'SYNC_COMPLETE') {
@@ -88,6 +103,22 @@ if ('serviceWorker' in navigator) {
       });
     })
     .catch(err => console.error('SW Registration Failed', err));
+}
+
+function showUpdatePrompt(worker) {
+  const existing = document.getElementById('sw-update-toast');
+  if (existing) return;
+  const toast = document.createElement('div');
+  toast.id = 'sw-update-toast';
+  toast.style.cssText = 'position:fixed;bottom:20px;left:20px;z-index:99999;background:var(--blue);color:white;padding:16px 24px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.35);font-family:system-ui,sans-serif;font-size:14px;display:flex;align-items:center;gap:16px;border:1px solid rgba(255,255,255,0.2);';
+  toast.innerHTML = `
+    <div>
+      <strong style="font-weight:700;">Update Available!</strong><br>
+      <span style="font-size:12px;color:rgba(255,255,255,0.85);">A new version of ReGenX is ready to load.</span>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="window.location.reload()" style="background:white;color:var(--blue);border:none;padding:6px 12px;font-weight:700;border-radius:6px;cursor:pointer;">Reload</button>
+  `;
+  document.body.appendChild(toast);
 }
 
 // ── Push Notification Permission UI ──
@@ -5340,15 +5371,3 @@ document.addEventListener('DOMContentLoaded', () => {
         window.AccessibilityManager.init();
     }
 });
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      const registration = await navigator.serviceWorker.register('/service-worker.js');
-
-      console.info('Service Worker registered:', registration.scope);
-    } catch (error) {
-      console.error('Service Worker registration failed:', error);
-    }
-  });
-}
