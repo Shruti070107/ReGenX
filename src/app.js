@@ -497,6 +497,11 @@ async function processOfflineAction(action) {
   if (action.type === 'sync-notification') {
     // notifications are already stored locally; this entry is a marker for remote sync
   }
+  if (action.type === 'delete-account') {
+    if (ReGenXRealtime && navigator.onLine) {
+      ReGenXRealtime.syncStorageMutation(action.payload);
+    }
+  }
 }
 
 async function flushOfflineQueue() {
@@ -4357,12 +4362,25 @@ window.openSettings = function() {
 
 window.deleteAccount = function() {
   if(confirm("Are you sure you want to permanently delete your account? This action cannot be undone.")) {
-    ReGenXRealtime?.syncStorageMutation({
-      updates: [{ key: STORAGE_KEY_PREFIX + 'acc:' + SESSION.id, action: 'remove' }],
+    const accountKey = STORAGE_KEY_PREFIX + 'acc:' + SESSION.id;
+    window.localStorage.removeItem(accountKey);
+
+    const mutationPayload = {
+      updates: [{ key: accountKey, action: 'remove' }],
       rooms: ['network_room', 'admin_room'],
       eventType: 'KPI_UPDATED',
       meta: { statusLabel: 'Account deleted' }
-    });
+    };
+
+    if (ReGenXRealtime && navigator.onLine) {
+      ReGenXRealtime.syncStorageMutation(mutationPayload);
+    } else {
+      queueOfflineAction({
+        type: 'delete-account',
+        payload: mutationPayload
+      });
+    }
+
     closeModal();
     doLogout();
     refreshLoginDropdown();
