@@ -83,7 +83,21 @@ if ('serviceWorker' in navigator) {
           }
         }
         if (event.data?.type === 'NAVIGATE') {
-          window.showView && window.showView('v-rd-dash');
+          const targetUrl = event.data.url;
+          if (targetUrl) {
+            if (targetUrl.includes('#')) {
+              const viewId = targetUrl.split('#')[1];
+              if (viewId && typeof window.showView === 'function') {
+                window.showView(viewId);
+              } else {
+                window.location.assign(targetUrl);
+              }
+            } else {
+              window.location.assign(targetUrl);
+            }
+          } else {
+            window.showView && window.showView('v-rd-dash');
+          }
         }
       });
     })
@@ -376,7 +390,10 @@ function sendBrowserNotification(title, body, url = '/') {
       badge: '/icons/icon-72x72.png',
       data: { url }
     });
-    notification.onclick = () => window.focus() && window.location.assign(url);
+    notification.onclick = () => {
+      window.focus();
+      window.location.assign(url);
+    };
   } catch (e) {
     console.warn('Browser notification failed', e);
   }
