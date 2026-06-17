@@ -37,7 +37,68 @@ export function calculateLuminance(ctx, width, height) {
     }
 }
 
+const ORGANIC_KEYWORDS = [
+    'banana', 'apple', 'orange', 'lemon', 'mango', 'strawberry', 'grape',
+    'pear', 'watermelon', 'pineapple', 'peach', 'fig', 'pomegranate',
+    'broccoli', 'cauliflower', 'carrot', 'cabbage', 'spinach', 'lettuce',
+    'mushroom', 'potato', 'onion', 'pepper', 'cucumber', 'zucchini', 'squash',
+    'eggplant', 'artichoke', 'leek', 'celery', 'asparagus', 'corn', 'pumpkin',
+    'tomato', 'radish', 'turnip', 'beet', 'yam', 'sweet potato',
+    'bread', 'bagel', 'pretzel', 'dough', 'bun', 'roll', 'naan',
+    'rice', 'pasta', 'noodle', 'dumpling', 'waffle', 'pancake',
+    'food', 'meal', 'dish', 'plate', 'bowl', 'salad', 'soup',
+    'meat', 'chicken', 'beef', 'pork', 'fish', 'egg', 'cheese',
+    'cake', 'cookie', 'muffin', 'brownie', 'donut', 'pastry',
+    'leaf', 'leaves', 'grass', 'plant', 'flower', 'herb',
+    'compost', 'organic', 'vegetable', 'fruit', 'garden'
+];
+
+const INORGANIC_KEYWORDS = [
+    'bottle', 'plastic', 'bag', 'wrapper', 'container', 'cup', 'straw',
+    'can', 'tin', 'foil', 'metal', 'steel', 'iron', 'aluminum',
+    'glass', 'jar', 'window', 'mirror',
+    'paper', 'cardboard', 'carton', 'book', 'magazine', 'newspaper',
+    'box', 'package', 'packaging',
+    'rubber', 'tire', 'hose', 'pipe', 'tube',
+    'electronic', 'phone', 'laptop', 'computer', 'keyboard', 'mouse',
+    'battery', 'cable', 'wire', 'circuit',
+    'fabric', 'cloth', 'shirt', 'shoe', 'boot', 'sock',
+    'wood', 'furniture', 'chair', 'table', 'shelf',
+    'rock', 'stone', 'concrete', 'brick',
+    'paint', 'tool', 'screw', 'nail', 'bolt',
+    'medicine', 'pill', 'syringe', 'chemical',
+    'person', 'face', 'hand', 'people', 'car', 'vehicle', 'building',
+    'sky', 'water', 'road', 'wall', 'floor', 'ceiling'
+];
+
 export const VisionScanner = {
+    model: null,
+    modelPromise: null,
+
+    loadModel: async () => {
+        if (VisionScanner.model) return VisionScanner.model;
+        if (VisionScanner.modelPromise) return VisionScanner.modelPromise;
+
+        if (typeof window !== 'undefined' && window.mobilenet) {
+            VisionScanner.modelPromise = window.mobilenet.load({
+                modelUrl: '/models/mobilenet/model.json'
+            })
+                .then((model) => {
+                    VisionScanner.model = model;
+                    return model;
+                })
+                .catch((error) => {
+                    VisionScanner.model = null;
+                    throw error;
+                })
+                .finally(() => {
+                    VisionScanner.modelPromise = null;
+                });
+            return VisionScanner.modelPromise;
+        } else {
+            throw new Error("MobileNet library not loaded.");
+        }
+    },
     videoStream: null,
     animationFrameId: null,
     isLowLight: false,
@@ -235,9 +296,9 @@ export const VisionScanner = {
     },
 
     /**
-     * Captures a frame, checks for low light, and simulates AI analysis.
+     * Captures a frame, checks for low light, and performs MobileNet AI analysis.
      */
-    captureAndAnalyze: (targetInputId) => {
+    captureAndAnalyze: async (targetInputId) => {
         if (VisionScanner.isLowLight) {
             console.warn("Inference paused: Low light conditions detected.");
             return; // Prevent TensorFlow inference when noisy
@@ -256,27 +317,85 @@ export const VisionScanner = {
         // Show Processing State
         const btn = document.querySelector('#vision-capture-btn');
         if (btn) {
-            btn.innerHTML = '⚙️ Analyzing Pattern...';
+            btn.innerHTML = '⚙️ Loading AI Model...';
             btn.style.opacity = '0.8';
+            btn.style.cursor = 'not-allowed';
+            btn.disabled = true;
         }
 
-        setTimeout(() => {
-            // Algorithmic Mock: Generate a score between 60 and 95
-            const simulatedScore = Math.floor(Math.random() * (95 - 60 + 1) + 60);
+        try {
+            const model = await VisionScanner.loadModel();
             
+            if (btn) {
+                btn.innerHTML = '⚙️ Running AI Inference...';
+            }
+
+            const predictions = await model.classify(canvas);
+            
+            // Calculate score based on organic and inorganic keywords matching
+            let organicScore = 0;
+            let inorganicScore = 0;
+            const topLabel = predictions[0]?.className?.toLowerCase() || '';
+            const topConfidence = predictions[0]?.probability || 0;
+
+            for (const pred of predictions) {
+                const label = (pred.className || '').toLowerCase();
+                const prob = pred.probability || 0;
+
+                for (const kw of ORGANIC_KEYWORDS) {
+                    if (label.includes(kw)) {
+                        organicScore += prob * 100;
+                        break;
+                    }
+                }
+                for (const kw of INORGANIC_KEYWORDS) {
+                    if (label.includes(kw)) {
+                        inorganicScore += prob * 100;
+                        break;
+                    }
+                }
+            }
+
+            const totalSignal = organicScore + inorganicScore;
+            // Default to 70 if no keywords are matched
+            const computedScore = totalSignal > 0 ? Math.round((organicScore / totalSignal) * 100) : 70;
+
             // Set the value in the target input
             const targetEl = document.getElementById(targetInputId);
             if (targetEl) {
-                targetEl.value = simulatedScore;
+                targetEl.value = computedScore;
                 targetEl.dispatchEvent(new Event('input', { bubbles: true }));
             }
+
+            // Save structured result to localStorage
+            const role = (typeof window !== 'undefined' && window.SESSION?.role)
+                ? (window.SESSION.role.charAt(0).toUpperCase() + window.SESSION.role.slice(1))
+                : 'Plant';
+
+            const scanRecord = {
+              scanId: crypto.randomUUID(),
+              timestamp: new Date().toISOString(),
+              role: role,
+              organicPercentage: computedScore,
+              contaminationLevel: computedScore >= 75 ? 'Low' : computedScore >= 50 ? 'Medium' : 'High',
+              wasteCategory: computedScore >= 75 ? 'Organic Biomass' : 'Mixed Waste',
+              linkedDispatchId: null
+            };
+            const history = JSON.parse(localStorage.getItem('regenx_scan_history') || '[]');
+            history.unshift(scanRecord);
+            if (history.length > 50) history.pop();
+            localStorage.setItem('regenx_scan_history', JSON.stringify(history));
 
             // Close scanner and notify
             VisionScanner.closeScanner();
             if (window.showToast) {
-                window.showToast(`✓ AI Scan Complete: Segregation Score ${simulatedScore}/100`);
+                window.showToast(`✓ AI Scan Complete: Segregation Score ${computedScore}/100`);
             }
-        }, 1500);
+        } catch (err) {
+            console.error("AI Scan failed:", err);
+            alert("AI Scan failed. Falling back to manual entry.");
+            VisionScanner.closeScanner();
+        }
     },
 
     /**
