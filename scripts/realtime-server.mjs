@@ -96,9 +96,8 @@ async function persistState() {
 
 function broadcastToRooms(payload) {
   const rooms = Array.from(new Set([...(payload.rooms || []), 'network_room']));
-  rooms.forEach((room) => {
-    io.to(room).emit('sync:patch', payload);
-  });
+  const target = rooms.reduce((operator, room) => operator.to(room), io);
+  target.emit('sync:patch', payload);
 }
 
 function applyUpdates(updates = []) {
