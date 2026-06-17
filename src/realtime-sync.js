@@ -298,6 +298,12 @@ export const ReGenXRealtime = {
     writeStorage(key, null, options);
   },
 
+  emitTamperAlert(orderId) {
+    if (socket?.connected) {
+      socket.emit('ledger:tamper-detected', { orderId, clientId });
+    }
+  },
+
   clearOperationalState(keys = []) {
     const updates = keys.map((key) => ({ key, action: 'remove' }));
     this.syncStorageMutation({ updates, rooms: [NETWORK_ROOM], eventType: 'KPI_UPDATED', meta: { statusLabel: 'Reset' } });
