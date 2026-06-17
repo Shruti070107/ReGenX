@@ -1744,6 +1744,14 @@ window.resetAppData = function() {
   // Also clear theme preferences (both keys for safety)
   window.localStorage.removeItem('regenx-theme');
   window.localStorage.removeItem('theme');
+
+  // Clear other non-prefixed operational keys
+  window.localStorage.removeItem('regenx_scan_history');
+  window.localStorage.removeItem('regenx-offline-queue');
+  window.localStorage.removeItem('audit-registry');
+  window.localStorage.removeItem('regenx-accessibility');
+  window.localStorage.removeItem('regenx-lang');
+
   // Reload fresh
   window.location.reload();
 }
