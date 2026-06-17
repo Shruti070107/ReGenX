@@ -47,18 +47,60 @@ export const ESGReporter = {
      */
     generateAuditHash: async (payload) => ESGReporter.computeSecureHash(payload),
 
+    initAuditRegistryHelper: () => {
+        if (window.AuditRegistry) return;
+        window.AuditRegistry = {
+            load() {
+                const unifiedKey = 'regenx-v3:audit-registry';
+                const legacyKey = 'audit-registry';
+
+                let unifiedRecords = [];
+                try {
+                    const raw = window.localStorage.getItem(unifiedKey);
+                    const parsed = raw ? JSON.parse(raw) : [];
+                    if (Array.isArray(parsed)) unifiedRecords = parsed;
+                } catch {}
+
+                let legacyRecords = [];
+                try {
+                    const raw = window.localStorage.getItem(legacyKey);
+                    const parsed = raw ? JSON.parse(raw) : [];
+                    if (Array.isArray(parsed)) legacyRecords = parsed;
+                } catch {}
+
+                if (legacyRecords.length > 0) {
+                    const hashes = new Set(unifiedRecords.map(r => r.hash).filter(Boolean));
+                    legacyRecords.forEach(record => {
+                        if (record && record.hash && !hashes.has(record.hash)) {
+                            unifiedRecords.push(record);
+                            hashes.add(record.hash);
+                        }
+                    });
+                    try {
+                        window.localStorage.setItem(unifiedKey, JSON.stringify(unifiedRecords));
+                        window.localStorage.removeItem(legacyKey);
+                    } catch {}
+                }
+
+                return unifiedRecords;
+            },
+            save(records) {
+                try {
+                    window.localStorage.setItem('regenx-v3:audit-registry', JSON.stringify(records));
+                } catch {}
+            }
+        };
+    },
+
     /**
      * Loads the public audit registry from localStorage.
      * @returns {Array<Object>} Registry records.
      */
     loadAuditRegistry: () => {
-        try {
-            const raw = window.localStorage.getItem('audit-registry');
-            const parsed = raw ? JSON.parse(raw) : [];
-            return Array.isArray(parsed) ? parsed : [];
-        } catch {
-            return [];
+        if (!window.AuditRegistry) {
+            ESGReporter.initAuditRegistryHelper();
         }
+        return window.AuditRegistry.load();
     },
 
     /**
@@ -66,11 +108,10 @@ export const ESGReporter = {
      * @param {Array<Object>} records - Registry records.
      */
     saveAuditRegistry: (records) => {
-        try {
-            window.localStorage.setItem('audit-registry', JSON.stringify(records));
-        } catch {
-            // Ignore write errors
+        if (!window.AuditRegistry) {
+            ESGReporter.initAuditRegistryHelper();
         }
+        window.AuditRegistry.save(records);
     },
 
     /**

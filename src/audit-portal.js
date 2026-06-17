@@ -11,19 +11,60 @@ const STORAGE_KEY_PREFIX = 'regenx-v3:';
 const AUDIT_REGISTRY_KEY = STORAGE_KEY_PREFIX + 'audit-registry';
 const TRUST_LEDGER_KEY = 'trust-ledger';
 
+function initAuditRegistryHelper() {
+    if (window.AuditRegistry) return;
+    window.AuditRegistry = {
+        load() {
+            const unifiedKey = 'regenx-v3:audit-registry';
+            const legacyKey = 'audit-registry';
+
+            let unifiedRecords = [];
+            try {
+                const raw = window.localStorage.getItem(unifiedKey);
+                const parsed = raw ? JSON.parse(raw) : [];
+                if (Array.isArray(parsed)) unifiedRecords = parsed;
+            } catch {}
+
+            let legacyRecords = [];
+            try {
+                const raw = window.localStorage.getItem(legacyKey);
+                const parsed = raw ? JSON.parse(raw) : [];
+                if (Array.isArray(parsed)) legacyRecords = parsed;
+            } catch {}
+
+            if (legacyRecords.length > 0) {
+                const hashes = new Set(unifiedRecords.map(r => r.hash).filter(Boolean));
+                legacyRecords.forEach(record => {
+                    if (record && record.hash && !hashes.has(record.hash)) {
+                        unifiedRecords.push(record);
+                        hashes.add(record.hash);
+                    }
+                });
+                try {
+                    window.localStorage.setItem(unifiedKey, JSON.stringify(unifiedRecords));
+                    window.localStorage.removeItem(legacyKey);
+                } catch {}
+            }
+
+            return unifiedRecords;
+        },
+        save(records) {
+            try {
+                window.localStorage.setItem('regenx-v3:audit-registry', JSON.stringify(records));
+            } catch {}
+        }
+    };
+}
+
 /**
  * Safely load the public audit registry from localStorage.
  * @returns {Array<Object>} Normalized registry records.
  */
 function loadAuditRegistry() {
-    try {
-        const raw = window.localStorage.getItem(AUDIT_REGISTRY_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
+    if (!window.AuditRegistry) {
+        initAuditRegistryHelper();
     }
+    return window.AuditRegistry.load();
 }
 
 /**
@@ -31,11 +72,10 @@ function loadAuditRegistry() {
  * @param {Array<Object>} records - Registry records to save.
  */
 function saveAuditRegistry(records) {
-    try {
-        window.localStorage.setItem(AUDIT_REGISTRY_KEY, JSON.stringify(records));
-    } catch {
-        // Ignore write errors
+    if (!window.AuditRegistry) {
+        initAuditRegistryHelper();
     }
+    window.AuditRegistry.save(records);
 }
 
 /**
