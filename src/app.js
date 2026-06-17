@@ -419,7 +419,7 @@ function addWorkflowNotification({ title, body, role = 'all', type = 'workflow',
   saveNotifications(notifications.slice(0, MAX_NOTIF_HISTORY));
   updateNotificationBadge();
   renderNotificationCenter();
-  if (priority === 'high' || Notification.permission === 'granted') {
+  if (getAlertPreference() && (priority === 'high' || Notification.permission === 'granted')) {
     sendBrowserNotification(title, body, url);
   }
   if (window.showToast) {
