@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReGenX — You're Offline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&display=swap" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #0D9488;
+      --surface: #0F1923;
+      --surface-2: #1A2535;
+      --text: #F1F5F9;
+      --text-muted: #94A3B8;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      font-family: 'Space Grotesk', sans-serif;
+      color: var(--text);
+      padding: 24px;
+      text-align: center;
+    }
+
+    .orbit {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 32px;
+    }
+
+    .orbit-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      border-top-color: var(--green);
+      animation: spin 1.8s linear infinite;
+    }
+
+    .orbit-ring:nth-child(2) {
+      inset: 14px;
+      border-top-color: rgba(13,148,136,0.5);
+      animation-duration: 2.4s;
+      animation-direction: reverse;
+    }
+
+    .orbit-core {
+      position: absolute;
+      inset: 30px;
+      background: radial-gradient(circle, rgba(13,148,136,0.3), transparent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #0D9488, #38BDF8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    p {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 340px;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .glass-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 20px 24px;
+      max-width: 360px;
+      width: 100%;
+      margin-bottom: 24px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      font-size: 14px;
+    }
+    .status-row:last-child { border-bottom: none; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot-amber { background: #F59E0B; box-shadow: 0 0 8px #F59E0B; }
+
+    .btn {
+      display: inline-block;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #0D9488, #0891B2);
+      border: none;
+      border-radius: 50px;
+      color: white;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(13,148,136,0.3);
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(13,148,136,0.4); }
+    .btn:active { transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="orbit">
+    <div class="orbit-ring"></div>
+    <div class="orbit-ring"></div>
+    <div class="orbit-core">📶</div>
+  </div>
+
+  <h1>You're Offline</h1>
+  <p>The ReGenX network requires connectivity for live dispatch and IoT telemetry. Don't worry — your cached data is safe.</p>
+
+  <div class="glass-card">
+    <div class="status-row">
+      <div class="dot dot-green"></div>
+      <span>Static Assets — Cached & Available</span>
+    </div>
+    <div class="status-row">
+      <div class="dot dot-green"></div>
+      <span>Local Data (localStorage) — Safe</span>
+    </div>
+    <div class="status-row">
+      <div class="dot dot-amber"></div>
+      <span>Live Dispatch Sync — Queued for Retry</span>
+    </div>
+    <div class="status-row">
+      <div class="dot dot-amber"></div>
+      <span>IoT Telemetry Feed — Paused</span>
+    </div>
+  </div>
+
+  <button class="btn" onclick="window.location.reload()">↻ Try Reconnecting</button>
+
+  <script>
+    // Auto-redirect when connectivity is restored
+    window.addEventListener('online', () => {
+      window.location.href = '/';
+    });
+  </script>
+</body>
+</html>

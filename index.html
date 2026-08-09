@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReGenX — Premium BioWaste Platform</title>
+
+  <!-- PWA & Mobile Optimization -->
+  <meta name="description" content="ReGenX is a premium bio-waste logistics platform with offline-ready dispatch, smart alerts, ESG reporting, and real-time operations.">
+  <meta name="theme-color" content="#0D9488">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2103/2103633.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <!-- Leaflet (Map) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <!-- TensorFlow.js for Real AI Analysis -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- HTML2PDF for ESG Reporting -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <!-- GSAP for Micro-animations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+  <!-- Realtime server config -->
+  <script src="/config.js"></script>
+
+  <!-- Socket.IO client for realtime dashboard sync -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Custom Assets -->
+  <link rel="stylesheet" href="./src/styles.css?v=13" />
+  <script src="./src/scanner.js?v=13"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/appwrite@14.0.1"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="./src/i18n.js?v=13"></script>
+  <script type="module" src="./src/app.js?v=13"></script>
+
+</head>
+
+<body>
+
+  <!-- Hidden input for scanner file upload -->
+  <input type="file" id="file-input" accept="image/*" style="display:none;"
+    onchange="BioScanner.handleFileUpload(event)">
+
+  <!-- ════════ LOGIN / REGISTER ════════ -->
+  <div id="login-screen">
+    <div class="glass-bg">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+    </div>
+
+    <div class="login-box glass-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">🌿</div>ReGenX
+      </div>
+      <p class="login-tagline">Smart circular bio-waste logistics</p>
+
+      <div class="login-tabs">
+        <button class="tab-btn active" id="tab-login" onclick="switchAuthTab('login')">Login</button>
+        <button class="tab-btn" id="tab-register" onclick="switchAuthTab('register')">Register</button>
+      </div>
+
+      <!-- REGISTER VIEW -->
+      <div id="view-register" class="auth-view hidden">
+        <div class="form-group">
+          <label class="form-label">I am a...</label>
+          <div class="role-grid">
+            <div class="role-btn" onclick="selectRole('provider')" id="role-provider">
+              <div class="role-btn-icon">🏨</div>
+              <div class="role-btn-name">Provider</div>
+            </div>
+            <div class="role-btn" onclick="selectRole('rider')" id="role-rider">
+              <div class="role-btn-icon">🚛</div>
+              <div class="role-btn-name">Rider</div>
+            </div>
+            <div class="role-btn" onclick="selectRole('plant')" id="role-plant">
+              <div class="role-btn-icon">⚗️</div>
+              <div class="role-btn-name">Plant</div>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input class="form-input" id="reg-name" type="text" placeholder="e.g. Alex Johnson">
+        </div>
+        <div class="form-group" id="reg-org-group">
+          <label class="form-label" id="reg-org-label">Organisation / Entity Name</label>
+          <input class="form-input" id="reg-org" type="text" placeholder="e.g. Omega Hostel">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location (Search or GPS)</label>
+          <div style="display:flex; gap:8px; margin-bottom:10px;">
+            <input class="form-input" id="loc-search" type="text" placeholder="e.g. Amity Noida" style="flex:1;">
+            <button class="btn btn-secondary" onclick="searchLocation()" style="padding:10px;">🔍</button>
+          </div>
+          <button class="btn btn-secondary btn-full" id="btn-detect-gps" onclick="detectGPS()">📍 Auto-Detect
+            GPS</button>
+          <div id="gps-status" class="status-text muted" style="margin-top:6px; font-size:12px;">Waiting for location...
+          </div>
+          <div id="reg-map"></div>
+        </div>
+        <button class="btn btn-primary btn-full" id="btn-submit-reg" onclick="doRegister()"
+          style="margin-top:10px;">Create Account</button>
+      </div>
+
+      <!-- LOGIN VIEW -->
+      <div id="view-login" class="auth-view">
+        <div class="form-group">
+          <label class="form-label">Select Registered Account</label>
+          <select class="form-input" id="login-account">
+            <option value="">-- No accounts registered yet --</option>
+          </select>
+       </div>
+
+<button class="btn btn-primary btn-full" onclick="doLogin()" style="margin-top:10px;">
+    Enter Dashboard →
+</button>
+<div
+
+  id="google-login-btn"
+  style="
+    /* margin-top: 14px; */
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px;
+    transition: all 0.3s ease;
+  "
+></div>
+
+<div style="
+display:flex;
+justify-content:center;
+align-items:center;
+margin-top:18px;
+">
+    <button onclick="resetAppData()" style="
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.12);
+        color: rgba(100,116,139,0.85);
+        font-size: 13px;
+        cursor: pointer;
+        padding: 8px 16px;
+        border-radius: 10px;
+        transition: all 0.25s ease;
+        font-family: 'Inter', sans-serif;
+        backdrop-filter: blur(6px);
+    "
+    onmouseover="
+        this.style.color='#ef4444';
+        this.style.borderColor='#ef4444';
+        this.style.transform='translateY(-1px)';
+    "
+    onmouseout="
+        this.style.color='rgba(100,116,139,0.85)';
+        this.style.borderColor='rgba(255,255,255,0.12)';
+        this.style.transform='translateY(0)';
+    ">
+        🗑 Reset All App Data
+    </button>
+</div>
+
+</div>
+
+    </div>
+
+    <!-- SUCCESS SPLASH OVERLAY -->
+    <div class="success-splash" id="success-splash">
+      <div class="success-icon">✓</div>
+      <div class="success-title">Account Created!</div>
+      <div class="success-sub">Welcome to ReGenX. Redirecting you...</div>
+    </div>
+
+    <!-- RESET BUTTON -->
+   <div class="reset-wrapper">
+    <button onclick="resetAppData()" class="reset-btn">
+        🗑 Reset All App Data
+    </button>
+</div>
+  </div>
+
+  <!-- ════════ APP SHELL ════════ -->
+  <div id="app-shell">
+    <button type="button" class="sidebar-overlay" id="sidebar-overlay" aria-label="Close sidebar" aria-controls="sidebar" aria-hidden="true" onclick="toggleSidebar(false)"></button>
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Primary sidebar navigation" aria-hidden="true">
+      <div class="sidebar-header">
+        <div class="topbar-brand-dot"></div><span
+          style="font-weight:700; font-family:'Space Grotesk'; font-size:20px; letter-spacing:-0.5px;">ReGenX</span>
+        <button type="button" class="sidebar-close" aria-label="Close sidebar" onclick="toggleSidebar(false)">×</button>
+      </div>
+      <nav class="sidebar-nav" id="sidebar-nav" aria-label="Primary navigation">
+        <!-- Injected by JS -->
+      </nav>
+
+      <!-- GREEN WALL WIDGET -->
+      <div class="green-wall-widget" id="green-wall-widget" style="display:none;">
+        <div class="gw-header">🌍 The Green Wall</div>
+        <div class="gw-feed" id="gw-feed">
+          <!-- Feed items injected -->
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="nav-item" id="theme-toggle" onclick="toggleTheme()">
+          <span class="nav-item-icon">🌗</span> Toggle Theme
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Area -->
+    <main class="main-area">
+      <!-- Topbar -->
+      <header class="topbar glass-nav" style="flex-direction: column; align-items: stretch; height: auto; padding: 0;">
+        <!-- Live Ticker -->
+        <div class="live-ticker-bar">
+          <div class="ticker-label">LIVE</div>
+          <div class="ticker-wrap">
+            <div class="ticker-content" id="global-ticker">System initializing...</div>
+          </div>
+        </div>
+        <!-- Main Topbar Content -->
+        <div class="topbar-content">
+          <button type="button" class="hamburger" id="sidebar-toggle" aria-label="Open sidebar navigation" aria-controls="sidebar" aria-expanded="false" onclick="toggleSidebar()">☰</button>
+          <button id="navbar-theme-toggle" style="background: transparent; border: none; font-size: 20px; cursor: pointer; margin-left: auto; padding: 8px;" title="Toggle Dark Mode" aria-label="Toggle dark mode">
+            🌙
+          </button>
+          <div class="lang-selector-container" style="display: flex; align-items: center; margin-left: 8px; margin-right: 12px;">
+            <select id="app-language-select" class="lang-select" onchange="window.setLanguage(this.value)" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text); border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; transition: all 0.3s ease; font-family: 'Inter', sans-serif;">
+              <option value="en" style="background: var(--surface); color: var(--text);">🇬🇧 EN</option>
+              <option value="hi" style="background: var(--surface); color: var(--text);">🇮🇳 HI</option>
+              <option value="te" style="background: var(--surface); color: var(--text);">🇮🇳 TE</option>
+              <option value="de" style="background: var(--surface); color: var(--text);">🇩🇪 DE</option>
+            </select>
+          </div>
+          <div class="topbar-title" id="tb-view-title">Dashboard</div>
+          <div class="topbar-user">
+            <div class="token-balance hidden" id="token-balance-container" title="ReGen Tokens">
+              🪙 <span id="token-balance">0</span> <span class="token-symbol"
+                style="font-size:12px; font-weight:600; color:var(--text-muted)">$RGX</span>
+            </div>
+            <div class="topbar-details" style="text-align:right; margin-left: 16px; padding-left: 16px; border-left: 1px solid var(--border);">
+              <div class="topbar-name" id="tb-name">—</div>
+              <div class="topbar-role" id="tb-role">—</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" id="notif-toggle-btn" onclick="openNotificationCenter()" title="Notifications">
+              🔔 <span id="notif-count" class="notif-badge">0</span>
+            </button>
+            <div class="topbar-avatar" id="tb-avatar" style="cursor:pointer;" onclick="openSettings()"
+              title="Profile Settings"></div>
+            <button class="btn btn-ghost btn-sm topbar-logout" onclick="doLogout()">
+              <span class="logout-text">Logout</span>
+              <span class="logout-icon" style="display:none;">🚪</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Dynamic Content -->
+      <div class="content-wrapper" id="main-content">
+        <!-- Views injected here -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Global Components -->
+  <div id="toast"></div>
+
+  <div id="notification-drawer" class="notification-drawer">
+    <div class="notification-drawer-header">
+      <div>
+        <div class="drawer-title">Activity Center</div>
+        <div class="drawer-sub">Live workflow alerts, sync status and recent events.</div>
+      </div>
+      <div class="drawer-actions">
+        <button class="btn btn-ghost btn-sm" onclick="markAllNotificationsRead()">Mark all read</button>
+        <button class="close-drawer" onclick="openNotificationCenter(false)">×</button>
+      </div>
+    </div>
+    <div class="notification-meta">
+      <span id="notif-unread-count">0 unread</span>
+      <span id="notif-sync-status" class="notif-sync">All activity synced</span>
+    </div>
+    <div id="notif-list" class="notification-list"></div>
+  </div>
+
+  <div class="modal-overlay" id="modal" onclick="if(event.target === this) closeScanner()">
+    <div class="modal-box glass-card" id="modal-box"></div>
+  </div>
+
+</body>
+
+</html>

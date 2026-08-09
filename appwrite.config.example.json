@@ -1,0 +1,19 @@
+{
+  "projectId": "6a0e8066000191ad6305",
+  "endpoint": "https://fra.cloud.appwrite.io/v1",
+  "sites": [
+    {
+      "$id": "regenx-control-room",
+      "name": "ReGenX Control Room",
+      "framework": "react",
+      "installCommand": "npm install",
+      "buildCommand": "npm run build",
+      "outputDirectory": "./dist",
+      "buildRuntime": "node-22",
+      "adapter": "static",
+      "fallbackFile": "index.html",
+      "path": "."
+    }
+  ]
+}
+
